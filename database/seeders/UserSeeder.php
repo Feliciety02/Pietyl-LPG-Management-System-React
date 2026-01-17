@@ -39,26 +39,39 @@ class UserSeeder extends Seeder
         ];
 
         foreach ($users as $u) {
+
+            // skip if user already exists
+            if (DB::table('users')->where('email', $u['email'])->exists()) {
+                continue;
+            }
+
             // create employee
             $employeeId = DB::table('employees')->insertGetId([
                 'employee_no' => strtoupper($u['role']) . '-001',
                 'first_name' => $u['name'],
                 'last_name' => 'User',
+                'email' => $u['email'],
                 'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
 
             // create user
             $userId = DB::table('users')->insertGetId([
-                'employee_id' => $employeeId,
+                'name' => $u['name'],
                 'email' => $u['email'],
                 'password' => Hash::make('password'),
+                'employee_id' => $employeeId,
                 'is_active' => 1,
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
 
             // assign role
             DB::table('user_roles')->insert([
                 'user_id' => $userId,
                 'role_id' => DB::table('roles')->where('name', $u['role'])->value('id'),
+                'assigned_at' => now(),
             ]);
         }
     }

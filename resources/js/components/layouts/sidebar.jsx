@@ -7,13 +7,11 @@ function cx(...classes) {
 
 function isActive(url, href) {
   if (!href) return false;
-  const cleanHref = href.replace(window.location.origin, "");
-  return url === cleanHref || url.startsWith(cleanHref + "/");
+  return url === href || url.startsWith(href + "/");
 }
 
 export default function Sidebar({ title = "Dashboard", items = [] }) {
   const { url } = usePage();
-
   const navItems = useMemo(() => items.filter(Boolean), [items]);
 
   return (

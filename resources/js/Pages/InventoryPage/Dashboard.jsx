@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { Link, usePage } from "@inertiajs/react";
 import DashboardShell from "../../components/layouts/DashboardShell";
 import GlassCard from "../../components/ui/GlassCard";
-import HeaderLogo from "../../../images/Header_logo";
+import HeaderLogo from "@images/Header_Logo.png";
 
 function SideLink({ href, label, active }) {
   return (

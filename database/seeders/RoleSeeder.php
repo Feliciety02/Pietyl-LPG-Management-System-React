@@ -9,7 +9,7 @@ class RoleSeeder extends Seeder
 {
     public function run(): void
     {
-        DB::table('roles')->insert([
+        $roles = [
             [
                 'name' => 'admin',
                 'description' => 'Full system access',
@@ -30,6 +30,16 @@ class RoleSeeder extends Seeder
                 'name' => 'inventory_manager',
                 'description' => 'Inventory tracking and purchasing',
             ],
-        ]);
+        ];
+
+        foreach ($roles as $role) {
+            DB::table('roles')->updateOrInsert(
+                ['name' => $role['name']],
+                [
+                    'description' => $role['description'],
+                    'created_at' => now(),
+                ]
+            );
+        }
     }
 }

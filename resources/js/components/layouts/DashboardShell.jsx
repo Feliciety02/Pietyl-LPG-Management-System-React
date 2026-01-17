@@ -1,5 +1,5 @@
 import React from "react";
-import GlassCard from "../components/ui/GlassCard";
+import GlassCard from "../ui/GlassCard";
 
 export default function DashboardShell({ sidebar, title, subtitle, children }) {
   return (

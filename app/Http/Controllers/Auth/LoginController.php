@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -11,14 +12,34 @@ class LoginController extends Controller
 {
     public function store(Request $request)
     {
-        $credentials = $request->validate([
+        $data = $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required'],
         ]);
 
         $remember = $request->boolean('remember');
 
-        if (!Auth::attempt($credentials, $remember)) {
+        $user = User::with('employee', 'roles')->where('email', $data['email'])->first();
+
+        if (!$user) {
+            throw ValidationException::withMessages([
+                'email' => 'Invalid login credentials.',
+            ]);
+        }
+
+        if (!$user->is_active) {
+            throw ValidationException::withMessages([
+                'email' => 'This account is disabled.',
+            ]);
+        }
+
+        if (!$user->employee || $user->employee->status !== 'active') {
+            throw ValidationException::withMessages([
+                'email' => 'Employee record is inactive.',
+            ]);
+        }
+
+        if (!Auth::attempt(['email' => $data['email'], 'password' => $data['password']], $remember)) {
             throw ValidationException::withMessages([
                 'email' => 'Invalid login credentials.',
             ]);
@@ -26,33 +47,7 @@ class LoginController extends Controller
 
         $request->session()->regenerate();
 
-        $user = Auth::user();
-
-        /* ===============================
-           ACCOUNT & EMPLOYEE CHECKS
-           =============================== */
-
-        if (!$user->is_active) {
-            Auth::logout();
-
-            throw ValidationException::withMessages([
-                'email' => 'This account is disabled.',
-            ]);
-        }
-
-        if (!$user->employee || $user->employee->status !== 'active') {
-            Auth::logout();
-
-            throw ValidationException::withMessages([
-                'email' => 'Employee record is inactive.',
-            ]);
-        }
-
-        /* ===============================
-           ROLE BASED REDIRECT
-           =============================== */
-
-        $role = $user->roles()->first()?->name;
+        $role = $user->roles->first()?->name;
 
         return match ($role) {
             'admin' => redirect()->intended('/dashboard/admin'),
