@@ -60,3 +60,21 @@
 .pietyl-bg-float {
   animation: pietylBgFloat 18s ease-in-out infinite;
 }
+
+@keyframes slide {
+  0% { transform: translateX(-40%); }
+  100% { transform: translateX(140%); }
+}
+
+.animate-slide {
+  animation: slide 3.2s ease-in-out infinite;
+}
+
+
+@keyframes pietylSoftFloat {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.delay-2000 { animation-delay: 2s; }
