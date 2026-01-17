@@ -108,7 +108,7 @@ export default function LoginModal({ onClose }) {
                   autoComplete="username"
                   placeholder="Email"
                   className={[
-                    "peer w-full rounded-2xl bg-slate-50/80 px-5 pb-3.5 pt-6 text-sm text-slate-900 ring-1 outline-none transition focus:bg-white",
+                    "peer w-full rounded-2xl bg-slate-50/80 px-5 pb-3.5 pt-8 text-sm text-slate-900 ring-1 outline-none transition focus:bg-white",
                     errors.email
                       ? "ring-rose-300 focus:ring-rose-400"
                       : "ring-slate-200 focus:ring-teal-400",
@@ -142,7 +142,7 @@ export default function LoginModal({ onClose }) {
                   autoComplete="current-password"
                   placeholder="Password"
                   className={[
-                    "peer w-full rounded-2xl bg-slate-50/80 px-5 pb-3.5 pt-6 text-sm text-slate-900 ring-1 outline-none transition focus:bg-white",
+                    "peer w-full rounded-2xl bg-slate-50/80 px-5 pb-3.5 pt-8 text-sm text-slate-900 ring-1 outline-none transition focus:bg-white",
                     errors.password
                       ? "ring-rose-300 focus:ring-rose-400"
                       : "ring-slate-200 focus:ring-teal-400",

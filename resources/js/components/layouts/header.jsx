@@ -4,7 +4,7 @@ import NavItem from "../ui/NavLink";
 import HeaderLogo from "../../../images/Header_Logo.png";
 
 // adjust the import path if yours is different
-import LoginModal from "../modals/loginModal";
+import LoginModal from "../modals/LoginModal";
 
 export default function Header({
   activeKey,
