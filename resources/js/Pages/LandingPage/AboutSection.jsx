@@ -1,5 +1,5 @@
 import React from "react";
-import GlassCard from "./GlassCard";
+import GlassCard from "../../components/ui/GlassCard";
 
 export default function AboutSection() {
   return (

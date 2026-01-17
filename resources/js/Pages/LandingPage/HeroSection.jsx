@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "@inertiajs/react";
-import GlassCard from "./GlassCard";
+import GlassCard from "../../components/ui/GlassCard";
 
 export default function HeroSection({ onScrollTo }) {
   return (
