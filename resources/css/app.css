@@ -1,0 +1,62 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+}
+:root {
+  --mx: 0px;
+  --my: 0px;
+}
+
+.pietyl-aurora {
+  opacity: 0.75;
+  filter: blur(64px);
+
+  /* make it smooth and consistent for all blobs */
+  will-change: left, top;
+  transition: left 120ms ease-out, top 120ms ease-out;
+}
+
+/* colors */
+.pietyl-aurora-1 { background: rgba(20, 184, 166, 0.35); }
+.pietyl-aurora-2 { background: rgba(34, 211, 238, 0.30); }
+.pietyl-aurora-3 { background: rgba(45, 212, 191, 0.28); }
+.pietyl-aurora-4 { background: rgba(14, 165, 233, 0.22); }
+.pietyl-aurora-5 { background: rgba(94, 234, 212, 0.25); }
+
+/* positions using ONLY left/top */
+.pietyl-aurora-1 {
+  left: calc(-10rem + (var(--mx) * 0.06));
+  top: calc(-10rem + (var(--my) * 0.06));
+}
+
+.pietyl-aurora-2 {
+  left: calc(100% - 24rem + (var(--mx) * -0.04));
+  top: calc(2.5rem + (var(--my) * 0.05));
+}
+
+.pietyl-aurora-3 {
+  left: calc(35% + (var(--mx) * 0.03));
+  top: calc(100% - 22rem + (var(--my) * -0.05));
+}
+
+.pietyl-aurora-4 {
+  left: calc(60% + (var(--mx) * -0.06));
+  top: calc(35% + (var(--my) * -0.03));
+}
+
+.pietyl-aurora-5 {
+  left: calc(100% - 22rem + (var(--mx) * 0.05));
+  top: calc(100% - 20rem + (var(--my) * 0.02));
+}
+
+/* background float (only if you already have pietylBgFloat keyframes) */
+.pietyl-bg-float {
+  animation: pietylBgFloat 18s ease-in-out infinite;
+}
