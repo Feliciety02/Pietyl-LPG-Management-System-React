@@ -1,14 +1,14 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
 use App\Http\Controllers\Auth\LoginController;
 
 Route::get('/', function () {
     if (Auth::check()) {
         $user = Auth::user();
-        $role = $user->roles->first()?->name;
+        $role = $user->roles()->first()?->name;
 
         return redirect(match ($role) {
             'admin' => '/dashboard/admin',
@@ -19,7 +19,7 @@ Route::get('/', function () {
             default => '/',
         });
     }
-    
+
     return Inertia::render('LandingPage');
 })->name('home');
 
@@ -29,7 +29,7 @@ Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 Route::middleware(['auth'])->group(function () {
 
     Route::prefix('dashboard/admin')->middleware('role:admin')->group(function () {
-        Route::get('/', fn () => Inertia::render('AdminPage/Dashboard'))->name('dash.admin');
+        Route::get('/', fn () => Inertia::render('Dashboard/Dashboard'))->name('dash.admin');
 
         Route::get('/users', fn () => Inertia::render('AdminPage/Tabs/Users'))->name('dash.admin.users');
         Route::get('/employees', fn () => Inertia::render('AdminPage/Tabs/Employees'))->name('dash.admin.employees');
@@ -39,7 +39,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::prefix('dashboard/cashier')->middleware('role:cashier')->group(function () {
-        Route::get('/', fn () => Inertia::render('CashierPage/Dashboard'))->name('dash.cashier');
+        Route::get('/', fn () => Inertia::render('Dashboard/Dashboard'))->name('dash.cashier');
 
         Route::get('/new-sale', fn () => Inertia::render('CashierPage/Tabs/NewSale'))->name('dash.cashier.newsale');
         Route::get('/transactions', fn () => Inertia::render('CashierPage/Tabs/Transactions'))->name('dash.cashier.transactions');
@@ -49,7 +49,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::prefix('dashboard/accountant')->middleware('role:accountant')->group(function () {
-        Route::get('/', fn () => Inertia::render('AccountantPage/Dashboard'))->name('dash.accountant');
+        Route::get('/', fn () => Inertia::render('Dashboard/Dashboard'))->name('dash.accountant');
 
         Route::get('/remittances', fn () => Inertia::render('AccountantPage/Tabs/Remittances'))->name('dash.accountant.remittances');
         Route::get('/daily', fn () => Inertia::render('AccountantPage/Tabs/DailySummary'))->name('dash.accountant.daily');
@@ -58,7 +58,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::prefix('dashboard/rider')->middleware('role:rider')->group(function () {
-        Route::get('/', fn () => Inertia::render('RiderPage/Dashboard'))->name('dash.rider');
+        Route::get('/', fn () => Inertia::render('Dashboard/Dashboard'))->name('dash.rider');
 
         Route::get('/deliveries', fn () => Inertia::render('RiderPage/Tabs/MyDeliveries'))->name('dash.rider.deliveries');
         Route::get('/status', fn () => Inertia::render('RiderPage/Tabs/StatusUpdates'))->name('dash.rider.status');
@@ -67,7 +67,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::prefix('dashboard/inventory')->middleware('role:inventory_manager')->group(function () {
-        Route::get('/', fn () => Inertia::render('InventoryPage/Dashboard'))->name('dash.inventory');
+        Route::get('/', fn () => Inertia::render('Dashboard/Dashboard'))->name('dash.inventory');
 
         Route::get('/counts', fn () => Inertia::render('InventoryPage/Tabs/StockCounts'))->name('dash.inventory.counts');
         Route::get('/movements', fn () => Inertia::render('InventoryPage/Tabs/Movements'))->name('dash.inventory.movements');
