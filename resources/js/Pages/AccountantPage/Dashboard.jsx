@@ -1,8 +1,9 @@
 import React, { useMemo } from "react";
-import { Link, usePage } from "@inertiajs/react";
+import { Link, usePage, router } from "@inertiajs/react";
 import DashboardShell from "../../components/layouts/DashboardShell";
 import GlassCard from "../../components/ui/GlassCard";
 import HeaderLogo from "@images/Header_Logo.png";
+import LogoutButton from "../../components/modals/LogoutButton"
 
 function SideLink({ href, label, active }) {
   return (
@@ -60,15 +61,7 @@ export default function CashierLayout({ title = "Cashier", subtitle, children })
       </div>
 
       <div className="mt-5">
-        <form method="post" action="/logout">
-          <input type="hidden" name="_token" value={props?.csrf_token || ""} />
-          <button
-            type="submit"
-            className="w-full rounded-2xl bg-white/70 border border-white/80 px-4 py-2.5 text-sm font-extrabold text-slate-900 hover:bg-white transition focus:outline-none focus:ring-4 focus:ring-teal-500/25"
-          >
-            Sign out
-          </button>
-        </form>
+        <LogoutButton />
       </div>
     </GlassCard>
   );

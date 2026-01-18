@@ -4,8 +4,23 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\Auth\LoginController;
 
-Route::get('/', fn () => Inertia::render('LandingPage'))->name('home');
-//Route::get('/', fn () => Inertia::render('AdminPage/Dashboard'))->name('home');
+Route::get('/', function () {
+    if (Auth::check()) {
+        $user = Auth::user();
+        $role = $user->roles->first()?->name;
+
+        return redirect(match ($role) {
+            'admin' => '/dashboard/admin',
+            'cashier' => '/dashboard/cashier',
+            'accountant' => '/dashboard/accountant',
+            'rider' => '/dashboard/rider',
+            'inventory_manager' => '/dashboard/inventory',
+            default => '/',
+        });
+    }
+    
+    return Inertia::render('LandingPage');
+})->name('home');
 
 Route::post('/login', [LoginController::class, 'store'])->name('login');
 Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
