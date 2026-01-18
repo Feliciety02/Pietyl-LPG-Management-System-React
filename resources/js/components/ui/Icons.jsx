@@ -25,6 +25,9 @@ import {
 
   BookOpen,
   CalendarDays,
+
+  Package,
+  Factory,
 } from "lucide-react";
 
 export const sidebarIconMap = {
@@ -52,6 +55,8 @@ export const sidebarIconMap = {
   lowStock: AlertTriangle,
   purchases: PackagePlus,
   suppliers: Building2,
+  products: Package,
+
 
   daily: CalendarDays,
   ledger: BookOpen,

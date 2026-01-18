@@ -1,22 +1,3 @@
-// Admin Users
-// Purpose
-// - Control who can access the system and what role they have
-//
-// Admin can
-// - Create user accounts for existing employees
-// - Assign a role to a user (cashier, accountant, rider, inventory manager, admin)
-// - Activate or disable user access
-// - Reset password or force password change
-// - View last login and account status
-//
-// Admin should not
-// - Edit employee personal records here (use Employees tab)
-// - Record sales or operational tasks
-//
-// Notes
-// - A user must be linked to an employee record
-// - Disabled users must not be able to log in
-
 import React, { useMemo, useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
@@ -24,6 +5,7 @@ import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
 import { MoreVertical, UserPlus } from "lucide-react";
+import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -86,7 +68,10 @@ export default function Users() {
       meta: { current_page, last_page, from, to, total },
       links: [...]
     }
+    filters: { q, status, role, sort, dir, per, page }
+    loading: boolean (optional)
   */
+
   const users = page.props?.users || { data: [], meta: null };
   const rows = users?.data || [];
   const meta = users?.meta || null;
@@ -103,7 +88,10 @@ export default function Users() {
   const [status, setStatus] = useState(statusInitial);
   const [role, setRole] = useState(roleInitial);
 
-  const sort = useMemo(() => ({ key: sortKeyInitial, dir: sortDirInitial }), [sortKeyInitial, sortDirInitial]);
+  const sort = useMemo(
+    () => ({ key: sortKeyInitial, dir: sortDirInitial }),
+    [sortKeyInitial, sortDirInitial]
+  );
 
   const roleOptions = useMemo(() => {
     const set = new Set();
@@ -180,6 +168,19 @@ export default function Users() {
     pushQuery({ page: meta.current_page + 1 });
   };
 
+  const loading = Boolean(page.props?.loading);
+
+  const fillerCount = perInitial || 10;
+
+  const fillerRows = useMemo(() => {
+    return Array.from({ length: fillerCount }).map((_, i) => ({
+      id: `__filler__${i}`,
+      __filler: true,
+    }));
+  }, [fillerCount]);
+
+  const tableRows = loading ? fillerRows : rows;
+
   const columns = useMemo(
     () => [
       {
@@ -187,44 +188,58 @@ export default function Users() {
         label: "User",
         sortable: true,
         nowrap: true,
-        render: (u) => (
-          <div>
-            <div className="font-extrabold text-slate-900">{u?.name || "User"}</div>
-            <div className="text-xs text-slate-500">{u?.email || ""}</div>
-          </div>
-        ),
+        render: (u) =>
+          u?.__filler ? (
+            <div className="space-y-2">
+              <SkeletonLine w="w-40" />
+              <SkeletonLine w="w-56" />
+            </div>
+          ) : (
+            <div>
+              <div className="font-extrabold text-slate-900">{u?.name || "User"}</div>
+              <div className="text-xs text-slate-500">{u?.email || ""}</div>
+            </div>
+          ),
       },
       {
         key: "employee_no",
         label: "Employee",
         sortable: false,
         nowrap: true,
-        render: (u) => (
-          <div className="text-sm font-semibold text-slate-800">
-            {u?.employee?.employee_no || "Not linked"}
-          </div>
-        ),
+        render: (u) =>
+          u?.__filler ? (
+            <SkeletonLine w="w-24" />
+          ) : (
+            <div className="text-sm font-semibold text-slate-800">
+              {u?.employee?.employee_no || "Not linked"}
+            </div>
+          ),
       },
       {
         key: "role",
         label: "Role",
         sortable: true,
         nowrap: true,
-        render: (u) => <RolePill role={u?.role} />,
+        render: (u) => (u?.__filler ? <SkeletonPill w="w-24" /> : <RolePill role={u?.role} />),
       },
       {
         key: "status",
         label: "Status",
         sortable: true,
         nowrap: true,
-        render: (u) => <StatusPill active={Boolean(u?.is_active)} />,
+        render: (u) => (u?.__filler ? <SkeletonPill w="w-24" /> : <StatusPill active={Boolean(u?.is_active)} />),
       },
       {
         key: "last_login_at",
         label: "Last login",
         sortable: true,
         nowrap: true,
-        render: (u) => <span className="text-sm text-slate-700">{u?.last_login_at || "Never"}</span>,
+        render: (u) =>
+          u?.__filler ? (
+            <SkeletonLine w="w-20" />
+          ) : (
+            <span className="text-sm text-slate-700">{u?.last_login_at || "Never"}</span>
+          ),
       },
     ],
     []
@@ -234,9 +249,9 @@ export default function Users() {
     <Layout title="Users">
       {/* Admin Users
          Purpose
-         - Control who can access the system and what role they have
+         Create accounts, assign roles, and control access to the system
          Scope lock
-         - No employee record editing here, only access control
+         No employee record editing here, only access control
       */}
       <div className="grid gap-6">
         <TopCard
@@ -285,30 +300,37 @@ export default function Users() {
 
         <DataTable
           columns={columns}
-          rows={rows}
-          loading={Boolean(page.props?.loading)}
+          rows={tableRows}
+          loading={loading}
           emptyTitle="No users found"
           emptyHint="Try adjusting search or filters."
           sort={sort}
           onSort={handleSort}
-          renderActions={(u) => (
-            <div className="flex items-center justify-end gap-2">
-              <Link
-                href={`/dashboard/admin/users/${u.id}/edit`}
-                className="rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:outline-none focus:ring-4 focus:ring-teal-500/15"
-              >
-                Edit
-              </Link>
+          renderActions={(u) =>
+            u?.__filler ? (
+              <div className="flex items-center justify-end gap-2">
+                <SkeletonButton w="w-20" />
+                <div className="h-9 w-9 rounded-2xl bg-slate-200/80 animate-pulse" />
+              </div>
+            ) : (
+              <div className="flex items-center justify-end gap-2">
+                <Link
+                  href={`/dashboard/admin/users/${u.id}/edit`}
+                  className="rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:outline-none focus:ring-4 focus:ring-teal-500/15"
+                >
+                  Edit
+                </Link>
 
-              <button
-                type="button"
-                className="rounded-2xl bg-white p-2 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:outline-none focus:ring-4 focus:ring-teal-500/15"
-                title="More actions"
-              >
-                <MoreVertical className="h-4 w-4 text-slate-600" />
-              </button>
-            </div>
-          )}
+                <button
+                  type="button"
+                  className="rounded-2xl bg-white p-2 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:outline-none focus:ring-4 focus:ring-teal-500/15"
+                  title="More actions"
+                >
+                  <MoreVertical className="h-4 w-4 text-slate-600" />
+                </button>
+              </div>
+            )
+          }
         />
 
         <DataTablePagination
