@@ -58,29 +58,6 @@
   top: calc(100% - 20rem + (var(--my) * 0.02));
 }
 
-/* background float (only if you already have pietylBgFloat keyframes) */
-.pietyl-bg-float {
-  animation: pietylBgFloat 18s ease-in-out infinite;
-}
-
-@keyframes slide {
-  0% { transform: translateX(-40%); }
-  100% { transform: translateX(140%); }
-}
-
-.animate-slide {
-  animation: slide 3.2s ease-in-out infinite;
-}
-
-
-@keyframes pietylSoftFloat {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-  100% { transform: translateY(0px); }
-}
-
-.delay-2000 { animation-delay: 2s; }
-
 
 @keyframes zoomIn95 {
   from { opacity: 0; transform: scale(0.95); }
@@ -91,3 +68,34 @@
 .fade-in { }
 .zoom-in-95 { }
 .duration-150 { }
+
+@keyframes ui-slide-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes ui-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ui-animate-sidebar {
+  animation: ui-slide-fade-in 0.35s ease-out both;
+}
+
+.ui-animate-content {
+  animation: ui-fade-up 0.35s ease-out both;
+}
+
