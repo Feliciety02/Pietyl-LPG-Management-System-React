@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, usePage } from "@inertiajs/react";
 import HeaderLogo from "../../../images/Header_Logo.png";
 import { LayoutDashboard, ChevronLeft, ChevronRight } from "lucide-react";
@@ -19,47 +19,59 @@ function isActive(url, href) {
   return u === h || u.startsWith(h + "/");
 }
 
+const STORAGE_KEY = "pietyl.sidebar.collapsed";
+
 function SideItem({ href, label, active, collapsed, Icon }) {
+  const activeExpanded = active && !collapsed;
+
   return (
-    <Link
-      href={href}
-      className={cx("block rounded-2xl focus:outline-none focus:ring-4 focus:ring-teal-500/15")}
-      title={collapsed ? label : undefined}
-    >
+    <Link href={href} className="block" title={collapsed ? label : undefined}>
       <div
         className={cx(
-          "relative flex items-center rounded-2xl transition-colors",
+          "relative rounded-2xl transition-colors",
           "px-3 py-2.5",
-          active ? "bg-teal-600/10 text-teal-900" : "text-slate-700 hover:bg-slate-50"
+          "hover:bg-slate-50",
+          activeExpanded ? "bg-teal-600/10" : "bg-transparent"
         )}
       >
         {active ? (
           <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-full bg-teal-600" />
         ) : null}
 
-        {/* Fixed icon slot so icons never move */}
-        <div className="w-10 flex items-center justify-center shrink-0">
+        {/* IMPORTANT: structure never changes, so icon never moves */}
+        <div className="flex items-center">
+          {/* Fixed icon slot */}
+          <div className="w-10 flex items-center justify-center shrink-0">
+            <div
+              className={cx(
+                "h-10 w-10 rounded-2xl flex items-center justify-center ring-1 transition-colors",
+                "bg-white",
+                activeExpanded ? "ring-teal-200" : "ring-slate-200"
+              )}
+            >
+              <Icon
+                className={cx(
+                  "h-5 w-5 transition-colors",
+                  active ? "text-teal-700" : "text-slate-600"
+                )}
+              />
+            </div>
+          </div>
+
+          {/* Label slot always exists, but collapses to 0 so icon x stays same */}
           <div
             className={cx(
-              "h-10 w-10 rounded-2xl flex items-center justify-center ring-1",
-              active ? "bg-white ring-teal-200" : "bg-white ring-slate-200"
+              "ml-3 min-w-0 overflow-hidden",
+              "transition-[max-width,opacity,transform] duration-200 ease-in-out",
+              collapsed
+                ? "max-w-0 opacity-0 -translate-x-1"
+                : "max-w-[220px] opacity-100 translate-x-0"
             )}
+            aria-hidden={collapsed ? true : false}
           >
-            <Icon className={cx("h-5 w-5", active ? "text-teal-700" : "text-slate-600")} />
-          </div>
-        </div>
-
-        {/* Label fades out without taking layout space when collapsed */}
-        <div
-          className={cx(
-            "ml-3 min-w-0 flex-1",
-            "transition-[opacity,transform] duration-200 ease-in-out",
-            collapsed ? "opacity-0 -translate-x-1 pointer-events-none" : "opacity-100 translate-x-0"
-          )}
-          aria-hidden={collapsed ? true : false}
-        >
-          <div className={cx("truncate text-sm font-semibold", active && "text-teal-900")}>
-            {label}
+            <div className={cx("truncate text-sm font-semibold", active ? "text-teal-900" : "text-slate-700")}>
+              {label}
+            </div>
           </div>
         </div>
       </div>
@@ -71,7 +83,26 @@ export default function Sidebar({ title = "Dashboard", subtitle = "Pietyl LPG", 
   const page = usePage();
   const url = page?.url || "";
   const navItems = useMemo(() => items.filter(Boolean), [items]);
+
   const [collapsed, setCollapsed] = useState(false);
+
+  // Restore sidebar state on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved === "1") setCollapsed(true);
+      if (saved === "0") setCollapsed(false);
+    } catch {}
+  }, []);
+
+  // Persist sidebar state whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0");
+    } catch {}
+  }, [collapsed]);
+
+  const toggle = () => setCollapsed((v) => !v);
 
   return (
     <aside
@@ -82,29 +113,27 @@ export default function Sidebar({ title = "Dashboard", subtitle = "Pietyl LPG", 
         collapsed ? "w-20" : "w-72"
       )}
     >
-      {/* Header is fixed height so nothing jumps */}
+      {/* Header fixed height */}
       <div className="h-[84px] border-b border-slate-200 px-4 flex items-center">
         <div className="w-full flex items-center justify-between">
-          {/* Logo block fixed size */}
           <button
             type="button"
-            onClick={() => setCollapsed((v) => !v)}
-            className={cx(
-              "flex items-center gap-3 rounded-2xl",
-              "focus:outline-none focus:ring-4 focus:ring-teal-500/15"
-            )}
+            onClick={toggle}
+            className="flex items-center gap-3 rounded-2xl outline-none focus:outline-none"
+            style={{ WebkitTapHighlightColor: "transparent" }}
             title={collapsed ? "Expand" : "Collapse"}
           >
             <div className="h-11 w-11 shrink-0 rounded-2xl bg-white ring-1 ring-slate-200 flex items-center justify-center">
               <img src={HeaderLogo} alt="Pietyl LPG" className="h-7 w-7 object-contain" />
             </div>
 
-            {/* Text stays in layout but fades out so icons do not move */}
             <div
               className={cx(
-                "min-w-0 text-left",
-                "transition-[opacity,transform] duration-200 ease-in-out",
-                collapsed ? "opacity-0 -translate-x-1 pointer-events-none" : "opacity-100 translate-x-0"
+                "min-w-0 text-left overflow-hidden",
+                "transition-[max-width,opacity,transform] duration-200 ease-in-out",
+                collapsed
+                  ? "max-w-0 opacity-0 -translate-x-1"
+                  : "max-w-[220px] opacity-100 translate-x-0"
               )}
               aria-hidden={collapsed ? true : false}
             >
@@ -113,15 +142,11 @@ export default function Sidebar({ title = "Dashboard", subtitle = "Pietyl LPG", 
             </div>
           </button>
 
-          {/* Toggle icon stays visible always */}
           <button
             type="button"
-            onClick={() => setCollapsed((v) => !v)}
-            className={cx(
-              "rounded-2xl border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50",
-              "focus:outline-none focus:ring-4 focus:ring-teal-500/15",
-              collapsed ? "ml-auto" : ""
-            )}
+            onClick={toggle}
+            className="rounded-2xl border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50 outline-none focus:outline-none"
+            style={{ WebkitTapHighlightColor: "transparent" }}
             title={collapsed ? "Expand" : "Collapse"}
           >
             {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
@@ -130,20 +155,6 @@ export default function Sidebar({ title = "Dashboard", subtitle = "Pietyl LPG", 
       </div>
 
       <div className="px-3 py-4">
-        {/* Reserve space so nav items never shift even if label is hidden */}
-        <div className="h-6 px-2 pb-2">
-          <div
-            className={cx(
-              "text-xs font-semibold tracking-wide text-slate-500",
-              "transition-opacity duration-200",
-              collapsed ? "opacity-0" : "opacity-100"
-            )}
-            aria-hidden={collapsed ? true : false}
-          >
-            Navigation
-          </div>
-        </div>
-
         <nav className="space-y-1">
           {navItems.map((item) => {
             const active = isActive(url, item.href);

@@ -1,17 +1,15 @@
-// resources/js/components/layouts/DashboardShell.jsx
 import React, { useMemo, useState } from "react";
 import { Link, usePage } from "@inertiajs/react";
 import { motion } from "framer-motion";
-import HeaderLogo from "../../../images/Header_Logo.png";
-import { Search, Bell, ChevronRight, Command } from "lucide-react";
-import Sidebar from "../../components/layouts/Sidebar";
+import { Search, Bell, ChevronRight, LayoutDashboard } from "lucide-react";
+import Sidebar from "@/components/layouts/Sidebar";
 
 function normalize(u = "") {
   return String(u).split("?")[0];
 }
 
 function titleCase(s = "") {
-  return s
+  return String(s || "")
     .split(" ")
     .filter(Boolean)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
@@ -40,7 +38,7 @@ function buildCrumbs(url = "") {
   return crumbs;
 }
 
-function AvatarChip({ name = "User" }) {
+function AvatarChip({ name = "User", email = "" }) {
   const initials = String(name)
     .split(" ")
     .filter(Boolean)
@@ -49,12 +47,32 @@ function AvatarChip({ name = "User" }) {
     .join("");
 
   return (
-    <div className="hidden sm:inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
-      <div className="h-8 w-8 rounded-2xl bg-teal-600/10 ring-1 ring-teal-700/10 flex items-center justify-center">
+    <div className="hidden sm:flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2">
+      <div className="h-9 w-9 rounded-2xl bg-teal-600/10 ring-1 ring-teal-700/10 flex items-center justify-center">
         <span className="text-[11px] font-extrabold text-teal-800">{initials || "U"}</span>
       </div>
-      <div className="text-sm font-semibold text-slate-900 truncate max-w-[160px]">{name}</div>
+      <div className="leading-tight min-w-0">
+        <div className="text-xs font-extrabold text-slate-900 truncate max-w-[180px]">{name}</div>
+        <div className="text-[11px] text-slate-500 truncate max-w-[180px]">{email}</div>
+      </div>
     </div>
+  );
+}
+
+function Crumbs({ crumbs }) {
+  if (!crumbs?.length) return <span className="truncate">overview</span>;
+
+  return (
+    <>
+      {crumbs.map((c, idx) => (
+        <div key={c.href} className="flex items-center gap-1 min-w-0">
+          {idx !== 0 ? <ChevronRight className="h-3.5 w-3.5 text-slate-400" /> : null}
+          <Link href={c.href} className="hover:text-teal-800 transition truncate">
+            {c.label}
+          </Link>
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -63,6 +81,10 @@ export default function DashboardShell({
   sidebarTitle = "Dashboard",
   items = [],
   children,
+
+  // NEW: controlled sidebar state
+  collapsed,
+  setCollapsed,
 }) {
   const page = usePage();
   const { auth } = page.props;
@@ -77,20 +99,35 @@ export default function DashboardShell({
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="flex">
-        <Sidebar title={sidebarTitle} subtitle="Pietyl LPG" items={items} />
+        <Sidebar
+          title={sidebarTitle}
+          subtitle="Pietyl LPG"
+          items={items}
+          collapsed={collapsed}
+          setCollapsed={setCollapsed}
+        />
 
         <main className="flex-1 min-w-0">
           <header className="sticky top-0 z-30 border-b border-slate-200 bg-white">
             <div className="px-6 py-4">
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex items-center gap-3">
-                   
+                    <div className="h-10 w-10 rounded-2xl bg-white ring-1 ring-slate-200 flex items-center justify-center">
+                      <LayoutDashboard className="h-5 w-5 text-teal-700" />
+                    </div>
 
                     <div className="min-w-0">
-                      
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="text-sm font-extrabold text-slate-900 truncate">{title}</div>
+                        <span className="inline-flex items-center rounded-full bg-teal-600/10 border border-teal-700/10 px-3 py-1 text-[11px] font-extrabold tracking-[0.14em] text-teal-900">
+                          {roleBadge.toUpperCase()}
+                        </span>
+                      </div>
 
-                      
+                      <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-slate-600/80">
+                        <Crumbs crumbs={crumbs} />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -104,7 +141,6 @@ export default function DashboardShell({
                       className="w-64 bg-transparent text-sm outline-none placeholder:text-slate-400"
                       placeholder="Search pages, customers, orders..."
                     />
-                   
                   </div>
 
                   <button
@@ -115,7 +151,7 @@ export default function DashboardShell({
                     <Bell className="h-4 w-4" />
                   </button>
 
-                  <AvatarChip name={user?.name || "User"} />
+                  <AvatarChip name={user?.name || "User"} email={user?.email || ""} />
 
                   <Link
                     as="button"

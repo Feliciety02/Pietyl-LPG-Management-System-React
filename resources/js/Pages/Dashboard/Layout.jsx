@@ -1,5 +1,4 @@
-// resources/js/pages/Dashboard/Layout.jsx
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { usePage } from "@inertiajs/react";
 import DashboardShell from "./DashboardShell";
 
@@ -75,6 +74,7 @@ export default function Layout({ children, title }) {
   const user = auth?.user;
 
   const roleKey = normalizeRoleKey(user?.role);
+
   const meta =
     ROLE_META[roleKey] ||
     ({
@@ -82,13 +82,18 @@ export default function Layout({ children, title }) {
       items: [{ label: "Overview", href: "/", icon: "overview" }],
     });
 
-  const items = useMemo(() => meta.items, [roleKey]);
+  const items = useMemo(() => meta.items, [meta.items]);
+
+  // Sidebar state lives here, so it survives page navigation
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
     <DashboardShell
       title={title || meta.title}
       sidebarTitle={meta.title}
       items={items}
+      collapsed={collapsed}
+      setCollapsed={setCollapsed}
     >
       {children}
     </DashboardShell>
