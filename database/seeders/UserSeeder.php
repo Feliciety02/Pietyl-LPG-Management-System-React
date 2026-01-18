@@ -71,7 +71,8 @@ class UserSeeder extends Seeder
             DB::table('user_roles')->insert([
                 'user_id' => $userId,
                 'role_id' => DB::table('roles')->where('name', $u['role'])->value('id'),
-                'assigned_at' => now(),
+                'created_at' => now(), 
+                'updated_at' => now(),
             ]);
         }
     }

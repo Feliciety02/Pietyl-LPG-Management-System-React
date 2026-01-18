@@ -17,6 +17,11 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+
+            // Foreign key to employees
+            $table->foreignId('employee_id')->nullable()->constrained('employees')->onDelete('cascade');
+
+            $table->boolean('is_active')->default(1);
             $table->rememberToken();
             $table->timestamps();
         });

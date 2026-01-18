@@ -4,8 +4,8 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\Auth\LoginController;
 
-//Route::get('/', fn () => Inertia::render('LandingPage'))->name('home');
-Route::get('/', fn () => Inertia::render('AdminPage/Dashboard'))->name('home');
+Route::get('/', fn () => Inertia::render('LandingPage'))->name('home');
+//Route::get('/', fn () => Inertia::render('AdminPage/Dashboard'))->name('home');
 
 Route::post('/login', [LoginController::class, 'store'])->name('login');
 Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
