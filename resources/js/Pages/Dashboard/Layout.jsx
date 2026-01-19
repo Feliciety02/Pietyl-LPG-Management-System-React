@@ -1,4 +1,3 @@
-// resources/js/pages/Dashboard/Layout.jsx
 import React, { useMemo } from "react";
 import { usePage } from "@inertiajs/react";
 import DashboardShell from "./DashboardShell";
@@ -15,9 +14,8 @@ const ROLE_META = {
   { label: "Suppliers", href: "/dashboard/admin/suppliers", icon: "suppliers" },
   { label: "Audit Logs", href: "/dashboard/admin/audit", icon: "audit" },
   { label: "Reports", href: "/dashboard/admin/reports", icon: "reports" },
-  
-    // owner visibility shortcut
-    { label: "Low Stock", href: "/dashboard/inventory/low-stock", icon: "lowStock" },
+  { label: "Customers", href: "/dashboard/admin/customers", icon: "reports" },
+  { label: "Low Stock", href: "/dashboard/inventory/low-stock", icon: "lowStock" },
 
     ],
   },
@@ -26,11 +24,9 @@ const ROLE_META = {
     title: "Cashier",
     items: [
       { label: "Overview", href: "/dashboard/cashier", icon: "overview" },
-      { label: "New Sale", href: "/dashboard/cashier/new-sale", icon: "newSale" },
-      { label: "Transactions", href: "/dashboard/cashier/transactions", icon: "transactions" },
-      { label: "Refill or Swap", href: "/dashboard/cashier/refill-swap", icon: "refillSwap" },
+      { label: "Point of Sale", href: "/dashboard/cashier/POS", icon: "newSale" },
+      { label: "Sales", href: "/dashboard/cashier/sales", icon: "transactions" },
       { label: "Customers", href: "/dashboard/cashier/customers", icon: "customers" },
-      { label: "Payments", href: "/dashboard/cashier/payments", icon: "payments" },
     ],
   },
 

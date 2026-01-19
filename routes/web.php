@@ -34,6 +34,7 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/users', fn () => Inertia::render('AdminPage/Users'))->name('dash.admin.users');
         Route::get('/employees', fn () => Inertia::render('AdminPage/Employees'))->name('dash.admin.employees');
+        Route::get('/customers', fn () => Inertia::render('CashierPage/Customers'))->name('dash.admin.customer');  
         Route::get('/roles', fn () => Inertia::render('AdminPage/Roles'))->name('dash.admin.roles');
         Route::get('/audit', fn () => Inertia::render('AdminPage/AuditLogs'))->name('dash.admin.audit');
         Route::get('/reports', fn () => Inertia::render('AdminPage/Reports'))->name('dash.admin.reports');
@@ -44,11 +45,9 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('dashboard/cashier')->middleware('role:cashier')->group(function () {
         Route::get('/', fn () => Inertia::render('Dashboard/Dashboard'))->name('dash.cashier');
 
-        Route::get('/new-sale', fn () => Inertia::render('CashierPage/NewSale'))->name('dash.cashier.newsale');
-        Route::get('/transactions', fn () => Inertia::render('CashierPage/Transactions'))->name('dash.cashier.transactions');
-        Route::get('/refill-swap', fn () => Inertia::render('CashierPage/RefillSwap'))->name('dash.cashier.refillswap');
+        Route::get('/POS', fn () => Inertia::render('CashierPage/POS'))->name('dash.cashier.POS');
+        Route::get('/sales', fn () => Inertia::render('CashierPage/Sales'))->name('dash.cashier.sales');
         Route::get('/customers', fn () => Inertia::render('CashierPage/Customers'))->name('dash.cashier.customers');
-        Route::get('/payments', fn () => Inertia::render('CashierPage/Payments'))->name('dash.cashier.payments');
     });
 
     Route::prefix('dashboard/accountant')->middleware('role:accountant')->group(function () {

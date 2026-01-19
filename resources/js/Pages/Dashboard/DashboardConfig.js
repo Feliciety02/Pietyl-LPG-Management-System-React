@@ -13,7 +13,7 @@ export const DASHBOARD_CONFIG = {
     title: "Cashier Overview",
     stats: ["sales", "transactions"],
     actions: [
-      { label: "New Sale", href: "/dashboard/cashier/new-sale", icon: "newSale" },
+      { label: "New Sale", href: "/dashboard/cashier/POS", icon: "newSale" },
       { label: "Transactions", href: "/dashboard/cashier/transactions", icon: "transactions" },
       { label: "Customers", href: "/dashboard/cashier/customers", icon: "customers" },
     ],

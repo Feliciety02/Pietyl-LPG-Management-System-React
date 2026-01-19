@@ -50,14 +50,15 @@ function SideItem({ href, label, active, collapsed, Icon }) {
           )}
         />
 
-        {/* Always keep icon position identical to expanded state */}
         <div className="flex items-center gap-3">
           <div className="w-10 shrink-0 flex items-center justify-center">
             <div
               className={cx(
                 "h-10 w-10 rounded-2xl flex items-center justify-center ring-1 bg-white",
                 "transition-[transform,box-shadow,ring-color] duration-200 ease-out",
-                active ? "ring-teal-200 shadow-sm scale-[1.02]" : "ring-slate-200 shadow-none scale-100"
+                active
+                  ? "ring-teal-200 shadow-sm scale-[1.02]"
+                  : "ring-slate-200 shadow-none scale-100"
               )}
             >
               <Icon
@@ -70,7 +71,6 @@ function SideItem({ href, label, active, collapsed, Icon }) {
             </div>
           </div>
 
-          {/* Label collapses, but icon never recenters */}
           <div
             className={cx(
               "min-w-0 flex-1 overflow-hidden",
@@ -129,13 +129,13 @@ export default function Sidebar({
         "shrink-0 border-r border-slate-200 bg-white",
         "h-screen sticky top-0",
         "transition-[width] duration-200 ease-in-out",
+        "flex flex-col",
         collapsed ? "w-20" : "w-72"
       )}
     >
-      <div className="h-[84px] border-b border-slate-200 px-4 flex items-center">
+      <div className="h-[84px] shrink-0 border-b border-slate-200 px-4 flex items-center">
         <div className="w-full flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* No teal ring on header logo */}
             {collapsed ? (
               <button
                 type="button"
@@ -145,18 +145,34 @@ export default function Sidebar({
                 aria-label="Expand sidebar"
               >
                 <div className="h-11 w-11 shrink-0 rounded-2xl bg-white ring-1 ring-slate-200 flex items-center justify-center">
-                  <img src={HeaderLogo} alt="Pietyl LPG" className="h-7 w-7 object-contain" />
+                  <img
+                    src={HeaderLogo}
+                    alt="Pietyl LPG"
+                    className="h-7 w-7 object-contain"
+                  />
                 </div>
               </button>
             ) : (
-              <Link href={homeHref} className="flex items-center gap-3 rounded-2xl focus:outline-none" title="Home">
+              <Link
+                href={homeHref}
+                className="flex items-center gap-3 rounded-2xl focus:outline-none"
+                title="Home"
+              >
                 <div className="h-11 w-11 shrink-0 rounded-2xl bg-white ring-1 ring-slate-200 flex items-center justify-center">
-                  <img src={HeaderLogo} alt="Pietyl LPG" className="h-7 w-7 object-contain" />
+                  <img
+                    src={HeaderLogo}
+                    alt="Pietyl LPG"
+                    className="h-7 w-7 object-contain"
+                  />
                 </div>
 
                 <div className="min-w-0 text-left">
-                  <div className="text-sm font-extrabold text-slate-900 truncate">{title}</div>
-                  <div className="text-xs text-slate-500 truncate">{subtitle}</div>
+                  <div className="text-sm font-extrabold text-slate-900 truncate">
+                    {title}
+                  </div>
+                  <div className="text-xs text-slate-500 truncate">
+                    {subtitle}
+                  </div>
                 </div>
               </Link>
             )}
@@ -181,7 +197,12 @@ export default function Sidebar({
         </div>
       </div>
 
-      <div className="px-2 py-4">
+      <div
+        className={cx(
+          "flex-1 px-2 py-4",
+          navItems.length > 9 ? "overflow-y-auto" : "overflow-y-hidden"
+        )}
+      >
         <nav className="space-y-1">
           {navItems.map((item) => {
             const Icon =
@@ -189,7 +210,9 @@ export default function Sidebar({
                 ? sidebarIconMap[item.icon] || LayoutDashboard
                 : item.icon || LayoutDashboard;
 
-            const active = activeHref ? normalize(item.href) === normalize(activeHref) : false;
+            const active = activeHref
+              ? normalize(item.href) === normalize(activeHref)
+              : false;
 
             return (
               <SideItem
