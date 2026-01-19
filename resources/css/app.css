@@ -16,14 +16,24 @@
   --my: 0px;
 }
 
+@layer base {
+  body {
+    user-select: none;
+    cursor: default;
+  }
+}
+
+
 .pietyl-aurora {
   opacity: 0.75;
   filter: blur(64px);
 
-  /* make it smooth and consistent for all blobs */
   will-change: left, top;
   transition: left 120ms ease-out, top 120ms ease-out;
+
+  pointer-events: none; 
 }
+
 
 /* colors */
 .pietyl-aurora-1 { background: rgba(20, 184, 166, 0.35); }

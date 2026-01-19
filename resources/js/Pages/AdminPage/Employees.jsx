@@ -76,7 +76,124 @@ export default function Employees() {
     filters: { q, status, page, per }
   */
 
-  const employees = page.props?.employees || { data: [], meta: null };
+    // DEV ONLY – sample employees for UI development
+const SAMPLE_EMPLOYEES = {
+  data: [
+    {
+      id: 1,
+      employee_no: "EMP-0001",
+      first_name: "Maria",
+      last_name: "Santos",
+      phone: "09171234567",
+      position: "Owner / Admin",
+      status: "active",
+      user: {
+        id: 1,
+        email: "admin@pietylpg.com",
+        role: "admin",
+      },
+    },
+    {
+      id: 2,
+      employee_no: "EMP-0003",
+      first_name: "Juan",
+      last_name: "Dela Cruz",
+      phone: "09183456789",
+      position: "Cashier",
+      status: "active",
+      user: {
+        id: 2,
+        email: "cashier1@pietylpg.com",
+        role: "cashier",
+      },
+    },
+    {
+      id: 3,
+      employee_no: "EMP-0005",
+      first_name: "Ana",
+      last_name: "Reyes",
+      phone: "09199887766",
+      position: "Accountant",
+      status: "active",
+      user: {
+        id: 3,
+        email: "accounting@pietylpg.com",
+        role: "accountant",
+      },
+    },
+    {
+      id: 4,
+      employee_no: "EMP-0008",
+      first_name: "Liza",
+      last_name: "Gomez",
+      phone: "09221234567",
+      position: "Inventory Manager",
+      status: "active",
+      user: {
+        id: 5,
+        email: "inventory@pietylpg.com",
+        role: "inventory_manager",
+      },
+    },
+    {
+      id: 5,
+      employee_no: "EMP-0010",
+      first_name: "Mark",
+      last_name: "Villanueva",
+      phone: "09335551234",
+      position: "Delivery Rider",
+      status: "active",
+      user: {
+        id: 4,
+        email: "rider1@pietylpg.com",
+        role: "rider",
+      },
+    },
+    {
+      id: 6,
+      employee_no: "EMP-0006",
+      first_name: "Carlos",
+      last_name: "Mendoza",
+      phone: "09445556677",
+      position: "Cashier",
+      status: "resigned",
+      user: null,
+    },
+    {
+      id: 7,
+      employee_no: "EMP-0012",
+      first_name: "Jenny",
+      last_name: "Lopez",
+      phone: "09170001122",
+      position: "Warehouse Staff",
+      status: "inactive",
+      user: null,
+    },
+    {
+      id: 8,
+      employee_no: "EMP-0014",
+      first_name: "Paolo",
+      last_name: "Ramos",
+      phone: "09091231234",
+      position: "Delivery Rider",
+      status: "terminated",
+      user: null,
+    },
+  ],
+  meta: {
+    current_page: 1,
+    last_page: 1,
+    from: 1,
+    to: 8,
+    total: 8,
+  },
+};
+
+//const employees = page.props?.employees || { data: [], meta: null };
+
+const employees =
+  page.props?.employees ??
+  (import.meta.env.DEV ? SAMPLE_EMPLOYEES : { data: [], meta: null });
   const rows = employees?.data || [];
   const meta = employees?.meta || null;
 

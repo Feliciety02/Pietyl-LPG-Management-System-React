@@ -94,12 +94,137 @@ export default function Products() {
     filters: { q, status, supplier_id, type, page, per }
     loading: boolean (optional)
   */
+// DEV ONLY – sample products for UI development
+const SAMPLE_PRODUCTS = {
+  data: [
+    {
+      id: 1,
+      sku: "LPG-11KG-REG",
+      name: "LPG Cylinder 11kg",
+      brand: "Petron",
+      type: "lpg",
+      size_label: "11kg",
+      default_price: "950.00",
+      is_active: true,
+      image_url: null,
+      supplier: {
+        id: 1,
+        name: "Petron LPG Supply",
+      },
+    },
+    {
+      id: 2,
+      sku: "LPG-22KG-REG",
+      name: "LPG Cylinder 22kg",
+      brand: "Petron",
+      type: "lpg",
+      size_label: "22kg",
+      default_price: "1,850.00",
+      is_active: true,
+      image_url: null,
+      supplier: {
+        id: 1,
+        name: "Petron LPG Supply",
+      },
+    },
+    {
+      id: 3,
+      sku: "LPG-11KG-SHELL",
+      name: "LPG Cylinder 11kg (Shell)",
+      brand: "Shellane",
+      type: "lpg",
+      size_label: "11kg",
+      default_price: "980.00",
+      is_active: true,
+      image_url: null,
+      supplier: {
+        id: 2,
+        name: "Shellane Distributors",
+      },
+    },
+    {
+      id: 4,
+      sku: "LPG-REFILL-11KG",
+      name: "LPG Refill 11kg",
+      brand: null,
+      type: "refill",
+      size_label: "11kg",
+      default_price: "720.00",
+      is_active: true,
+      image_url: null,
+      supplier: null,
+    },
+    {
+      id: 5,
+      sku: "LPG-REFILL-22KG",
+      name: "LPG Refill 22kg",
+      brand: null,
+      type: "refill",
+      size_label: "22kg",
+      default_price: "1,420.00",
+      is_active: true,
+      image_url: null,
+      supplier: null,
+    },
+    {
+      id: 6,
+      sku: "LPG-HOSE-STD",
+      name: "LPG Hose (Standard)",
+      brand: "Regasco",
+      type: "accessory",
+      size_label: null,
+      default_price: "350.00",
+      is_active: true,
+      image_url: null,
+      supplier: {
+        id: 3,
+        name: "Regasco Trading",
+      },
+    },
+    {
+      id: 7,
+      sku: "LPG-REGULATOR",
+      name: "LPG Regulator",
+      brand: "Regasco",
+      type: "accessory",
+      size_label: null,
+      default_price: "550.00",
+      is_active: false,
+      image_url: null,
+      supplier: {
+        id: 3,
+        name: "Regasco Trading",
+      },
+    },
+  ],
+  meta: {
+    current_page: 1,
+    last_page: 1,
+    from: 1,
+    to: 7,
+    total: 7,
+  },
+};
 
-  const products = page.props?.products || { data: [], meta: null };
+const SAMPLE_SUPPLIERS = [
+  { id: 1, name: "Petron LPG Supply" },
+  { id: 2, name: "Shellane Distributors" },
+  { id: 3, name: "Regasco Trading" },
+];
+
+const products =
+  page.props?.products ??
+  (import.meta.env.DEV ? SAMPLE_PRODUCTS : { data: [], meta: null });
+
+const suppliers =
+  page.props?.suppliers ??
+  (import.meta.env.DEV ? SAMPLE_SUPPLIERS : []);
+
+  //const products = page.props?.products || { data: [], meta: null };
   const rows = products?.data || [];
   const meta = products?.meta || null;
 
-  const suppliers = page.props?.suppliers || [];
+  //const suppliers = page.props?.suppliers || [];
 
   const query = page.props?.filters || {};
   const qInitial = query?.q || "";

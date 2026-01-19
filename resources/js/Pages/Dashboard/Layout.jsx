@@ -15,6 +15,9 @@ const ROLE_META = {
   { label: "Suppliers", href: "/dashboard/admin/suppliers", icon: "suppliers" },
   { label: "Audit Logs", href: "/dashboard/admin/audit", icon: "audit" },
   { label: "Reports", href: "/dashboard/admin/reports", icon: "reports" },
+  
+    // owner visibility shortcut
+    { label: "Low Stock", href: "/dashboard/inventory/low-stock", icon: "lowStock" },
 
     ],
   },

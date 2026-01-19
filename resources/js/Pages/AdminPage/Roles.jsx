@@ -64,7 +64,78 @@ export default function Roles() {
     loading: boolean (optional)
   */
 
-  const roles = page.props?.roles || { data: [], meta: null };
+    // DEV ONLY – sample roles for UI development
+const SAMPLE_ROLES = {
+  data: [
+    {
+      id: 1,
+      name: "admin",
+      label: "Admin",
+      users_count: 1,
+      permissions_count: 42,
+      is_system: true,
+      updated_at: "2026-01-10 09:12",
+    },
+    {
+      id: 2,
+      name: "cashier",
+      label: "Cashier",
+      users_count: 2,
+      permissions_count: 18,
+      is_system: true,
+      updated_at: "2026-01-08 14:30",
+    },
+    {
+      id: 3,
+      name: "accountant",
+      label: "Accountant",
+      users_count: 1,
+      permissions_count: 16,
+      is_system: true,
+      updated_at: "2026-01-07 16:45",
+    },
+    {
+      id: 4,
+      name: "rider",
+      label: "Rider",
+      users_count: 1,
+      permissions_count: 10,
+      is_system: true,
+      updated_at: "2026-01-06 11:05",
+    },
+    {
+      id: 5,
+      name: "inventory_manager",
+      label: "Inventory Manager",
+      users_count: 1,
+      permissions_count: 20,
+      is_system: true,
+      updated_at: "2026-01-06 15:20",
+    },
+    {
+      id: 6,
+      name: "warehouse_staff",
+      label: "Warehouse Staff",
+      users_count: 0,
+      permissions_count: 8,
+      is_system: false,
+      updated_at: "2026-01-15 10:18",
+    },
+  ],
+  meta: {
+    current_page: 1,
+    last_page: 1,
+    from: 1,
+    to: 6,
+    total: 6,
+  },
+};
+
+//const roles = page.props?.roles || { data: [], meta: null };
+
+const roles =
+  page.props?.roles ??
+  (import.meta.env.DEV ? SAMPLE_ROLES : { data: [], meta: null });
   const rows = roles?.data || [];
   const meta = roles?.meta || null;
 

@@ -72,7 +72,86 @@ export default function Users() {
     loading: boolean (optional)
   */
 
-  const users = page.props?.users || { data: [], meta: null };
+const SAMPLE_USERS = {
+  data: [
+    {
+      id: 1,
+      name: "Maria Santos",
+      email: "admin@pietylpg.com",
+      role: "admin",
+      is_active: true,
+      last_login_at: "2026-01-17 08:42",
+      employee: { employee_no: "EMP-0001" },
+    },
+    {
+      id: 2,
+      name: "Juan Dela Cruz",
+      email: "cashier1@pietylpg.com",
+      role: "cashier",
+      is_active: true,
+      last_login_at: "2026-01-17 09:10",
+      employee: { employee_no: "EMP-0003" },
+    },
+    {
+      id: 3,
+      name: "Ana Reyes",
+      email: "accounting@pietylpg.com",
+      role: "accountant",
+      is_active: true,
+      last_login_at: "2026-01-16 17:45",
+      employee: { employee_no: "EMP-0005" },
+    },
+    {
+      id: 4,
+      name: "Mark Villanueva",
+      email: "rider1@pietylpg.com",
+      role: "rider",
+      is_active: true,
+      last_login_at: "2026-01-17 07:58",
+      employee: { employee_no: "EMP-0010" },
+    },
+    {
+      id: 5,
+      name: "Liza Gomez",
+      email: "inventory@pietylpg.com",
+      role: "inventory_manager",
+      is_active: true,
+      last_login_at: "2026-01-15 14:22",
+      employee: { employee_no: "EMP-0008" },
+    },
+    {
+      id: 6,
+      name: "Carlos Mendoza",
+      email: "former.staff@pietylpg.com",
+      role: "cashier",
+      is_active: false,
+      last_login_at: "2025-12-20 11:05",
+      employee: { employee_no: "EMP-0006" },
+    },
+    {
+      id: 7,
+      name: "Unlinked User",
+      email: "temp@pietylpg.com",
+      role: "cashier",
+      is_active: true,
+      last_login_at: null,
+      employee: null,
+    },
+  ],
+  meta: {
+    current_page: 1,
+    last_page: 1,
+    from: 1,
+    to: 7,
+    total: 7,
+  },
+};
+
+//const users = page.props?.users || { data: [], meta: null };
+
+const users =
+  page.props?.users ??
+  (import.meta.env.DEV ? SAMPLE_USERS : { data: [], meta: null });
   const rows = users?.data || [];
   const meta = users?.meta || null;
 
