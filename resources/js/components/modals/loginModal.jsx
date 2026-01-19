@@ -1,118 +1,212 @@
+import React, { useEffect, useState } from "react";
+import { router } from "@inertiajs/react";
+import HeaderLogo from "../../../images/Header_Logo.png";
 
-export default function LoginModal(){
-    
-return (
-<section className="flex items-center">
-              <div className="w-full max-w-xl">
-                <div className="relative h-full rounded-2xl border border-white/60 bg-white/25 backdrop-blur-2xl backdrop-saturate-150 shadow-[0_18px_55px_-26px_rgba(15,23,42,0.55)] p-7 sm:p-8">
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-white/45 via-white/10 to-transparent"
-                  />
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-teal-500/15"
-                  />
+export default function LoginModal({ onClose }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(false);
 
-                  <div className="relative h-full flex flex-col justify-center">
-                    <div>
-                      <div className="text-2xl font-extrabold text-slate-900">
-                        Sign in
-                      </div>
-                      <div className="mt-1 text-sm text-slate-700/80">
-                        Use the account provided by admin
-                      </div>
-                    </div>
+  const [processing, setProcessing] = useState(false);
+  const [errors, setErrors] = useState({ email: "", password: "", general: "" });
 
-                    {!!statusMessage && (
-                      <div className="mt-4 rounded-xl border border-white/50 bg-white/50 px-4 py-3 text-sm text-slate-800">
-                        {statusMessage}
-                      </div>
-                    )}
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.key === "Escape") onClose?.();
+    }
 
-                    <form onSubmit={onSubmit} className="mt-6 space-y-5">
-                      <div className="space-y-1">
-                        <label
-                          htmlFor="email"
-                          className="block text-sm font-semibold text-slate-800"
-                        >
-                          Email
-                        </label>
-                        <input
-                          id="email"
-                          name="email"
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          required
-                          autoComplete="username"
-                          placeholder="you@example.com"
-                          className="w-full rounded-xl border border-slate-200 bg-white/70 px-3 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-500/30"
-                        />
-                        {!!errors.email && (
-                          <p className="text-xs font-semibold text-rose-600">
-                            {errors.email}
-                          </p>
-                        )}
-                      </div>
+    document.addEventListener("keydown", onKeyDown);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
 
-                      <div className="space-y-1">
-                        <label
-                          htmlFor="password"
-                          className="block text-sm font-semibold text-slate-800"
-                        >
-                          Password
-                        </label>
-                        <input
-                          id="password"
-                          name="password"
-                          type="password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          required
-                          autoComplete="current-password"
-                          placeholder="Enter your password"
-                          className="w-full rounded-xl border border-slate-200 bg-white/70 px-3 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-500/30"
-                        />
-                        {!!errors.password && (
-                          <p className="text-xs font-semibold text-rose-600">
-                            {errors.password}
-                          </p>
-                        )}
-                      </div>
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [onClose]);
 
-                      <div className="flex items-center justify-between pt-1">
-                        <label className="inline-flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            name="remember"
-                            checked={remember}
-                            onChange={(e) => setRemember(e.target.checked)}
-                            className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500/30"
-                          />
-                          <span className="text-sm text-slate-800">
-                            Remember me
-                          </span>
-                        </label>
+  function onSubmit(e) {
+    e.preventDefault();
+    setErrors({ email: "", password: "", general: "" });
+    setProcessing(true);
 
-                        <a
-                          href="/forgot-password"
-                          className="text-sm font-semibold text-teal-800 hover:text-teal-900 transition"
-                        >
-                          Forgot password
-                        </a>
-                      </div>
+    router.post(
+      "/login",
+      { email, password, remember },
+      {
+        preserveScroll: true,
+        onFinish: () => setProcessing(false),
+        onError: (errs) => {
+          setErrors({
+            email: errs?.email || "",
+            password: errs?.password || "",
+            general: errs?.message || "",
+          });
+        },
+      }
+    );
+  }
 
-                      <button
-                        type="submit"
-                        className="w-full inline-flex items-center justify-center rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm shadow-teal-600/25 hover:bg-teal-700 transition focus:outline-none focus:ring-4 focus:ring-teal-500/30"
-                      >
-                        Log in
-                      </button>
-                    </form>
-                  </div>
+  return (
+    <div className="w-full max-w-md mx-auto">
+      <div className="relative overflow-hidden rounded-3xl bg-white shadow-[0_26px_80px_-32px_rgba(15,23,42,0.55)] ring-1 ring-slate-900/10">
+        {/* top accent */}
+        <div className="h-1.5 w-full bg-gradient-to-r from-teal-500 via-cyan-500 to-emerald-500" />
+
+        {/* content */}
+        <div className="p-8">
+          {/* brand */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img src={HeaderLogo} alt="PIETYL" className="h-10 w-auto" />
+              <div>
+                <div className="text-sm font-extrabold text-slate-900">PIETYL</div>
+                <div className="text-xs text-slate-600/80">
+                  LPG Operations Platform
                 </div>
               </div>
-            </section>
-)
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white ring-1 ring-slate-900/10 text-slate-700 hover:bg-slate-50 transition focus:outline-none focus:ring-4 focus:ring-teal-500/25"
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </div>
+
+          {/* title */}
+          <div className="mt-8 text-center">
+            <h3 className="text-2xl font-extrabold tracking-tight text-slate-900">
+              Sign in
+            </h3>
+            <p className="mt-2 text-sm text-slate-600/90">
+              Use the account provided by your administrator.
+            </p>
+          </div>
+
+          {/* error */}
+          {errors.general && (
+            <div className="mt-5 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-800 ring-1 ring-rose-200">
+              {errors.general}
+            </div>
+          )}
+
+          {/* form */}
+          <form onSubmit={onSubmit} className="mt-8 space-y-5">
+            {/* email */}
+            <div>
+              <div className="relative">
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="username"
+                  placeholder="Email"
+                  className={[
+                    "peer w-full rounded-2xl bg-slate-50/80 px-5 pb-3.5 pt-6 text-sm text-slate-900 ring-1 outline-none transition focus:bg-white",
+                    errors.email
+                      ? "ring-rose-300 focus:ring-rose-400"
+                      : "ring-slate-200 focus:ring-teal-400",
+                  ].join(" ")}
+                />
+                <label
+                  htmlFor="email"
+                  className="pointer-events-none absolute left-5 top-3.5 text-xs font-extrabold tracking-wide text-slate-600/90 transition
+                  peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:font-semibold
+                  peer-focus:top-3.5 peer-focus:text-xs peer-focus:font-extrabold peer-focus:text-teal-800"
+                >
+                  Email
+                </label>
+              </div>
+              {errors.email && (
+                <p className="mt-1.5 text-xs font-semibold text-rose-700">
+                  {errors.email}
+                </p>
+              )}
+            </div>
+
+            {/* password */}
+            <div>
+              <div className="relative">
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  placeholder="Password"
+                  className={[
+                    "peer w-full rounded-2xl bg-slate-50/80 px-5 pb-3.5 pt-6 text-sm text-slate-900 ring-1 outline-none transition focus:bg-white",
+                    errors.password
+                      ? "ring-rose-300 focus:ring-rose-400"
+                      : "ring-slate-200 focus:ring-teal-400",
+                  ].join(" ")}
+                />
+                <label
+                  htmlFor="password"
+                  className="pointer-events-none absolute left-5 top-3.5 text-xs font-extrabold tracking-wide text-slate-600/90 transition
+                  peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:font-semibold
+                  peer-focus:top-3.5 peer-focus:text-xs peer-focus:font-extrabold peer-focus:text-teal-800"
+                >
+                  Password
+                </label>
+              </div>
+              {errors.password && (
+                <p className="mt-1.5 text-xs font-semibold text-rose-700">
+                  {errors.password}
+                </p>
+              )}
+            </div>
+
+            {/* options */}
+            <div className="flex items-center justify-between pt-1">
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500/25"
+                />
+                <span className="text-sm text-slate-700">Remember me</span>
+              </label>
+
+              <a
+                href="/forgot-password"
+                className="text-sm font-extrabold text-teal-800 hover:text-teal-900 transition"
+              >
+                Forgot password
+              </a>
+            </div>
+
+            {/* submit */}
+            <div className="pt-3 text-center">
+              <button
+                type="submit"
+                disabled={processing}
+                className={[
+                  "w-full inline-flex items-center justify-center rounded-2xl px-4 py-3.5 text-sm font-extrabold text-white transition",
+                  "shadow-sm shadow-teal-600/20 focus:outline-none focus:ring-4 focus:ring-teal-500/25",
+                  processing
+                    ? "bg-teal-600/70 cursor-not-allowed"
+                    : "bg-teal-600 hover:bg-teal-700",
+                ].join(" ")}
+              >
+                {processing ? "Signing in..." : "Sign in"}
+              </button>
+            </div>
+
+            <div className="pt-3 text-center text-xs text-slate-600/80">
+              Protected access for staff accounts only.
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
 }
