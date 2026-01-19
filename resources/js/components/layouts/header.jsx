@@ -3,8 +3,8 @@ import { Link } from "@inertiajs/react";
 import NavItem from "../ui/NavLink";
 import HeaderLogo from "../../../images/Header_Logo.png";
 
-// adjust the import path if yours is different
-import LoginModal from "../modals/LoginModal";
+// adjust import path if needed
+import LoginModal from "@/components/modals/LoginModal";
 
 export default function Header({
   activeKey,
@@ -32,8 +32,8 @@ export default function Header({
     if (item.onClick) {
       e.preventDefault();
       item.onClick();
-      setOpen(false);
     }
+    setOpen(false);
   };
 
   function openLogin() {
@@ -49,7 +49,6 @@ export default function Header({
     <>
       <header className="sticky top-0 z-50 border-b border-white/30 bg-white/35 backdrop-blur-2xl backdrop-saturate-150">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          {/* Logo */}
           <Link href="/" className="flex items-center gap-3">
             <img src={HeaderLogo} alt="Pietyl logo" className="h-10 w-auto" />
             <div>
@@ -58,7 +57,6 @@ export default function Header({
             </div>
           </Link>
 
-          {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-10">
             {navItems.map((item) => (
               <NavItem
@@ -71,9 +69,7 @@ export default function Header({
             ))}
           </nav>
 
-          {/* CTA */}
           <div className="flex items-center gap-3">
-            {/* minimalist sign in button */}
             <button
               type="button"
               onClick={openLogin}
@@ -84,24 +80,28 @@ export default function Header({
 
             <button
               type="button"
-              onClick={() => setOpen(!open)}
+              onClick={() => setOpen((v) => !v)}
               className="md:hidden rounded-xl border border-white/60 bg-white/40 px-3 py-2 text-sm font-extrabold text-slate-900 hover:bg-white/65 transition focus:outline-none focus:ring-4 focus:ring-teal-500/25"
+              aria-expanded={open}
+              aria-controls="mobile-nav"
             >
               {open ? "Close" : "Menu"}
             </button>
           </div>
         </div>
 
-        {/* Mobile menu panel */}
         {open ? (
-          <div className="md:hidden border-t border-white/30 bg-white/35 backdrop-blur-2xl">
+          <div
+            id="mobile-nav"
+            className="md:hidden border-t border-white/30 bg-white/35 backdrop-blur-2xl"
+          >
             <div className="max-w-6xl mx-auto px-6 py-4 flex flex-col gap-3">
               {navItems.map((item) => (
                 <Link
                   key={item.key}
                   href={item.href}
                   onClick={handleClick(item)}
-                  className="rounded-xl bg-white/40 border border-white/60 px-4 py-3 text-sm font-extrabold text-slate-900 hover:bg-white/65 transition"
+                  className="rounded-xl bg-white/40 border border-white/60 px-4 py-3 text-sm font-extrabold text-slate-900 hover:bg-white/65 transition focus:outline-none focus:ring-4 focus:ring-teal-500/15"
                 >
                   {item.label}
                 </Link>
@@ -119,25 +119,11 @@ export default function Header({
         ) : null}
       </header>
 
-      {/* black tinted backdrop + modal */}
-      {loginOpen ? (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center px-4"
-          role="dialog"
-          aria-modal="true"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) closeLogin();
-          }}
-        >
-          {/* tint overlay */}
-          <div className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" />
+      {/* Use ModalShell inside LoginModal now */}
+      <LoginModal open={loginOpen} onClose={closeLogin} />
 
-          {/* modal content wrapper */}
-          <div className="relative w-full max-w-lg">
-            <LoginModal onClose={closeLogin} />
-          </div>
-        </div>
-      ) : null}
+      {/* Optional fallback if you want normal /login page as well */}
+      {/* <Link href={ctaHref}>{ctaLabel}</Link> */}
     </>
   );
 }

@@ -1,6 +1,5 @@
 import React from "react";
 import GlassCard from "../../components/ui/GlassCard";
-import PlaceholderImage from "../../components/ui/PlaceholderImage";
 import Store from "../../../images/store.png";
 
 export default function HeroSection({ onScrollTo }) {
