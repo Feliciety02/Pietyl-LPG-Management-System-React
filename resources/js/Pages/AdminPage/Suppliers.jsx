@@ -70,7 +70,7 @@ export default function Suppliers() {
   */
 
   // DEV ONLY – sample suppliers for UI development
-  const SAMPLE_SUPPLIERS = {
+  const SAMPLE_SUPPLIERS_SAMPLE = {
     data: [
       {
         id: 1,
@@ -122,12 +122,9 @@ export default function Suppliers() {
     },
   };
 
-  const suppliers =
-    page.props?.suppliers ??
-    (import.meta.env.DEV ? SAMPLE_SUPPLIERS : { data: [], meta: null });
-
-  const rows = suppliers?.data || [];
-  const meta = suppliers?.meta || null;
+  const suppliers = page.props?.suppliers || { data: [], meta: null };
+  const rows = suppliers.data ?? [];
+  const meta = suppliers.meta ?? null;
 
   const query = page.props?.filters || {};
   const qInitial = query?.q || "";

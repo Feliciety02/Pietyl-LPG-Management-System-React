@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\SupplierController;
 
 Route::get('/', function () {
     if (Auth::check()) {
@@ -75,7 +76,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/movements', fn () => Inertia::render('InventoryPage/Movements'))->name('dash.inventory.movements');
         Route::get('/low-stock', fn () => Inertia::render('InventoryPage/LowStock'))->name('dash.inventory.lowstock');
         Route::get('/purchases', fn () => Inertia::render('InventoryPage/Purchases'))->name('dash.inventory.purchases');
-        Route::get('/suppliers', fn () => Inertia::render('AdminPage/Suppliers'))->name('dash.inventory.suppliers');
+        Route::get('/suppliers', [SupplierController::class, 'index'])->name('dash.inventory.suppliers');
     });
 
 });
