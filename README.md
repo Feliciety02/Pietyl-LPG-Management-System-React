@@ -1,59 +1,126 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 🔥 Pietyl LPG Management System
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+![Laravel](https://img.shields.io/badge/Laravel-10-red)
+![React](https://img.shields.io/badge/React-18-blue)
+![Inertia](https://img.shields.io/badge/Inertia.js-SPA-purple)
+![Tailwind](https://img.shields.io/badge/TailwindCSS-3.x-teal)
+![Status](https://img.shields.io/badge/Status-In%20Development-yellow)
 
-## About Laravel
+A **role based LPG (Liquefied Petroleum Gas) business management system** built with **Laravel, Inertia.js, React, and Tailwind CSS**.  
+Designed for real world LPG operations including **sales, inventory, deliveries, accounting, and audit tracking**.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+> One system. One dashboard. Multiple roles.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+---
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## ✨ Highlights
 
-## Learning Laravel
+- 🔐 Role based access control
+- 📊 Single adaptive dashboard for all roles
+- 🧭 Clean, collapsible sidebar navigation
+- 🧾 Full audit logging
+- 📦 Inventory & product lifecycle management
+- 💰 Financial visibility for owners
+- 🎨 Minimalist, Google style UI
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+---
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## 🧑‍💼 Supported Roles
 
-## Laravel Sponsors
+| Role | Description |
+|---|---|
+| **Admin** | Company owner with full system control |
+| **Cashier** | Sales and customer transactions |
+| **Accountant** | Financial summaries and reports |
+| **Rider** | Delivery tracking and status updates |
+| **Inventory Manager** | Stock, movements, suppliers |
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+---
 
-### Premium Partners
+## 📊 Dashboard Architecture
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+This system uses **one shared dashboard** that adapts dynamically based on user role.
 
-## Contributing
+### Why this approach?
+- Consistent UI across the system
+- Less duplicated code
+- Easier maintenance
+- Scales better as roles grow
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Role behavior is controlled via configuration, not duplicated pages.
 
-## Code of Conduct
+---
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## 🧭 Sidebar Navigation
 
-## Security Vulnerabilities
+- Collapsible sidebar
+- Icons only when collapsed
+- Logo click toggles collapse / expand
+- Centralized icon mapping
+- Minimal animations (professional, non flashy)
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+---
 
-## License
+## 🧾 Audit Logging
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Every critical action is recorded:
+- User and employee changes
+- Role and permission updates
+- Product and inventory actions
+- Financial and operational events
+
+Admins can review activity history for accountability.
+
+---
+
+## 📦 Product & Inventory Management
+
+- **Admin**
+  - Creates new LPG products
+  - Manages suppliers
+  - Controls product catalog structure
+
+- **Inventory Manager**
+  - Manages stock counts
+  - Tracks movements
+  - Handles low stock alerts
+  - Manages purchases
+
+This separation ensures control and operational efficiency.
+
+---
+
+## 💰 Financial Oversight
+
+- Cashiers handle transactions
+- Accountants manage remittances and reports
+- Admins view high level financial summaries
+
+Clear separation between **execution** and **oversight**.
+
+---
+
+## 🎨 Design System
+
+- Rounded cards (`rounded-3xl`)
+- Subtle borders (`ring-1 ring-slate-200`)
+- Consistent spacing (`gap-6`)
+- Standard icon size (`h-5 w-5`)
+- Minimal motion, smooth transitions
+
+Inspired by **Google Workspace UI principles**.
+
+---
+
+## 🛠 Tech Stack
+
+- **Backend:** Laravel
+- **Frontend:** React + Inertia.js
+- **Styling:** Tailwind CSS
+- **Animations:** Framer Motion (minimal)
+- **Icons:** Lucide React
+- **Database:** MySQL / MariaDB
+
+
+
+
