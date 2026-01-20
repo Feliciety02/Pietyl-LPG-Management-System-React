@@ -115,9 +115,8 @@ export default function StockCounts() {
     },
   };
 
-  const stock =
-    page.props?.stock_counts ??
-    (import.meta.env.DEV ? SAMPLE_STOCK : { data: [], meta: null });
+  
+  const stock = page.props?.stock_counts ?? { data: [], meta: null };
 
   const rows = stock?.data || [];
   const meta = stock?.meta || null;
@@ -232,7 +231,7 @@ export default function StockCounts() {
             <div className="flex flex-wrap items-center gap-2">
               <CountPill label="FILLED" value={x.filled_qty ?? 0} tone="teal" />
               <CountPill label="EMPTY" value={x.empty_qty ?? 0} tone="slate" />
-              <CountPill label="TOTAL" value={x.total_qty ?? 0} tone="amber" />
+              <CountPill label="TOTAL" value={(x.filled_qty || 0) + (x.empty_qty || 0)} tone="amber" />
             </div>
           ),
       },
