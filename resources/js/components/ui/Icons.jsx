@@ -19,7 +19,7 @@ import {
   Truck,
   MapPin,
   ClipboardList,
-  History,
+  History,  
 
   // Inventory
   Boxes,
@@ -28,6 +28,8 @@ import {
   PackagePlus,
   Building2,
   Package,
+  Info,
+  ChevronRight,
 
   // Accountant
   BookOpen,
@@ -79,6 +81,9 @@ export const sidebarIconMap = {
   purchases: PackagePlus,
   suppliers: Building2,
   products: Package,
+  info: Info,
+  warning: AlertTriangle,
+  chevronRight: ChevronRight,
 
   // Accountant
   daily: CalendarDays,

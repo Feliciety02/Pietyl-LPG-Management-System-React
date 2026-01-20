@@ -1,3 +1,4 @@
+// resources/js/pages/Inventory/Purchases.jsx
 import React, { useMemo, useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
@@ -10,7 +11,8 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  Paperclip,
+  Truck,
+  AlertTriangle,
 } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 
@@ -18,8 +20,21 @@ function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
+/*
+  Purchases (Inventory Manager)
+  Purpose
+  - Create purchase requests
+  - Track approval status
+  - Confirm delivered orders and capture discrepancies (damage, missing)
+  - Stock updates only happen after confirmation step
+*/
+
+function normalizeStatus(status) {
+  return String(status || "").toLowerCase().replace(/\s+/g, "_");
+}
+
 function StatusPill({ status }) {
-  const s = String(status || "").toLowerCase();
+  const s = normalizeStatus(status);
 
   const tone =
     s === "approved"
@@ -28,7 +43,20 @@ function StatusPill({ status }) {
       ? "bg-amber-600/10 text-amber-900 ring-amber-700/10"
       : s === "rejected"
       ? "bg-rose-600/10 text-rose-900 ring-rose-700/10"
+      : s === "delivered" || s === "awaiting_confirmation"
+      ? "bg-sky-600/10 text-sky-900 ring-sky-700/10"
+      : s === "completed"
+      ? "bg-emerald-600/10 text-emerald-900 ring-emerald-700/10"
+      : s === "discrepancy_reported"
+      ? "bg-orange-600/10 text-orange-900 ring-orange-700/10"
       : "bg-slate-100 text-slate-700 ring-slate-200";
+
+  const label =
+    s === "awaiting_confirmation"
+      ? "AWAITING CONFIRMATION"
+      : s === "discrepancy_reported"
+      ? "DISCREPANCY"
+      : String(status || "pending").toUpperCase();
 
   return (
     <span
@@ -37,7 +65,7 @@ function StatusPill({ status }) {
         tone
       )}
     >
-      {String(status || "pending").toUpperCase()}
+      {label}
     </span>
   );
 }
@@ -58,6 +86,9 @@ function TopCard({ title, subtitle, right }) {
 
 export default function Purchases() {
   const page = usePage();
+  const { auth } = page.props;
+  const user = auth?.user;
+  const roleKey = user?.role || "";
 
   /*
     Expected Inertia props:
@@ -71,15 +102,17 @@ export default function Purchases() {
         qty,
         unit_cost,
         total_cost,
-        status, // pending | approved | rejected
-        created_at
+        status, // pending | approved | rejected | delivered | awaiting_confirmation | completed | discrepancy_reported
+        created_at,
+        received_qty,       // optional
+        damaged_qty,        // optional
+        missing_qty,        // optional
       }],
       meta
     }
     filters: { q, status, page, per }
   */
 
-  // DEV ONLY sample data
   const SAMPLE_PURCHASES = {
     data: [
       {
@@ -115,7 +148,7 @@ export default function Purchases() {
         qty: 2,
         unit_cost: 4200,
         total_cost: 8400,
-        status: "rejected",
+        status: "awaiting_confirmation",
         created_at: "Jan 17 01:15 PM",
       },
     ],
@@ -147,6 +180,10 @@ export default function Purchases() {
     { value: "all", label: "All status" },
     { value: "pending", label: "Pending" },
     { value: "approved", label: "Approved" },
+    { value: "delivered", label: "Delivered" },
+    { value: "awaiting_confirmation", label: "Awaiting confirmation" },
+    { value: "completed", label: "Completed" },
+    { value: "discrepancy_reported", label: "Discrepancy" },
     { value: "rejected", label: "Rejected" },
   ];
 
@@ -169,10 +206,8 @@ export default function Purchases() {
   };
 
   const handlePerPage = (n) => pushQuery({ per: n, page: 1 });
-  const handlePrev = () =>
-    meta && meta.current_page > 1 && pushQuery({ page: meta.current_page - 1 });
-  const handleNext = () =>
-    meta && meta.current_page < meta.last_page && pushQuery({ page: meta.current_page + 1 });
+  const handlePrev = () => meta && meta.current_page > 1 && pushQuery({ page: meta.current_page - 1 });
+  const handleNext = () => meta && meta.current_page < meta.last_page && pushQuery({ page: meta.current_page + 1 });
 
   const loading = Boolean(page.props?.loading);
 
@@ -216,21 +251,31 @@ export default function Purchases() {
           x?.__filler ? (
             <SkeletonLine w="w-36" />
           ) : (
-            <div>
-              <div className="font-semibold text-slate-900">
-                {x.product_name} <span className="text-slate-500">({x.variant})</span>
-              </div>
+            <div className="font-semibold text-slate-900">
+              {x.product_name} <span className="text-slate-500">({x.variant})</span>
             </div>
           ),
       },
       {
         key: "qty",
-        label: "Qty",
+        label: "Ordered",
         render: (x) =>
           x?.__filler ? (
             <SkeletonLine w="w-10" />
           ) : (
             <span className="text-sm font-extrabold text-slate-900">{x.qty}</span>
+          ),
+      },
+      {
+        key: "received",
+        label: "Received",
+        render: (x) =>
+          x?.__filler ? (
+            <SkeletonLine w="w-10" />
+          ) : (
+            <span className="text-sm text-slate-700">
+              {x.received_qty != null ? x.received_qty : "—"}
+            </span>
           ),
       },
       {
@@ -248,37 +293,47 @@ export default function Purchases() {
       {
         key: "status",
         label: "Status",
-        render: (x) =>
-          x?.__filler ? <SkeletonPill w="w-20" /> : <StatusPill status={x.status} />,
+        render: (x) => (x?.__filler ? <SkeletonPill w="w-28" /> : <StatusPill status={x.status} />),
       },
       {
         key: "date",
         label: "Created",
         render: (x) =>
-          x?.__filler ? (
-            <SkeletonLine w="w-28" />
-          ) : (
-            <span className="text-sm text-slate-700">{x.created_at}</span>
-          ),
+          x?.__filler ? <SkeletonLine w="w-28" /> : <span className="text-sm text-slate-700">{x.created_at}</span>,
       },
     ],
     []
   );
+
+  const canCreate = roleKey === "inventory_manager" || roleKey === "admin";
+  const isInventoryManager = roleKey === "inventory_manager";
+
+  const canConfirmDelivery = (x) => {
+    const s = normalizeStatus(x?.status);
+    return isInventoryManager && (s === "delivered" || s === "awaiting_confirmation");
+  };
+
+  const canEditPending = (x) => normalizeStatus(x?.status) === "pending" && isInventoryManager;
+
+  const markDeliveredHint = "Mark delivered is usually set by Admin or supplier process.";
+  const confirmHint = "Confirm delivery to update stock and record damages or shortages.";
 
   return (
     <Layout title="Purchases">
       <div className="grid gap-6">
         <TopCard
           title="Purchases"
-          subtitle="Create and track inventory purchase requests. Admin approval is required before stock updates."
+          subtitle="Create and track purchase requests. Stock updates only happen after delivery confirmation."
           right={
-            <Link
-              href="/dashboard/inventory/purchases/create"
-              className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 focus:ring-4 focus:ring-teal-500/25"
-            >
-              <PlusCircle className="h-4 w-4" />
-              New purchase
-            </Link>
+            canCreate ? (
+              <Link
+                href="/dashboard/inventory/purchases/create"
+                className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 focus:ring-4 focus:ring-teal-500/25"
+              >
+                <PlusCircle className="h-4 w-4" />
+                New purchase
+              </Link>
+            ) : null
           }
         />
 
@@ -304,7 +359,7 @@ export default function Purchases() {
           emptyHint="Create a purchase request when stock is low."
           renderActions={(x) =>
             x?.__filler ? (
-              <SkeletonButton w="w-20" />
+              <SkeletonButton w="w-28" />
             ) : (
               <div className="flex items-center justify-end gap-2">
                 <Link
@@ -315,7 +370,7 @@ export default function Purchases() {
                   View
                 </Link>
 
-                {x.status === "pending" && (
+                {canEditPending(x) ? (
                   <Link
                     href={`/dashboard/inventory/purchases/${x.id}/edit`}
                     className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
@@ -323,7 +378,53 @@ export default function Purchases() {
                     <Clock className="h-4 w-4 text-slate-600" />
                     Edit
                   </Link>
-                )}
+                ) : null}
+
+                {/* Optional: Admin action placeholder, if you add it later */}
+                {roleKey === "admin" && normalizeStatus(x.status) === "approved" ? (
+                  <button
+                    type="button"
+                    title={markDeliveredHint}
+                    onClick={() =>
+                      router.post(`/dashboard/inventory/purchases/${x.id}/mark-delivered`, {}, { preserveScroll: true })
+                    }
+                    className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
+                  >
+                    <Truck className="h-4 w-4 text-slate-600" />
+                    Mark delivered
+                  </button>
+                ) : null}
+
+                {/* Inventory manager confirmation */}
+                {canConfirmDelivery(x) ? (
+                  <Link
+                    title={confirmHint}
+                    href={`/dashboard/inventory/purchases/${x.id}/confirm`}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-3 py-2 text-xs font-extrabold text-white hover:bg-teal-700 focus:ring-4 focus:ring-teal-500/25"
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    Confirm
+                  </Link>
+                ) : null}
+
+                {/* Discrepancy shortcut if you want a separate flow */}
+                {canConfirmDelivery(x) ? (
+                  <Link
+                    href={`/dashboard/inventory/purchases/${x.id}/discrepancy`}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
+                  >
+                    <AlertTriangle className="h-4 w-4 text-slate-600" />
+                    Report
+                  </Link>
+                ) : null}
+
+                {/* Rejected info only */}
+                {normalizeStatus(x.status) === "rejected" ? (
+                  <span className="inline-flex items-center gap-2 rounded-2xl bg-rose-600/10 px-3 py-2 text-xs font-extrabold text-rose-900 ring-1 ring-rose-700/10">
+                    <XCircle className="h-4 w-4" />
+                    Rejected
+                  </span>
+                ) : null}
               </div>
             )
           }
