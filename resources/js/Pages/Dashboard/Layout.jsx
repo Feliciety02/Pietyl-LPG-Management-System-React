@@ -16,6 +16,8 @@ const ROLE_META = {
   { label: "Reports", href: "/dashboard/admin/reports", icon: "reports" },
   { label: "Customers", href: "/dashboard/admin/customers", icon: "reports" },
   { label: "Low Stock", href: "/dashboard/inventory/low-stock", icon: "lowStock" },
+  { label: "Payroll", href: "/dashboard/accountant/payroll", icon: "ledger" },
+
 
     ],
   },
@@ -37,6 +39,7 @@ const ROLE_META = {
       { label: "Remittances", href: "/dashboard/accountant/remittances", icon: "remittance" },
       { label: "Daily Summary", href: "/dashboard/accountant/daily", icon: "daily" },
       { label: "Ledger", href: "/dashboard/accountant/ledger", icon: "ledger" },
+      { label: "Payroll", href: "/dashboard/accountant/payroll", icon: "ledger" },
       { label: "Reports", href: "/dashboard/accountant/reports", icon: "reports" },
     ],
   },
@@ -46,8 +49,6 @@ const ROLE_META = {
     items: [
       { label: "Overview", href: "/dashboard/rider", icon: "overview" },
       { label: "My Deliveries", href: "/dashboard/rider/deliveries", icon: "deliveries" },
-      { label: "Status Updates", href: "/dashboard/rider/status", icon: "status" },
-      { label: "Remittance", href: "/dashboard/rider/remittance", icon: "remittance" },
       { label: "History", href: "/dashboard/rider/history", icon: "history" },
     ],
   },

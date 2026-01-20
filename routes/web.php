@@ -55,6 +55,7 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/remittances', fn () => Inertia::render('AccountantPage/Remittances'))->name('dash.accountant.remittances');
         Route::get('/daily', fn () => Inertia::render('AccountantPage/DailySummary'))->name('dash.accountant.daily');
+        Route::get('/payroll', fn () => Inertia::render('AccountantPage/Payroll'))->name('dash.accountant.payroll');
         Route::get('/ledger', fn () => Inertia::render('AccountantPage/Ledger'))->name('dash.accountant.ledger');
         Route::get('/reports', fn () => Inertia::render('AccountantPage/Reports'))->name('dash.accountant.reports');
     });
@@ -63,8 +64,6 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', fn () => Inertia::render('Dashboard/Dashboard'))->name('dash.rider');
 
         Route::get('/deliveries', fn () => Inertia::render('RiderPage/MyDeliveries'))->name('dash.rider.deliveries');
-        Route::get('/status', fn () => Inertia::render('RiderPage/StatusUpdates'))->name('dash.rider.status');
-        Route::get('/remittance', fn () => Inertia::render('RiderPage/Remittance'))->name('dash.rider.remittance');
         Route::get('/history', fn () => Inertia::render('RiderPage/History'))->name('dash.rider.history');
     });
 
