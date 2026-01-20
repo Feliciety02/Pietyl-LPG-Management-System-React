@@ -1,20 +1,27 @@
-// resources/js/pages/InventoryPage/LowStock.jsx
+
 import React, { useMemo, useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
 import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
-import {
-  AlertTriangle,
-  ArrowRight,
-  PlusCircle,
-  Bell,
-  CheckCircle2,
-  XCircle,
-  SlidersHorizontal,
-} from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
+
+import NotifyAdminModal from "@/components/modals/NotifyAdminModal";
+import ThresholdsModal from "@/components/modals/ThresholdsModal";
+import ConfirmActionModal from "@/components/modals/ConfirmActionModal";
+
+import { inventoryActionIcons } from "@/components/ui/Icons";
+
+const {
+  warning: AlertTriangle,
+  arrow: ArrowRight,
+  newPurchase: PlusCircle,
+  notify: Bell,
+  approve: CheckCircle2,
+  reject: XCircle,
+  thresholds: SlidersHorizontal,
+} = inventoryActionIcons;
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -231,6 +238,17 @@ export default function LowStock() {
   const [risk, setRisk] = useState(riskInitial);
   const [req, setReq] = useState(reqInitial);
 
+  const [notifyOpen, setNotifyOpen] = useState(false);
+  const [thresholdsOpen, setThresholdsOpen] = useState(false);
+
+  const [confirm, setConfirm] = useState({
+    open: false,
+    tone: "teal",
+    title: "",
+    message: "",
+    onConfirm: null,
+  });
+
   const riskOptions = [
     { value: "all", label: "All risk" },
     { value: "critical", label: "Critical" },
@@ -285,122 +303,131 @@ export default function LowStock() {
   );
 
   const tableRows = loading ? fillerRows : rows;
-
   const criticalCount = rows.filter((r) => r.risk_level === "critical").length;
 
-  const columns = useMemo(
-    () => {
-      const base = [
-        {
-          key: "item",
-          label: "Item",
-          render: (x) =>
-            x?.__filler ? (
-              <div className="space-y-2">
-                <SkeletonLine w="w-44" />
-                <SkeletonLine w="w-28" />
+  const columns = useMemo(() => {
+    const base = [
+      {
+        key: "item",
+        label: "Item",
+        render: (x) =>
+          x?.__filler ? (
+            <div className="space-y-2">
+              <SkeletonLine w="w-44" />
+              <SkeletonLine w="w-28" />
+            </div>
+          ) : (
+            <div>
+              <div className="font-extrabold text-slate-900">
+                {x.name} <span className="text-slate-500 font-semibold">({x.variant})</span>
               </div>
-            ) : (
-              <div>
-                <div className="font-extrabold text-slate-900">
-                  {x.name} <span className="text-slate-500 font-semibold">({x.variant})</span>
-                </div>
-                <div className="text-xs text-slate-500">
-                  {x.sku || "—"} • {x.supplier_name || "No supplier"}
-                </div>
+              <div className="text-xs text-slate-500">
+                {x.sku || "—"} • {x.supplier_name || "No supplier"}
               </div>
-            ),
-        },
-        {
-          key: "risk",
-          label: "Risk",
-          render: (x) => (x?.__filler ? <SkeletonPill w="w-24" /> : <RiskPill level={x.risk_level} />),
-        },
-        {
-          key: "qty",
-          label: "Stock",
-          render: (x) =>
-            x?.__filler ? (
-              <div className="space-y-2">
-                <SkeletonLine w="w-40" />
-                <SkeletonLine w="w-28" />
+            </div>
+          ),
+      },
+      {
+        key: "risk",
+        label: "Risk",
+        render: (x) => (x?.__filler ? <SkeletonPill w="w-24" /> : <RiskPill level={x.risk_level} />),
+      },
+      {
+        key: "qty",
+        label: "Stock",
+        render: (x) =>
+          x?.__filler ? (
+            <div className="space-y-2">
+              <SkeletonLine w="w-40" />
+              <SkeletonLine w="w-28" />
+            </div>
+          ) : (
+            <QtyBar current={x.current_qty} threshold={x.reorder_level} />
+          ),
+      },
+      {
+        key: "days",
+        label: "Est. days",
+        render: (x) =>
+          x?.__filler ? (
+            <SkeletonLine w="w-16" />
+          ) : (
+            <span className="text-sm font-semibold text-slate-800">
+              {x.est_days_left == null ? "—" : `${x.est_days_left}d`}
+            </span>
+          ),
+      },
+      {
+        key: "last",
+        label: "Last movement",
+        render: (x) =>
+          x?.__filler ? (
+            <SkeletonLine w="w-28" />
+          ) : (
+            <span className="text-sm text-slate-700">{x.last_movement_at || "—"}</span>
+          ),
+      },
+    ];
+
+    if (!isAdmin) return base;
+
+    return [
+      ...base,
+      {
+        key: "req_status",
+        label: "Request",
+        render: (x) =>
+          x?.__filler ? (
+            <SkeletonPill w="w-24" />
+          ) : (
+            <div className="space-y-1">
+              <StatusPill status={x.purchase_request_status || "none"} />
+              <div className="text-[11px] text-slate-500">
+                {x.purchase_request_status && x.purchase_request_status !== "none"
+                  ? `by ${x.requested_by_name || "—"}`
+                  : "no request"}
               </div>
-            ) : (
-              <QtyBar current={x.current_qty} threshold={x.reorder_level} />
-            ),
-        },
-        {
-  key: "days",
-  label: "Est. days",
-  render: (x) =>
-    x?.__filler ? (
-      <SkeletonLine w="w-16" />
-    ) : (
-      <span className="text-sm font-semibold text-slate-800">
-        {x.est_days_left == null ? "—" : `${x.est_days_left}d`}
-      </span>
-    ),
-},
+            </div>
+          ),
+      },
+    ];
+  }, [isAdmin]);
 
-        {
-          key: "last",
-          label: "Last movement",
-          render: (x) => (x?.__filler ? <SkeletonLine w="w-28" /> : <span className="text-sm text-slate-700">{x.last_movement_at || "—"}</span>),
-        },
-      ];
-
-      if (!isAdmin) return base;
-
-      return [
-        ...base,
-        {
-          key: "req_status",
-          label: "Request",
-          render: (x) =>
-            x?.__filler ? (
-              <SkeletonPill w="w-24" />
-            ) : (
-              <div className="space-y-1">
-                <StatusPill status={x.purchase_request_status || "none"} />
-                <div className="text-[11px] text-slate-500">
-                  {x.purchase_request_status && x.purchase_request_status !== "none"
-                    ? `by ${x.requested_by_name || "—"}`
-                    : "no request"}
-                </div>
-              </div>
-            ),
-        },
-      ];
-    },
-    [isAdmin]
-  );
-
-  const notifyAdmin = () => {
-    // placeholder: wire to backend notification later
-    alert("Notify Admin queued (wire backend later)");
-  };
+  const notifyAdmin = () => setNotifyOpen(true);
+  const openThresholds = () => setThresholdsOpen(true);
 
   const approveRequest = (row) => {
-    // placeholder: replace with real route
-    router.post(
-      `/dashboard/admin/purchase-requests/${row.purchase_request_id}/approve`,
-      {},
-      { preserveScroll: true }
-    );
+    setConfirm({
+      open: true,
+      tone: "teal",
+      title: "Approve purchase request",
+      message: `Approve request for ${row.name} (${row.variant})? This will mark it approved.`,
+      onConfirm: () => {
+        setConfirm((p) => ({ ...p, open: false }));
+        router.post(
+          `/dashboard/admin/purchase-requests/${row.purchase_request_id}/approve`,
+          {},
+          { preserveScroll: true }
+        );
+      },
+    });
   };
 
   const rejectRequest = (row) => {
-    // placeholder: replace with real route
-    router.post(
-      `/dashboard/admin/purchase-requests/${row.purchase_request_id}/reject`,
-      {},
-      { preserveScroll: true }
-    );
-  };
-
-  const openThresholds = () => {
-    // placeholder: ideally a dedicated admin page, or modal later
-    router.get("/dashboard/admin/inventory/thresholds", {}, { preserveScroll: true });
+    setConfirm({
+      open: true,
+      tone: "rose",
+      title: "Reject purchase request",
+      message: `Reject request for ${row.name} (${row.variant})?`,
+      onConfirm: () => {
+        setConfirm((p) => ({ ...p, open: false }));
+        router.post(
+          `/dashboard/admin/purchase-requests/${row.purchase_request_id}/reject`,
+          {},
+          { preserveScroll: true }
+        );
+      },
+    });
   };
 
   return (
@@ -457,22 +484,8 @@ export default function LowStock() {
           onQ={handleSearch}
           placeholder="Search item, SKU, supplier..."
           filters={[
-            {
-              key: "risk",
-              value: risk,
-              onChange: handleRisk,
-              options: riskOptions,
-            },
-            ...(isAdmin
-              ? [
-                  {
-                    key: "req",
-                    value: req,
-                    onChange: handleReq,
-                    options: reqOptions,
-                  },
-                ]
-              : []),
+            { key: "risk", value: risk, onChange: handleRisk, options: riskOptions },
+            ...(isAdmin ? [{ key: "req", value: req, onChange: handleReq, options: reqOptions }] : []),
           ]}
         />
 
@@ -549,6 +562,42 @@ export default function LowStock() {
           onNext={handleNext}
           disablePrev={!meta || meta.current_page <= 1}
           disableNext={!meta || meta.current_page >= meta.last_page}
+        />
+
+        <NotifyAdminModal
+          open={notifyOpen}
+          onClose={() => setNotifyOpen(false)}
+          items={rows}
+          onSubmit={(payload) => {
+            router.post(
+              "/dashboard/inventory/low-stock/notify-admin",
+              payload,
+              { preserveScroll: true, onSuccess: () => setNotifyOpen(false) }
+            );
+          }}
+        />
+
+        <ThresholdsModal
+          open={thresholdsOpen}
+          onClose={() => setThresholdsOpen(false)}
+          items={rows}
+          onSave={(payload) => {
+            router.post(
+              "/dashboard/admin/inventory/thresholds",
+              payload,
+              { preserveScroll: true, onSuccess: () => setThresholdsOpen(false) }
+            );
+          }}
+        />
+
+        <ConfirmActionModal
+          open={confirm.open}
+          onClose={() => setConfirm((p) => ({ ...p, open: false }))}
+          title={confirm.title}
+          message={confirm.message}
+          tone={confirm.tone}
+          confirmLabel={confirm.tone === "rose" ? "Reject" : "Approve"}
+          onConfirm={confirm.onConfirm || (() => {})}
         />
       </div>
     </Layout>

@@ -19,7 +19,7 @@ import {
   Truck,
   MapPin,
   ClipboardList,
-  History,  
+  History,
 
   // Inventory
   Boxes,
@@ -31,11 +31,19 @@ import {
   Info,
   ChevronRight,
 
+  // Inventory actions / shared actions
+  ArrowRight,
+  PlusCircle,
+  Bell,
+  CheckCircle2,
+  XCircle,
+  SlidersHorizontal,
+
   // Accountant
   BookOpen,
   CalendarDays,
 
-  // POS UI + Actions
+  // POS / UI / Actions
   Wallet,
   Smartphone,
   ScanLine,
@@ -43,14 +51,16 @@ import {
   Search,
   Flame,
   Wrench,
-
   Plus,
   Minus,
   Trash2,
   Banknote,
-  ArrowRight,
 } from "lucide-react";
 
+/**
+ * Sidebar icons
+ * Used for navigation across all roles
+ */
 export const sidebarIconMap = {
   // Core
   overview: LayoutDashboard,
@@ -81,29 +91,47 @@ export const sidebarIconMap = {
   purchases: PackagePlus,
   suppliers: Building2,
   products: Package,
-  info: Info,
-  warning: AlertTriangle,
-  chevronRight: ChevronRight,
 
   // Accountant
   daily: CalendarDays,
   ledger: BookOpen,
+};
 
-  // POS icons (shared, not sidebar specific)
-  posCart: ShoppingCart,
-  posCash: Wallet,
-  posCashAlt: Banknote,
-  posGcash: Smartphone,
-  posCard: CreditCard,
-  posBarcode: ScanLine,
-  posReceipt: Receipt,
-  posSearch: Search,
+/**
+ * Inventory + Admin action icons
+ * Used in tables, modals, buttons
+ */
+export const inventoryActionIcons = {
+  warning: AlertTriangle,
+  info: Info,
+  notify: Bell,
+  newPurchase: PlusCircle,
+  approve: CheckCircle2,
+  reject: XCircle,
+  thresholds: SlidersHorizontal,
+  arrow: ArrowRight,
+  chevron: ChevronRight,
+};
 
-  posAdd: Plus,
-  posMinus: Minus,
-  posRemove: Trash2,
-  posNext: ArrowRight,
+/**
+ * POS / transactional icons
+ * Shared across cashier & POS UI
+ */
+export const posIcons = {
+  cart: ShoppingCart,
+  cash: Wallet,
+  cashAlt: Banknote,
+  gcash: Smartphone,
+  card: CreditCard,
+  barcode: ScanLine,
+  receipt: Receipt,
+  search: Search,
 
-  posLpg: Flame,
-  posAccessories: Wrench,
+  add: Plus,
+  minus: Minus,
+  remove: Trash2,
+  next: ArrowRight,
+
+  lpg: Flame,
+  accessories: Wrench,
 };
