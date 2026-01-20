@@ -4,7 +4,8 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use App\Http\Controllers\Auth\LoginController;
-use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\SupplierController; # DAPAT NAA NI SA INVENTORY FOLDER PERO LATER NA I CHANGE BASIG DI MA AUTO REFACTOR
+use App\Http\Controllers\Inventory\StockController;
 
 Route::get('/', function () {
     if (Auth::check()) {
@@ -26,6 +27,7 @@ Route::get('/', function () {
 
 Route::post('/login', [LoginController::class, 'store'])->name('login');
 Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
+Route::get('/login', function () {return redirect('/');});
 
 Route::middleware(['auth'])->group(function () {
 
@@ -70,7 +72,8 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('dashboard/inventory')->middleware('role:inventory_manager')->group(function () {
         Route::get('/', fn () => Inertia::render('Dashboard/Dashboard'))->name('dash.inventory');
 
-        Route::get('/counts', fn () => Inertia::render('InventoryPage/StockCounts'))->name('dash.inventory.counts');
+
+        Route::get('/counts', [StockController::class, 'index'])->name('dash.inventory.counts');
         Route::get('/movements', fn () => Inertia::render('InventoryPage/Movements'))->name('dash.inventory.movements');
         Route::get('/low-stock', fn () => Inertia::render('InventoryPage/LowStock'))->name('dash.inventory.lowstock');
         Route::get('/purchases', fn () => Inertia::render('InventoryPage/Purchases'))->name('dash.inventory.purchases');
