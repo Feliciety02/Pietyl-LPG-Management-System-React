@@ -6,19 +6,47 @@ const ROLE_META = {
   admin: {
     title: "Admin Panel",
     items: [
-  { label: "Overview", href: "/dashboard/admin", icon: "overview" },
-  { label: "Users", href: "/dashboard/admin/users", icon: "users" },
-  { label: "Employees", href: "/dashboard/admin/employees", icon: "employees" },
-  { label: "Roles", href: "/dashboard/admin/roles", icon: "roles" },
-  { label: "Products", href: "/dashboard/admin/products", icon: "products" },
-  { label: "Suppliers", href: "/dashboard/admin/suppliers", icon: "suppliers" },
-  { label: "Audit Logs", href: "/dashboard/admin/audit", icon: "audit" },
-  { label: "Reports", href: "/dashboard/admin/reports", icon: "reports" },
-  { label: "Customers", href: "/dashboard/admin/customers", icon: "reports" },
-  { label: "Low Stock", href: "/dashboard/inventory/low-stock", icon: "lowStock" },
-  { label: "Payroll", href: "/dashboard/accountant/payroll", icon: "ledger" },
-
-
+      {
+        type: "group",
+        label: "Overview",
+        items: [
+          { label: "Overview", href: "/dashboard/admin", icon: "overview" },
+          { label: "Reports", href: "/dashboard/admin/reports", icon: "reports" },
+        ],
+      },
+      {
+        type: "group",
+        label: "People",
+        items: [
+          { label: "Users", href: "/dashboard/admin/users", icon: "users" },
+          { label: "Employees", href: "/dashboard/admin/employees", icon: "employees" },
+          { label: "Roles", href: "/dashboard/admin/roles", icon: "roles" },
+          { label: "Customers", href: "/dashboard/admin/customers", icon: "customers" },
+        ],
+      },
+      {
+        type: "group",
+        label: "Catalog",
+        items: [
+          { label: "Products", href: "/dashboard/admin/products", icon: "products" },
+          { label: "Suppliers", href: "/dashboard/admin/suppliers", icon: "suppliers" },
+          { label: "Low Stock", href: "/dashboard/inventory/low-stock", icon: "lowStock" },
+        ],
+      },
+      {
+        type: "group",
+        label: "Finance",
+        items: [
+          { label: "Payroll", href: "/dashboard/accountant/payroll", icon: "payroll" },
+        ],
+      },
+      {
+        type: "group",
+        label: "Security",
+        items: [
+          { label: "Audit Logs", href: "/dashboard/admin/audit", icon: "audit" },
+        ],
+      },
     ],
   },
 
@@ -39,7 +67,7 @@ const ROLE_META = {
       { label: "Remittances", href: "/dashboard/accountant/remittances", icon: "remittance" },
       { label: "Daily Summary", href: "/dashboard/accountant/daily", icon: "daily" },
       { label: "Ledger", href: "/dashboard/accountant/ledger", icon: "ledger" },
-      { label: "Payroll", href: "/dashboard/accountant/payroll", icon: "ledger" },
+      { label: "Payroll", href: "/dashboard/accountant/payroll", icon: "payroll" },
       { label: "Reports", href: "/dashboard/accountant/reports", icon: "reports" },
     ],
   },
@@ -88,11 +116,7 @@ export default function Layout({ children, title }) {
   const items = useMemo(() => meta.items, [roleKey]);
 
   return (
-    <DashboardShell
-      title={title || meta.title}
-      sidebarTitle={meta.title}
-      items={items}
-    >
+    <DashboardShell title={title || meta.title} sidebarTitle={meta.title} items={items}>
       {children}
     </DashboardShell>
   );

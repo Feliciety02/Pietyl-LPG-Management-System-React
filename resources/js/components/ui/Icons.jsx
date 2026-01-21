@@ -42,6 +42,7 @@ import {
   // Accountant
   BookOpen,
   CalendarDays,
+  BadgeDollarSign,
 
   // POS / UI / Actions
   Wallet,
@@ -95,6 +96,7 @@ export const sidebarIconMap = {
   // Accountant
   daily: CalendarDays,
   ledger: BookOpen,
+  payroll: BadgeDollarSign,
 };
 
 /**
