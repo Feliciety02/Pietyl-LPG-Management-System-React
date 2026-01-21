@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
 use App\Models\Stock;
 use Inertia\Inertia;
 
@@ -37,5 +38,26 @@ class StockController extends Controller
                 ],
             ],
         ]);
+    }
+
+
+
+    public function update(Request $request, Stock $stock)
+    {
+        $validated = $request->validate([
+            'filled_qty' => 'required|integer|min:0',
+            'empty_qty' => 'required|integer|min:0',
+            'reason' => 'nullable|string|max:255',
+        ]);
+
+        $stock->update([
+            'filled_qty' => $validated['filled_qty'],
+            'empty_qty' => $validated['empty_qty'],
+            'reason' => $validated['reason'],
+            'last_counted_at' => now(),
+            'updated_by' => auth()->user()->name ?? 'System',
+        ]);
+
+        return back()->with('success', 'Stock updated successfully');
     }
 }

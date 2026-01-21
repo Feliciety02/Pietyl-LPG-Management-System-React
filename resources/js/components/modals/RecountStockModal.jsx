@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { ShieldAlert, CheckCircle2, X } from "lucide-react";
 import ModalShell from "./ModalShell";
+import { router } from "@inertiajs/react";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -31,6 +32,22 @@ export default function RecountStockModal({
 
   const canSave = Boolean(String(reason || "").trim()) && !submitting;
 
+  const handleSubmit = () => {
+    router.post(
+      `/dashboard/inventory/counts/${item.id}`,
+      {
+        filled_qty: filledN,
+        empty_qty: emptyN,
+        reason,
+      },
+      {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => onClose(),
+      }
+    );
+  };
+
   return (
     <ModalShell open={open} onClose={onClose} maxWidthClass="max-w-xl">
       {/* Header */}
@@ -57,10 +74,10 @@ export default function RecountStockModal({
       {/* Body */}
       <div className="p-6">
         <form
-          onSubmit={(e) => {
+            onSubmit={(e) => {
             e.preventDefault();
             if (!canSave) return;
-            onSubmit?.();
+            handleSubmit();
           }}
           className="grid gap-4"
         >

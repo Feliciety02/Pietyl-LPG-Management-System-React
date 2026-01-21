@@ -70,10 +70,14 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::prefix('dashboard/inventory')->middleware('role:inventory_manager')->group(function () {
+        // Dashboard
         Route::get('/', fn () => Inertia::render('Dashboard/Dashboard'))->name('dash.inventory');
 
-
+        // Stock page
         Route::get('/counts', [StockController::class, 'index'])->name('dash.inventory.counts');
+        Route::post('/counts/{stock}', [StockController::class, 'update'])->name('dash.inventory.counts.update');
+
+    
         Route::get('/movements', fn () => Inertia::render('InventoryPage/Movements'))->name('dash.inventory.movements');
         Route::get('/low-stock', fn () => Inertia::render('InventoryPage/LowStock'))->name('dash.inventory.lowstock');
         Route::get('/purchases', fn () => Inertia::render('InventoryPage/Purchases'))->name('dash.inventory.purchases');
