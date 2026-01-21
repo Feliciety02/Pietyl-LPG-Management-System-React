@@ -3,7 +3,7 @@ import React, { useMemo, useState } from "react";
 import { router, usePage, Link } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
 import AddCustomerModal from "@/components/modals/AddCustomerModal";
-import { sidebarIconMap } from "@/components/ui/Icons";
+import { posIcons, sidebarIconMap } from "@/components/ui/Icons";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -74,46 +74,25 @@ export default function NewSale() {
   const isAdmin = roleKey === "admin";
   const readOnly = isAdmin || Boolean(page.props?.pos_read_only);
 
-  const PosCart = sidebarIconMap.posCart;
-  const PosSearch = sidebarIconMap.posSearch;
-  const PosCash = sidebarIconMap.posCashAlt || sidebarIconMap.posCash;
-  const PosGcash = sidebarIconMap.posGcash;
-  const PosCard = sidebarIconMap.posCard;
+// POS icons
+const PosCart = posIcons.cart;
+const PosSearch = posIcons.search;
+const PosCash = posIcons.cashAlt || posIcons.cash;
+const PosGcash = posIcons.gcash;
+const PosCard = posIcons.card;
 
-  const PosAdd = sidebarIconMap.posAdd;
-  const PosMinus = sidebarIconMap.posMinus;
-  const PosRemove = sidebarIconMap.posRemove;
-  const PosNext = sidebarIconMap.posNext;
+const PosAdd = posIcons.add;
+const PosMinus = posIcons.minus;
+const PosRemove = posIcons.remove;
+const PosNext = posIcons.next;
 
-  const CustomersIcon = sidebarIconMap.customers;
-  const DeliveriesIcon = sidebarIconMap.deliveries;
+const PosLpg = posIcons.lpg;
+const PosAccessories = posIcons.accessories;
 
-  const PosLpg = sidebarIconMap.posLpg;
-  const PosAccessories = sidebarIconMap.posAccessories;
+// Shared sidebar icons
+const CustomersIcon = sidebarIconMap.customers;
+const DeliveriesIcon = sidebarIconMap.deliveries;
 
-  /*
-    POS (Merged Refill or Swap)
-
-    Purpose
-    - One screen checkout for walk in and delivery orders
-    - Refill or swap selection is inside POS
-    - Cashier completes sales quickly with minimal clicks
-
-    Cashier can
-    - Add items to cart
-    - Choose refill or swap
-    - Select customer
-    - Select payment method
-    - Finalize sale
-
-    Cashier should not
-    - Edit product prices
-    - Override stock rules
-    - Edit completed sales
-
-    Admin can
-    - View POS for oversight (recommended read only)
-  */
 
   /*
     Expected backend props (later)
