@@ -1,9 +1,10 @@
-// resources/js/pages/Dashboard/CashierPage/NewSale.jsx
+
 import React, { useMemo, useState } from "react";
 import { router, usePage, Link } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
 import AddCustomerModal from "@/components/modals/AddCustomerModal";
 import { posIcons, sidebarIconMap } from "@/components/ui/Icons";
+import { Info } from "lucide-react";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -62,7 +63,7 @@ function formatPeso(n) {
   try {
     return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(v);
   } catch {
-    return `₱${v.toFixed(2)}`;
+    return `₱${ v.toFixed(2) }`;
   }
 }
 
@@ -74,41 +75,22 @@ export default function NewSale() {
   const isAdmin = roleKey === "admin";
   const readOnly = isAdmin || Boolean(page.props?.pos_read_only);
 
-// POS icons
-const PosCart = posIcons.cart;
-const PosSearch = posIcons.search;
-const PosCash = posIcons.cashAlt || posIcons.cash;
-const PosGcash = posIcons.gcash;
-const PosCard = posIcons.card;
+  const PosCart = posIcons.cart;
+  const PosSearch = posIcons.search;
+  const PosCash = posIcons.cashAlt || posIcons.cash;
+  const PosGcash = posIcons.gcash;
+  const PosCard = posIcons.card;
 
-const PosAdd = posIcons.add;
-const PosMinus = posIcons.minus;
-const PosRemove = posIcons.remove;
-const PosNext = posIcons.next;
+  const PosAdd = posIcons.add;
+  const PosMinus = posIcons.minus;
+  const PosRemove = posIcons.remove;
+  const PosNext = posIcons.next;
 
-const PosLpg = posIcons.lpg;
-const PosAccessories = posIcons.accessories;
+  const PosLpg = posIcons.lpg;
+  const PosAccessories = posIcons.accessories;
 
-// Shared sidebar icons
-const CustomersIcon = sidebarIconMap.customers;
-const DeliveriesIcon = sidebarIconMap.deliveries;
-
-
-  /*
-    Expected backend props (later)
-    products: [{
-      id,
-      name,
-      variant,
-      category,   // "lpg" | "accessories" | "service"
-      sku,
-      price_refill,
-      price_swap,
-      is_active,
-      in_stock_qty
-    }]
-    customers: [{ id, name, phone }]
-  */
+  const CustomersIcon = sidebarIconMap.customers;
+  const DeliveriesIcon = sidebarIconMap.deliveries;
 
   const SAMPLE_PRODUCTS = [
     { id: 1, name: "LPG Cylinder", variant: "11kg", category: "lpg", price_refill: 850, price_swap: 1050 },
@@ -129,26 +111,20 @@ const DeliveriesIcon = sidebarIconMap.deliveries;
   const [mode, setMode] = useState("refill");
   const [delivery, setDelivery] = useState(false);
   const [payment, setPayment] = useState("cash");
+  const [paymentRef, setPaymentRef] = useState("");
   const [customerId, setCustomerId] = useState(customers?.[0]?.id || null);
   const [q, setQ] = useState("");
   const [openAddCustomer, setOpenAddCustomer] = useState(false);
 
-  const [category, setCategory] = useState("all"); // all | lpg | accessories
-
+  const [category, setCategory] = useState("all");
   const [cart, setCart] = useState([]);
 
   const filteredProducts = useMemo(() => {
     const s = String(q || "").toLowerCase().trim();
 
     return products
-      .filter((p) => {
-        if (category === "all") return true;
-        return String(p.category || "").toLowerCase() === category;
-      })
-      .filter((p) => {
-        if (!s) return true;
-        return `${p.name} ${p.variant}`.toLowerCase().includes(s);
-      });
+      .filter((p) => (category === "all" ? true : String(p.category || "").toLowerCase() === category))
+      .filter((p) => (!s ? true : `${ p.name } ${ p.variant }`.toLowerCase().includes(s)));
   }, [products, q, category]);
 
   const selectedCustomer = useMemo(() => {
@@ -159,7 +135,7 @@ const DeliveriesIcon = sidebarIconMap.deliveries;
     if (readOnly) return;
 
     const price = mode === "swap" ? Number(p.price_swap || 0) : Number(p.price_refill || 0);
-    const key = `${p.id}:${mode}`;
+    const key = `${ p.id }:${ mode }`;
 
     setCart((prev) => {
       const idx = prev.findIndex((x) => x._key === key);
@@ -170,15 +146,7 @@ const DeliveriesIcon = sidebarIconMap.deliveries;
       }
       return [
         ...prev,
-        {
-          _key: key,
-          product_id: p.id,
-          name: p.name,
-          variant: p.variant,
-          mode,
-          unit_price: price,
-          qty: 1,
-        },
+        { _key: key, product_id: p.id, name: p.name, variant: p.variant, mode, unit_price: price, qty: 1 },
       ];
     });
   };
@@ -205,7 +173,13 @@ const DeliveriesIcon = sidebarIconMap.deliveries;
   const discount = 0;
   const total = Math.max(0, subtotal - discount);
 
-  const canCheckout = cart.length > 0 && !readOnly;
+  const gcashNeedsRef = payment === "gcash";
+  const cardNeedsRef = payment === "card";
+  const needsRef = gcashNeedsRef || cardNeedsRef;
+
+  const validRef = !needsRef || String(paymentRef || "").trim().length >= 4;
+
+  const canCheckout = cart.length > 0 && !readOnly && validRef;
 
   const checkout = () => {
     if (!canCheckout) return;
@@ -216,6 +190,7 @@ const DeliveriesIcon = sidebarIconMap.deliveries;
         customer_id: customerId,
         is_delivery: delivery,
         payment_method: payment,
+        payment_ref: needsRef ? String(paymentRef || "").trim() : null,
         lines: cart.map((x) => ({
           product_id: x.product_id,
           qty: x.qty,
@@ -228,6 +203,7 @@ const DeliveriesIcon = sidebarIconMap.deliveries;
         onSuccess: () => {
           setCart([]);
           setQ("");
+          setPaymentRef("");
         },
       }
     );
@@ -242,9 +218,7 @@ const DeliveriesIcon = sidebarIconMap.deliveries;
               title="Product catalog"
               right={
                 <div className="flex items-center gap-2">
-                  <Pill active={category === "all"} onClick={() => setCategory("all")}>
-                    All
-                  </Pill>
+                  <Pill active={category === "all"} onClick={() => setCategory("all")}>All</Pill>
 
                   <Pill active={category === "lpg"} onClick={() => setCategory("lpg")}>
                     <span className="inline-flex items-center gap-2">
@@ -263,21 +237,18 @@ const DeliveriesIcon = sidebarIconMap.deliveries;
               }
             />
 
-            {/* fixed width search container so it never "expands" visually */}
             <div className="px-6 py-4 border-b border-slate-200">
-              <div className="max-w-full">
-                <div className="w-full flex items-center gap-2 rounded-2xl bg-white ring-1 ring-slate-200 px-3 py-2.5 focus-within:ring-teal-500/30">
-                  <PosSearch className="h-4 w-4 text-slate-500 shrink-0" />
-                  <input
-                    value={q}
-                    onChange={(e) => setQ(e.target.value)}
-                    placeholder="Search LPG, 11kg, regulator..."
-                    className="w-full min-w-0 bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
-                  />
-                </div>
-                <div className="mt-2 text-xs text-slate-500">
-                  Choose refill or swap in the right panel, then tap products to add.
-                </div>
+              <div className="w-full flex items-center gap-2 rounded-2xl bg-white ring-1 ring-slate-200 px-3 py-2.5 focus-within:ring-teal-500/30">
+                <PosSearch className="h-4 w-4 text-slate-500 shrink-0" />
+                <input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Search LPG, 11kg, regulator..."
+                  className="w-full min-w-0 bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+                />
+              </div>
+              <div className="mt-2 text-xs text-slate-500">
+                Tap products to add. Payment is recorded before delivery dispatch.
               </div>
             </div>
 
@@ -294,9 +265,7 @@ const DeliveriesIcon = sidebarIconMap.deliveries;
                       disabled={readOnly}
                       className={cx(
                         "text-left rounded-3xl p-4 ring-1 transition",
-                        readOnly
-                          ? "bg-slate-50 ring-slate-200 cursor-not-allowed"
-                          : "bg-white ring-slate-200 hover:bg-slate-50"
+                        readOnly ? "bg-slate-50 ring-slate-200 cursor-not-allowed" : "bg-white ring-slate-200 hover:bg-slate-50"
                       )}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -317,13 +286,6 @@ const DeliveriesIcon = sidebarIconMap.deliveries;
                   );
                 })}
               </div>
-
-              {!readOnly && filteredProducts.length === 0 ? (
-                <div className="mt-4 rounded-3xl bg-slate-50 ring-1 ring-slate-200 p-6 text-center">
-                  <div className="text-sm font-extrabold text-slate-900">No products found</div>
-                  <div className="mt-1 text-xs text-slate-600">Try a different search or category.</div>
-                </div>
-              ) : null}
             </div>
           </Card>
         </div>
@@ -334,12 +296,9 @@ const DeliveriesIcon = sidebarIconMap.deliveries;
               title="Sale setup"
               right={
                 <div className="flex flex-wrap items-center gap-2">
-                  <Pill active={mode === "refill"} onClick={() => setMode("refill")}>
-                    Refill
-                  </Pill>
-                  <Pill active={mode === "swap"} onClick={() => setMode("swap")}>
-                    Swap
-                  </Pill>
+                  <Pill active={mode === "refill"} onClick={() => setMode("refill")}>Refill</Pill>
+                  <Pill active={mode === "swap"} onClick={() => setMode("swap")}>Swap</Pill>
+
                   <Pill active={delivery} onClick={() => setDelivery((v) => !v)}>
                     <span className="inline-flex items-center gap-2">
                       <DeliveriesIcon className="h-4 w-4" />
@@ -357,55 +316,42 @@ const DeliveriesIcon = sidebarIconMap.deliveries;
             />
 
             <div className="p-6 grid gap-4">
-              <div className="min-w-0">
-                <div className="text-xs font-extrabold text-slate-700">Customer</div>
-                <div className="mt-2 flex gap-2">
-                  <select
-                    value={customerId || ""}
-                    onChange={(e) => setCustomerId(Number(e.target.value))}
-                    className="w-full rounded-2xl bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 ring-1 ring-slate-200 outline-none focus:ring-4 focus:ring-teal-500/20"
-                    disabled={readOnly}
-                  >
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} {c.phone ? `• ${c.phone}` : ""}
-                      </option>
-                    ))}
-                  </select>
+              <div className="text-xs font-extrabold text-slate-700">Customer</div>
 
-                  <button
-                    type="button"
-                    onClick={() => setOpenAddCustomer(true)}
-                    className={cx(
-                      "shrink-0 inline-flex items-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-extrabold ring-1 transition",
-                      readOnly
-                        ? "bg-slate-100 text-slate-400 ring-slate-200 cursor-not-allowed"
-                        : "bg-white text-slate-800 ring-slate-200 hover:bg-slate-50"
-                    )}
-                    disabled={readOnly}
-                    title="Add customer"
-                  >
-                    <CustomersIcon className={cx("h-4 w-4", readOnly ? "text-slate-400" : "text-slate-600")} />
-                    Add
-                  </button>
-                </div>
+              <div className="flex gap-2">
+                <select
+                  value={customerId || ""}
+                  onChange={(e) => setCustomerId(Number(e.target.value))}
+                  className="w-full rounded-2xl bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 ring-1 ring-slate-200 outline-none focus:ring-4 focus:ring-teal-500/20"
+                  disabled={readOnly}
+                >
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.phone ? `• ${ c.phone }` : ""}
+                    </option>
+                  ))}
+                </select>
 
-                <div className="mt-2 text-xs text-slate-500">
-                  {selectedCustomer ? (
-                    <span>
-                      Selected: <span className="font-semibold text-slate-700">{selectedCustomer.name}</span>
-                    </span>
-                  ) : (
-                    <span>Select a customer (or use Walk in).</span>
+                <button
+                  type="button"
+                  onClick={() => setOpenAddCustomer(true)}
+                  className={cx(
+                    "shrink-0 inline-flex items-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-extrabold ring-1 transition",
+                    readOnly ? "bg-slate-100 text-slate-400 ring-slate-200 cursor-not-allowed" : "bg-white text-slate-800 ring-slate-200 hover:bg-slate-50"
                   )}
-                </div>
-
-                {isAdmin ? (
-                  <div className="mt-3 rounded-2xl bg-slate-50 ring-1 ring-slate-200 px-3 py-2 text-xs text-slate-600">
-                    Admin view only mode. To test cashier actions, log in as cashier.
-                  </div>
-                ) : null}
+                  disabled={readOnly}
+                  title="Add customer"
+                >
+                  <CustomersIcon className={cx("h-4 w-4", readOnly ? "text-slate-400" : "text-slate-600")} />
+                  Add
+                </button>
               </div>
+
+              {isAdmin ? (
+                <div className="rounded-2xl bg-slate-50 ring-1 ring-slate-200 px-3 py-2 text-xs text-slate-600">
+                  Admin view only mode. To test cashier actions, log in as cashier.
+                </div>
+              ) : null}
             </div>
           </Card>
 
@@ -440,9 +386,7 @@ const DeliveriesIcon = sidebarIconMap.deliveries;
                         disabled={readOnly}
                         className={cx(
                           "rounded-2xl p-2 ring-1 transition",
-                          readOnly
-                            ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed"
-                            : "bg-white ring-slate-200 hover:bg-slate-50"
+                          readOnly ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed" : "bg-white ring-slate-200 hover:bg-slate-50"
                         )}
                         title="Remove"
                       >
@@ -458,18 +402,14 @@ const DeliveriesIcon = sidebarIconMap.deliveries;
                           disabled={readOnly}
                           className={cx(
                             "rounded-2xl p-2 ring-1 transition",
-                            readOnly
-                              ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed"
-                              : "bg-white ring-slate-200 hover:bg-slate-50"
+                            readOnly ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed" : "bg-white ring-slate-200 hover:bg-slate-50"
                           )}
                           aria-label="Decrease quantity"
                         >
                           <PosMinus className="h-4 w-4" />
                         </button>
 
-                        <div className="min-w-[44px] text-center text-sm font-extrabold text-slate-900">
-                          {x.qty}
-                        </div>
+                        <div className="min-w-[44px] text-center text-sm font-extrabold text-slate-900">{x.qty}</div>
 
                         <button
                           type="button"
@@ -477,9 +417,7 @@ const DeliveriesIcon = sidebarIconMap.deliveries;
                           disabled={readOnly}
                           className={cx(
                             "rounded-2xl p-2 ring-1 transition",
-                            readOnly
-                              ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed"
-                              : "bg-white ring-slate-200 hover:bg-slate-50"
+                            readOnly ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed" : "bg-white ring-slate-200 hover:bg-slate-50"
                           )}
                           aria-label="Increase quantity"
                         >
@@ -501,25 +439,31 @@ const DeliveriesIcon = sidebarIconMap.deliveries;
             <SectionTitle title="Payment" right={<div className="text-xs text-slate-500">Select method</div>} />
             <div className="p-6 grid gap-4">
               <div className="flex flex-wrap gap-2">
-                <IconPill
-                  active={payment === "cash"}
-                  onClick={() => setPayment("cash")}
-                  icon={PosCash}
-                  label="Cash"
-                />
-                <IconPill
-                  active={payment === "gcash"}
-                  onClick={() => setPayment("gcash")}
-                  icon={PosGcash}
-                  label="GCash"
-                />
-                <IconPill
-                  active={payment === "card"}
-                  onClick={() => setPayment("card")}
-                  icon={PosCard}
-                  label="Card"
-                />
+                <IconPill active={payment === "cash"} onClick={() => { setPayment("cash"); setPaymentRef(""); }} icon={PosCash} label="Cash" />
+                <IconPill active={payment === "gcash"} onClick={() => setPayment("gcash")} icon={PosGcash} label="GCash" />
+                <IconPill active={payment === "card"} onClick={() => setPayment("card")} icon={PosCard} label="Card" />
               </div>
+
+              {needsRef ? (
+                <div>
+                  <label className="text-xs font-extrabold text-slate-700">
+                    {payment === "gcash" ? "GCash reference number" : "Card reference number"}
+                  </label>
+                  <input
+                    value={paymentRef}
+                    onChange={(e) => setPaymentRef(e.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm font-extrabold focus:outline-none focus:ring-4 focus:ring-teal-500/15"
+                    placeholder={payment === "gcash" ? "Enter GCash reference" : "Enter card reference"}
+                    disabled={readOnly}
+                  />
+                  <div className="mt-2 flex items-start gap-2 text-xs text-slate-500">
+                    <Info className="mt-0.5 h-4 w-4 text-slate-400" />
+                    <div className="leading-relaxed">
+                      Required so this payment can be verified later if needed.
+                    </div>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="rounded-3xl bg-slate-50 ring-1 ring-slate-200 p-5">
                 <div className="flex items-center justify-between text-sm">
@@ -543,9 +487,7 @@ const DeliveriesIcon = sidebarIconMap.deliveries;
                 disabled={!canCheckout}
                 className={cx(
                   "w-full inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-extrabold ring-1 transition focus:outline-none focus:ring-4 focus:ring-teal-500/25",
-                  canCheckout
-                    ? "bg-teal-600 text-white ring-teal-600 hover:bg-teal-700"
-                    : "bg-slate-200 text-slate-500 ring-slate-200 cursor-not-allowed"
+                  canCheckout ? "bg-teal-600 text-white ring-teal-600 hover:bg-teal-700" : "bg-slate-200 text-slate-500 ring-slate-200 cursor-not-allowed"
                 )}
               >
                 Confirm payment
@@ -560,8 +502,10 @@ const DeliveriesIcon = sidebarIconMap.deliveries;
                       Back to dashboard
                     </Link>
                   </span>
+                ) : needsRef && !validRef ? (
+                  <span>Please enter a valid reference number to continue.</span>
                 ) : (
-                  <span>Finalize the sale after payment is received.</span>
+                  <span>Payment is recorded first, delivery is dispatched after.</span>
                 )}
               </div>
             </div>
