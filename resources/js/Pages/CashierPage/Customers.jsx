@@ -1,13 +1,20 @@
-// resources/js/pages/Dashboard/CashierPage/Customers.jsx
+
 import React, { useMemo, useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
 import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
-import { UserPlus, MoreVertical, History, ArrowRight } from "lucide-react";
+import { UserPlus, History, Eye, Pencil } from "lucide-react";
 import { SkeletonLine, SkeletonButton } from "@/components/ui/Skeleton";
 import AddCustomerModal from "@/components/modals/AddCustomerModal";
+
+import CustomerDetailsModal from "@/components/modals/CashierModals/CustomerDetailsModal";
+import EditCustomerModal from "@/components/modals/CashierModals/EditCustomerModal";
+
+function cx(...classes) {
+  return classes.filter(Boolean).join(" ");
+}
 
 function TopCard({ title, subtitle, right }) {
   return (
@@ -34,44 +41,50 @@ function buildRoleRoutes(roleKey) {
   const listHref = isAdmin ? "/dashboard/admin/customers" : "/dashboard/cashier/customers";
   const postTo = isAdmin ? "/dashboard/admin/customers" : "/dashboard/cashier/customers";
 
+  // update endpoint suggestion
+  const updateBase = isAdmin ? "/dashboard/admin/customers" : "/dashboard/cashier/customers";
+
   const posHref = "/dashboard/cashier/new-sale";
 
-  return { isAdmin, isCashier, listHref, postTo, posHref };
+  return { isAdmin, isCashier, listHref, postTo, updateBase, posHref };
 }
 
 export default function Customers() {
   const page = usePage();
   const user = page.props?.auth?.user;
 
-  /*
-    Customer Lookup (Shared)
-
-    Purpose
-    • Quick customer search for linking to sales
-    • View purchase history summary
-
-    Cashier can
-    • Search customers
-    • Create basic customer record
-    • Link customer on POS
-
-    Admin can
-    • Search customers
-    • View customer activity and history
-    • Use for oversight and reporting
-
-    Both should not
-    • Delete customers (unless you explicitly allow it later)
-  */
-
   const roleKey = getRoleKey(user);
-  const { isAdmin, isCashier, listHref, postTo, posHref } = buildRoleRoutes(roleKey);
+  const { isAdmin, isCashier, listHref, postTo, updateBase, posHref } = buildRoleRoutes(roleKey);
 
   const SAMPLE = {
     data: [
-      { id: 101, name: "Ana Santos", phone: "0917 123 4567", address: "Davao City", purchases: 12 },
-      { id: 102, name: "Mark Dela Cruz", phone: "0922 222 8899", address: "Panabo City", purchases: 6 },
-      { id: 103, name: "Walk in profile", phone: "", address: "", purchases: 0 },
+      {
+        id: 101,
+        name: "Ana Santos",
+        phone: "0917 123 4567",
+        address: "Davao City",
+        purchases: 12,
+        last_purchase_at: "Today 9:20 AM",
+        total_spent: 8950,
+      },
+      {
+        id: 102,
+        name: "Mark Dela Cruz",
+        phone: "0922 222 8899",
+        address: "Panabo City",
+        purchases: 6,
+        last_purchase_at: "Yesterday 2:10 PM",
+        total_spent: 4210,
+      },
+      {
+        id: 103,
+        name: "Walk in profile",
+        phone: "",
+        address: "",
+        purchases: 0,
+        last_purchase_at: "",
+        total_spent: 0,
+      },
     ],
     meta: { current_page: 1, last_page: 1, from: 1, to: 3, total: 3 },
   };
@@ -88,6 +101,10 @@ export default function Customers() {
 
   const [q, setQ] = useState(qInitial);
   const [openAdd, setOpenAdd] = useState(false);
+
+  const [activeCustomer, setActiveCustomer] = useState(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const pushQuery = (patch) => {
     router.get(
@@ -121,6 +138,32 @@ export default function Customers() {
 
   const tableRows = loading ? fillerRows : rows;
 
+  const openDetails = (c) => {
+    setActiveCustomer(c);
+    setDetailsOpen(true);
+  };
+
+  const openEdit = (c) => {
+    setActiveCustomer(c);
+    setEditOpen(true);
+  };
+
+  const saveEdit = (payload) => {
+    if (!activeCustomer?.id) return;
+
+    router.put(
+      `${updateBase}/${activeCustomer.id}`,
+      payload,
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          setEditOpen(false);
+          router.reload({ only: ["customers"] });
+        },
+      }
+    );
+  };
+
   const columns = useMemo(
     () => [
       {
@@ -133,12 +176,19 @@ export default function Customers() {
               <SkeletonLine w="w-28" />
             </div>
           ) : (
-            <div>
-              <div className="font-extrabold text-slate-900">{c.name}</div>
+            <button
+              type="button"
+              onClick={() => openDetails(c)}
+              className="text-left group"
+              title="View customer details"
+            >
+              <div className="font-extrabold text-slate-900 group-hover:text-teal-700 transition">
+                {c.name}
+              </div>
               <div className="text-xs text-slate-500">
                 {c.phone || "No phone"} • {c.address || "No address"}
               </div>
-            </div>
+            </button>
           ),
       },
       {
@@ -166,7 +216,7 @@ export default function Customers() {
           subtitle={
             isAdmin
               ? "View customers and purchase activity for oversight and reporting."
-              : "Lookup customers, view purchase history, and link them to a sale."
+              : "Lookup customers, view purchase summary, and link them to a sale."
           }
           right={
             <div className="flex flex-wrap items-center gap-2">
@@ -178,8 +228,6 @@ export default function Customers() {
                 <UserPlus className="h-4 w-4" />
                 Add customer
               </button>
-
-            
             </div>
           }
         />
@@ -206,6 +254,7 @@ export default function Customers() {
                   <Link
                     href={`${posHref}?customer_id=${c.id}`}
                     className="rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
+                    title="Use this customer in POS"
                   >
                     Use in POS
                   </Link>
@@ -213,6 +262,7 @@ export default function Customers() {
                   <Link
                     href={`/dashboard/admin/customers/${c.id}`}
                     className="rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
+                    title="Open full customer profile"
                   >
                     View
                   </Link>
@@ -220,10 +270,20 @@ export default function Customers() {
 
                 <button
                   type="button"
+                  onClick={() => openDetails(c)}
                   className="rounded-2xl bg-white p-2 ring-1 ring-slate-200 hover:bg-slate-50"
-                  title="More actions"
+                  title="Quick view"
                 >
-                  <MoreVertical className="h-4 w-4 text-slate-600" />
+                  <Eye className="h-4 w-4 text-slate-600" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => openEdit(c)}
+                  className="rounded-2xl bg-white p-2 ring-1 ring-slate-200 hover:bg-slate-50"
+                  title="Edit customer"
+                >
+                  <Pencil className="h-4 w-4 text-slate-600" />
                 </button>
               </div>
             )
@@ -245,9 +305,22 @@ export default function Customers() {
         open={openAdd}
         onClose={() => setOpenAdd(false)}
         postTo={postTo}
-        onCreated={() => {
-          router.reload({ only: ["customers"] });
-        }}
+        onCreated={() => router.reload({ only: ["customers"] })}
+      />
+
+      <CustomerDetailsModal
+        open={detailsOpen}
+        onClose={() => setDetailsOpen(false)}
+        customer={activeCustomer}
+        isAdmin={isAdmin}
+        posHref={posHref}
+      />
+
+      <EditCustomerModal
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        customer={activeCustomer}
+        onSave={saveEdit}
       />
     </Layout>
   );

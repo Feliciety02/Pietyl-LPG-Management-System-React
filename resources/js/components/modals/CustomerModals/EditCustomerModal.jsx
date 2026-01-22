@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { router } from "@inertiajs/react";
-import { UserPlus, Phone, MapPin, StickyNote } from "lucide-react";
-import ModalShell from "./ModalShell";
+import { UserRound, Phone, MapPin, StickyNote } from "lucide-react";
+import ModalShell from "../ModalShell";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -11,9 +10,7 @@ function Field({ label, hint, children }) {
   return (
     <div>
       <div className="text-xs font-extrabold text-slate-700">{label}</div>
-      {hint ? (
-        <div className="mt-0.5 text-[11px] text-slate-500">{hint}</div>
-      ) : null}
+      {hint ? <div className="mt-0.5 text-[11px] text-slate-500">{hint}</div> : null}
       <div className="mt-2">{children}</div>
     </div>
   );
@@ -45,88 +42,58 @@ function Textarea({ icon: Icon, ...props }) {
   );
 }
 
-export default function AddCustomerModal({
-  open,
-  onClose,
-  postTo = "/dashboard/cashier/customers",
-  onCreated,
-  defaults,
-}) {
+export default function EditCustomerModal({ open, onClose, customer, onSave }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setName(defaults?.name || "");
-    setPhone(defaults?.phone || "");
-    setAddress(defaults?.address || "");
-    setNotes(defaults?.notes || "");
+    setName(customer?.name || "");
+    setPhone(customer?.phone || "");
+    setAddress(customer?.address || "");
+    setNotes(customer?.notes || "");
     setLocalError("");
-    setSubmitting(false);
-  }, [open, defaults]);
+    setSaving(false);
+  }, [open, customer]);
 
-  const phoneClean = useMemo(
-    () => String(phone || "").replace(/\s+/g, ""),
-    [phone]
-  );
+  const phoneClean = useMemo(() => String(phone || "").replace(/\s+/g, ""), [phone]);
 
   const canSubmit = useMemo(() => {
     if (!name.trim()) return false;
-    if (!phoneClean.trim()) return false;
+    if (phoneClean && !/^(\+?63|0)\d{10}$/.test(phoneClean)) return false;
     return true;
   }, [name, phoneClean]);
 
-  const validate = () => {
-    if (!name.trim()) return "Full name is required.";
-    if (!phoneClean.trim()) return "Mobile number is required.";
-    if (!/^(\+?63|0)\d{10}$/.test(phoneClean)) {
-      return "Mobile number looks invalid. Use 09XXXXXXXXX or +63XXXXXXXXXX.";
+  const submit = async () => {
+    if (!name.trim()) {
+      setLocalError("Full name is required.");
+      return;
     }
-    return "";
-  };
-
-  const submit = () => {
-    const err = validate();
-    if (err) {
-      setLocalError(err);
+    if (phoneClean && !/^(\+?63|0)\d{10}$/.test(phoneClean)) {
+      setLocalError("Mobile number looks invalid. Use 09XXXXXXXXX or +63XXXXXXXXXX.");
       return;
     }
 
-    setSubmitting(true);
     setLocalError("");
+    setSaving(true);
 
-    router.post(
-      postTo,
-      {
+    try {
+      await onSave?.({
         name: name.trim(),
-        phone: phoneClean,
-        address: address.trim(),
-        notes: notes.trim(),
-      },
-      {
-        preserveScroll: true,
-        onFinish: () => setSubmitting(false),
-        onSuccess: (page) => {
-          onClose?.();
-          const created = page?.props?.created_customer || null;
-          onCreated?.(created);
-        },
-        onError: (errors) => {
-          const first =
-            errors?.phone ||
-            errors?.name ||
-            errors?.address ||
-            errors?.notes ||
-            "Unable to create customer. Please check inputs.";
-          setLocalError(String(first));
-        },
-      }
-    );
+        phone: phoneClean || null,
+        address: address.trim() || null,
+        notes: notes.trim() || null,
+      });
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (!customer) return null;
 
   return (
     <ModalShell
@@ -134,16 +101,16 @@ export default function AddCustomerModal({
       onClose={onClose}
       maxWidthClass="max-w-lg"
       layout="compact"
-      title="Add customer"
-      subtitle="Quick create for POS and delivery orders"
-      icon={UserPlus}
+      title="Edit customer"
+      subtitle="Update contact details for POS and delivery"
+      icon={UserRound}
       footer={
         <div className="flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
             className="rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
-            disabled={submitting}
+            disabled={saving}
           >
             Cancel
           </button>
@@ -151,15 +118,15 @@ export default function AddCustomerModal({
           <button
             type="button"
             onClick={submit}
-            disabled={!canSubmit || submitting}
+            disabled={!canSubmit || saving}
             className={cx(
               "rounded-2xl px-4 py-2 text-sm font-extrabold text-white ring-1 transition focus:outline-none focus:ring-4 focus:ring-teal-500/25",
-              !canSubmit || submitting
+              !canSubmit || saving
                 ? "bg-slate-300 ring-slate-300 cursor-not-allowed"
                 : "bg-teal-600 ring-teal-600 hover:bg-teal-700"
             )}
           >
-            {submitting ? "Saving..." : "Create customer"}
+            {saving ? "Saving..." : "Save changes"}
           </button>
         </div>
       }
@@ -171,7 +138,7 @@ export default function AddCustomerModal({
           </div>
         ) : null}
 
-        <Field label="Full name" hint="Use the customer’s legal or commonly used name.">
+        <Field label="Full name">
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -180,7 +147,7 @@ export default function AddCustomerModal({
           />
         </Field>
 
-        <Field label="Mobile number" hint="Used for lookup and delivery contact.">
+        <Field label="Mobile number" hint="Optional, but recommended for delivery contact.">
           <Input
             icon={Phone}
             value={phone}
@@ -190,7 +157,7 @@ export default function AddCustomerModal({
           />
         </Field>
 
-        <Field label="Address" hint="Optional. Keep it short for fast entry.">
+        <Field label="Address" hint="Short and easy to read is best.">
           <Input
             icon={MapPin}
             value={address}
@@ -199,12 +166,12 @@ export default function AddCustomerModal({
           />
         </Field>
 
-        <Field label="Notes" hint="Optional. Landmark or delivery instructions.">
+        <Field label="Notes" hint="Optional, internal notes only.">
           <Textarea
             icon={StickyNote}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Landmark, gate color, directions..."
+            placeholder="Landmark, delivery instructions..."
           />
         </Field>
       </div>
