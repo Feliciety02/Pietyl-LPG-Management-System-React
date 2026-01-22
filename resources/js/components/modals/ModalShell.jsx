@@ -78,6 +78,7 @@ export default function ModalShell({
 
   const resolvedFooterClass = useMemo(() => {
     if (footerClassName) return footerClassName;
+
     if (layout === "compact") return "px-6 pb-6 pt-0";
     return "px-8 pb-8 pt-0";
   }, [footerClassName, layout]);
@@ -93,19 +94,18 @@ export default function ModalShell({
           aria-modal="true"
           role="dialog"
         >
-          {/* BACKDROP (must be behind the panel) */}
-          <div
+          <button
+            type="button"
+            aria-label="Close modal backdrop"
             className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-            onMouseDown={(e) => {
-              if (!closeOnBackdrop) return;
-              if (e.target === e.currentTarget) onClose?.();
+            onClick={() => {
+              if (closeOnBackdrop) onClose?.();
             }}
           />
 
-          {/* PANEL */}
           <motion.div
             className={cx(
-              "relative z-10 w-full",
+              "relative w-full",
               maxWidthClass,
               "rounded-3xl bg-white shadow-[0_26px_80px_-32px_rgba(15,23,42,0.55)] ring-1 ring-slate-900/10 overflow-hidden"
             )}
@@ -173,20 +173,22 @@ export default function ModalShell({
                   </div>
                 )}
               </div>
-            ) : showClose ? (
-              <div className={layout === "compact" ? "p-4 pb-0" : "p-6 pb-0"}>
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white ring-1 ring-slate-900/10 text-slate-700 hover:bg-slate-50 transition focus:outline-none focus:ring-4 focus:ring-teal-500/25"
-                    aria-label="Close"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+            ) : (
+              showClose ? (
+                <div className={layout === "compact" ? "p-4 pb-0" : "p-6 pb-0"}>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white ring-1 ring-slate-900/10 text-slate-700 hover:bg-slate-50 transition focus:outline-none focus:ring-4 focus:ring-teal-500/25"
+                      aria-label="Close"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ) : null}
+              ) : null
+            )}
 
             <div className={resolvedBodyClass}>{children}</div>
 

@@ -1,5 +1,5 @@
 import React from "react";
-import ModalShell from "./ModalShell";
+import ModalShell from "../ModalShell";
 import { posIcons } from "@/components/ui/Icons";
 
 export default function ReprintReceiptModal({ open, onClose, sale }) {
