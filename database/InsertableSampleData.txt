@@ -1,0 +1,117 @@
+1. Roles
+INSERT INTO roles (id, name, description) VALUES
+(1, 'admin', 'Company Owner / System Administrator'),
+(2, 'cashier', 'Handles sales and payments'),
+(3, 'accountant', 'Handles accounting and remittances'),
+(4, 'rider', 'Handles deliveries'),
+(5, 'inventory_manager', 'Handles inventory and stock');
+
+2. Employees
+INSERT INTO employees (employee_no, first_name, last_name, phone, email, status, hired_at) VALUES
+('EMP-001', 'Juan', 'Dela Cruz', '09171234567', 'juan@pietyl.com', 'active', '2024-01-01'),
+('EMP-002', 'Maria', 'Santos', '09181234567', 'maria@pietyl.com', 'active', '2024-01-05'),
+('EMP-003', 'Pedro', 'Reyes', '09201234567', 'pedro@pietyl.com', 'active', '2024-01-10'),
+('EMP-004', 'Ana', 'Lopez', '09221234567', 'ana@pietyl.com', 'active', '2024-01-15');
+
+3. Users
+
+(password here is just password hashed once for demo)
+
+INSERT INTO users (id, name, email, password, employee_id, is_active) VALUES
+(1, 'Admin Owner', 'admin@pietyl.com', '$2y$10$examplehashadmin', 1, 1),
+(2, 'Cashier Maria', 'cashier@pietyl.com', '$2y$10$examplehashcashier', 2, 1),
+(3, 'Accountant Pedro', 'accountant@pietyl.com', '$2y$10$examplehashacct', 3, 1),
+(4, 'Rider Ana', 'rider@pietyl.com', '$2y$10$examplehashrider', 4, 1);
+
+4. User Roles
+INSERT INTO user_roles (user_id, role_id) VALUES
+(1, 1),
+(2, 2),
+(3, 3),
+(4, 4);
+
+5. Locations
+INSERT INTO locations (id, name, location_type) VALUES
+(1, 'Main Warehouse', 'warehouse'),
+(2, 'Delivery Truck A', 'truck');
+
+6. Suppliers
+INSERT INTO suppliers (id, name, phone, email, is_active) VALUES
+(1, 'Petron LPG Supplier', '0281234567', 'sales@petron.com', 1),
+(2, 'Shellane LPG', '0287654321', 'orders@shell.com', 1);
+
+7. Products (ADMIN CREATED)
+INSERT INTO products (id, sku, name, category, created_by_user_id) VALUES
+(1, 'LPG-11KG', 'LPG Tank 11kg', 'lpg', 1),
+(2, 'LPG-22KG', 'LPG Tank 22kg', 'lpg', 1);
+
+8. Product Variants
+INSERT INTO product_variants (id, product_id, variant_name, size_value, size_unit) VALUES
+(1, 1, '11kg Refill', 11, 'kg'),
+(2, 1, '11kg Swap', 11, 'kg'),
+(3, 2, '22kg Refill', 22, 'kg'),
+(4, 2, '22kg Swap', 22, 'kg');
+
+9. Supplier Products
+INSERT INTO supplier_products (supplier_id, product_variant_id, is_primary) VALUES
+(1, 1, 1),
+(1, 3, 1),
+(2, 2, 1),
+(2, 4, 1);
+
+10. Price List
+INSERT INTO price_lists (id, name, is_active) VALUES
+(1, 'Default Price List', 1);
+
+INSERT INTO price_list_items (price_list_id, product_variant_id, price) VALUES
+(1, 1, 900),
+(1, 2, 1200),
+(1, 3, 1700),
+(1, 4, 2200);
+
+11. Inventory Balances
+INSERT INTO inventory_balances (location_id, product_variant_id, qty_on_hand, reorder_level) VALUES
+(1, 1, 15, 10),
+(1, 2, 8, 10),
+(1, 3, 12, 8),
+(1, 4, 4, 8);
+
+12. Customers
+INSERT INTO customers (id, name, phone, customer_type) VALUES
+(1, 'Walk-in Customer', '09190000000', 'walkin'),
+(2, 'ABC Restaurant', '09198888888', 'business');
+
+13. Sales (Cashier)
+INSERT INTO sales (id, sale_number, sale_type, customer_id, cashier_user_id, sale_datetime, price_list_id, subtotal, grand_total)
+VALUES
+(1, 'SALE-0001', 'walkin', 1, 2, NOW(), 1, 900, 900);
+
+INSERT INTO sale_items (sale_id, product_variant_id, qty, unit_price, line_total) VALUES
+(1, 1, 1, 900, 900);
+
+14. Payments
+INSERT INTO payment_methods (id, method_key, name) VALUES
+(1, 'cash', 'Cash'),
+(2, 'gcash', 'GCash');
+
+INSERT INTO payments (sale_id, payment_method_id, amount, received_by_user_id, paid_at)
+VALUES
+(1, 1, 900, 2, NOW());
+
+15. Low Stock → Restock Request (IMPORTANT)
+INSERT INTO restock_requests
+(request_number, location_id, requested_by_user_id, status, priority, needed_by_date)
+VALUES
+('REQ-0001', 1, 5, 'pending', 'high', DATE_ADD(CURDATE(), INTERVAL 3 DAY));
+
+INSERT INTO restock_request_items
+(restock_request_id, product_variant_id, current_qty, reorder_level, requested_qty, supplier_id)
+VALUES
+(1, 2, 8, 10, 20, 2),
+(1, 4, 4, 8, 30, 1);
+
+16. Audit Log Example
+INSERT INTO audit_logs
+(actor_user_id, action, entity_type, entity_id, after_json)
+VALUES
+(1, 'CREATE_PRODUCT', 'products', 1, '{"name":"LPG Tank 11kg"}');
