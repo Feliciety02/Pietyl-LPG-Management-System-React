@@ -13,7 +13,6 @@ class Product extends Model
         'sku',
         'name',
         'variant',
-        'supplier_id',
     ];
 
     // Relationship to Stock
@@ -22,8 +21,17 @@ class Product extends Model
         return $this->hasMany(Stock::class);
     }
 
-    public function supplier()
+    public function suppliers()
     {
-        return $this->belongsTo(Supplier::class);
+        return $this->belongsToMany(Supplier::class, 'product_supplier')
+            ->withTimestamps()
+            ->withPivot('is_default');
+    }
+
+    public function defaultSupplier()
+    {
+        return $this->belongsToMany(Supplier::class, 'product_supplier')
+            ->wherePivot('is_default', true)
+            ->withTimestamps();
     }
 }

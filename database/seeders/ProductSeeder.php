@@ -10,8 +10,11 @@ class ProductSeeder extends Seeder
 {
     public function run(): void
     {
-        // Get all supplier IDs
         $supplierIds = Supplier::pluck('id')->toArray();
+
+        if (count($supplierIds) < 2) {
+            throw new \Exception('Need at least 2 suppliers to run this seeder');
+        }
 
         $products = [
             ['sku' => 'LPG-5KG', 'name' => 'LPG Cylinder', 'variant' => '5kg'],
@@ -46,11 +49,32 @@ class ProductSeeder extends Seeder
             ['sku' => 'LPG-1000KG', 'name' => 'LPG Cylinder', 'variant' => '1000kg'],
         ];
 
-        foreach ($products as $product) {
-            Product::create([
-                ...$product,
-                'supplier_id' => $supplierIds[array_rand($supplierIds)], // assign random supplier
-            ]);
+        foreach ($products as $productData) {
+            $product = Product::create($productData);
+
+            // Attach 1-3 random suppliers to each product
+            $numSuppliers = rand(1, min(3, count($supplierIds)));
+            $randomSuppliers = array_rand(array_flip($supplierIds), $numSuppliers);
+            
+            if (!is_array($randomSuppliers)) {
+                $randomSuppliers = [$randomSuppliers];
+            }
+
+            foreach ($randomSuppliers as $index => $supplierId) {
+                $product->suppliers()->attach($supplierId, [
+                    'is_default' => $index === 0, // First one is default
+                ]);
+            }
         }
+
+        // Create one product with 2 specific suppliers
+        $lpg11kg = Product::create([
+            'sku' => 'LPG-11KG-SPECIAL',
+            'name' => 'LPG Cylinder',
+            'variant' => '11kg',
+        ]);
+
+        $lpg11kg->suppliers()->attach($supplierIds[0], ['is_default' => true]);
+        $lpg11kg->suppliers()->attach($supplierIds[1], ['is_default' => false]);
     }
 }

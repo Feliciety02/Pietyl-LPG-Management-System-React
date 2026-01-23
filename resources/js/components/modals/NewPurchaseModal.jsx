@@ -28,14 +28,17 @@ function useDebouncedValue(value, delay = 160) {
 export default function CreatePurchaseModal({
   open,
   onClose,
-  products = [],
-  suppliers = [],
   onSubmit,
   loading = false,
 }) {
   const page = usePage();
   const roleKey = page.props?.auth?.user?.role || "inventory_manager";
   const isAdmin = roleKey === "admin";
+
+  const products = page.props?.product_hash ?? [];
+  const suppliers = page.props?.suppliers ?? [];
+
+  
 
   const [q, setQ] = useState("");
   const qDebounced = useDebouncedValue(q);
@@ -154,6 +157,7 @@ export default function CreatePurchaseModal({
         Cancel
       </button>
 
+      // TODO : FINISH THE REQUEST TABLE BEFORE ADDING CONTROLLER METHOD FUNCTIONALITY HERE
       <button
         type="button"
         onClick={submit}

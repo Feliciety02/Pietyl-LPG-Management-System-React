@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Inventory;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Stock;
+use App\Models\Supplier;
+use App\Models\Product;
+
 use Inertia\Inertia;
 
 class StockController extends Controller
@@ -72,6 +75,7 @@ class StockController extends Controller
             ->map(function ($stock) {
                 $currentQty = $stock->filled_qty;
                 $reorderLevel = $stock->restock_at;
+                
 
                 if ($currentQty <= $reorderLevel * 0.25) {
                     $riskLevel = 'critical';
@@ -98,6 +102,34 @@ class StockController extends Controller
                 ];
             });
 
+        $productHash = [];
+        $allProducts = Product::with('suppliers')->get();
+        
+        foreach ($allProducts as $product) {
+            $key = $product->name . '|' . $product->variant;
+            
+            if (!isset($productHash[$key])) {
+                $defaultSupplier = $product->suppliers()
+                    ->wherePivot('is_default', true)
+                    ->first();
+                
+                $productHash[$key] = [
+                    'id' => $product->id,
+                    'sku' => $product->sku,
+                    'name' => $product->name,
+                    'variant' => $product->variant,
+                    'default_supplier_id' => $defaultSupplier?->id,
+                    'supplier_ids' => $product->suppliers->pluck('id')->toArray(),
+                ];
+            } else {
+                $existingSuppliers = $productHash[$key]['supplier_ids'];
+                $newSuppliers = $product->suppliers->pluck('id')->toArray();
+                $productHash[$key]['supplier_ids'] = array_unique(array_merge($existingSuppliers, $newSuppliers));
+            }
+        }
+
+
+        
         return Inertia::render('InventoryPage/LowStock', [
             'low_stock' => [
                 'data' => $stocks->values(), // reset keys
@@ -109,7 +141,10 @@ class StockController extends Controller
                     'total' => $stocks->count(),
                 ],
             ],
+            'product_hash' => array_values($productHash),
+            'suppliers' => Supplier::all(['id', 'name']),
         ]);
+
     }
 
 }

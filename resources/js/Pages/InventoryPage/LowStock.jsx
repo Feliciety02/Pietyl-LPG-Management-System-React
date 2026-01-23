@@ -312,6 +312,8 @@ export default function LowStock() {
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [purchaseItem, setPurchaseItem] = useState(null);
 
+  const productHash = page.props?.product_hash ?? [];
+
   const [confirm, setConfirm] = useState({
     open: false,
     tone: "teal",
@@ -375,7 +377,11 @@ export default function LowStock() {
   );
 
   const tableRows = loading ? fillerRows : rows;
-  const urgentCount = rows.filter((r) => String(r.risk_level) === "critical").length;
+
+  const urgentCount = useMemo(() => {
+    return rows.filter((r) => String(r.risk_level) === "critical").length;
+  }, [rows]);
+
 
   const columns = useMemo(() => {
     const base = [
@@ -697,7 +703,7 @@ export default function LowStock() {
             setPurchaseOpen(false);
             setPurchaseItem(null);
           }}
-          item={purchaseItem}
+          product_hash = {productHash}
           onSubmit={(payload) => {
             const endpoint = isAdmin
               ? "/dashboard/admin/purchase-requests"
