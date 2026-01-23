@@ -5,6 +5,12 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Notifications\Notifiable;
 
+
+/**
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Role> $roles
+ * @method \Illuminate\Database\Eloquent\Relations\BelongsToMany roles()
+ * @method string|null primaryRoleName()
+ */
 class User extends Authenticatable
 {
     use HasFactory, Notifiable;

@@ -16,8 +16,13 @@ return new class extends Migration
                 ->constrained()
                 ->cascadeOnDelete();
 
+            $table->foreignId('supplier_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
             $table->integer('filled_qty')->default(0);
             $table->integer('empty_qty')->default(0);
+            $table->integer('restock_at')->default(10);
             $table->timestamp('last_counted_at')->nullable();
             $table->string('updated_by')->nullable();
             $table->string('reason')->nullable();

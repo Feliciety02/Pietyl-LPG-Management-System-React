@@ -234,7 +234,9 @@ export default function LowStock() {
           { id: 3, name: "Regasco Trading" },
         ]
       : []);
+  
 
+  
   const SAMPLE_LOW_STOCK = {
     data: [
       {
@@ -289,9 +291,7 @@ export default function LowStock() {
     meta: { current_page: 1, last_page: 1, from: 1, to: 3, total: 3 },
   };
 
-  const lowStock =
-    page.props?.low_stock ??
-    (import.meta.env.DEV ? SAMPLE_LOW_STOCK : { data: [], meta: null });
+  const lowStock = page.props?.low_stock ?? { data: [], meta: null };
 
   const rows = lowStock?.data || [];
   const meta = lowStock?.meta || null;

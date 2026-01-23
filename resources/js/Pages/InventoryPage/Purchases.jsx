@@ -20,6 +20,7 @@ function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
+//TODO: Create cashier first + cashier table 
 /*
   Purchases (Inventory Manager)
   Purpose

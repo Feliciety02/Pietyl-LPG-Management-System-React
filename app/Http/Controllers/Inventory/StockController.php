@@ -55,9 +55,61 @@ class StockController extends Controller
             'empty_qty' => $validated['empty_qty'],
             'reason' => $validated['reason'],
             'last_counted_at' => now(),
-            'updated_by' => auth()->user()->name ?? 'System',
+            'updated_by' => 'System', // Hardcoded for now
         ]);
 
         return back()->with('success', 'Stock updated successfully');
     }
+
+
+    public function lowStock()
+    {
+        $stocks = Stock::with(['product', 'supplier'])
+            ->get()
+            ->filter(function ($stock) {
+                return $stock->filled_qty <= $stock->restock_at;
+            })
+            ->map(function ($stock) {
+                $currentQty = $stock->filled_qty;
+                $reorderLevel = $stock->restock_at;
+
+                if ($currentQty <= $reorderLevel * 0.25) {
+                    $riskLevel = 'critical';
+                } else {
+                    $riskLevel = 'warning';
+                }
+
+                // TODO: GRAB REQUEST TABLE
+                return [
+                    'id' => $stock->id,
+                    'sku' => $stock->product->sku ?? null,
+                    'name' => $stock->product->name ?? null,
+                    'variant' => $stock->product->variant ?? null,
+                    'supplier_name' => $stock->supplier->name ?? '—',
+                    'current_qty' => $currentQty,
+                    'reorder_level' => $reorderLevel,
+                    'est_days_left' => rand(1, 5), // RANDOM FOR NOW
+                    'risk_level' => $riskLevel,
+                    'last_movement_at' => now()->subHours(rand(1, 24))->format('M d Y h:i A'),
+                    'purchase_request_id' => null, // EMPTY FOR NOW
+                    'purchase_request_status' => null, // EMPTY FOR NOW
+                    'requested_by_name' => null, // EMPTY FOR NOW
+                    'requested_at' => null, // EMPTY FOR NOW
+                ];
+            });
+
+        return Inertia::render('InventoryPage/LowStock', [
+            'low_stock' => [
+                'data' => $stocks->values(), // reset keys
+                'meta' => [
+                    'current_page' => 1,
+                    'last_page' => 1,
+                    'from' => 1,
+                    'to' => $stocks->count(),
+                    'total' => $stocks->count(),
+                ],
+            ],
+        ]);
+    }
+
 }

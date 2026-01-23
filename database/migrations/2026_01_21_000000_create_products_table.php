@@ -15,6 +15,11 @@ return new class extends Migration
             $table->string('name');                   // product name
             $table->string('variant')->nullable();    // e.g., 11kg, 22kg, etc.
 
+            $table->foreignId('supplier_id')
+                  ->nullable()
+                  ->constrained('suppliers')
+                  ->nullOnDelete();
+
             $table->timestamps();
         });
     }

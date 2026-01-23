@@ -4,11 +4,15 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use App\Models\Product;
+use App\Models\Supplier;
 
 class ProductSeeder extends Seeder
 {
     public function run(): void
     {
+        // Get all supplier IDs
+        $supplierIds = Supplier::pluck('id')->toArray();
+
         $products = [
             ['sku' => 'LPG-5KG', 'name' => 'LPG Cylinder', 'variant' => '5kg'],
             ['sku' => 'LPG-6KG', 'name' => 'LPG Cylinder', 'variant' => '6kg'],
@@ -43,7 +47,10 @@ class ProductSeeder extends Seeder
         ];
 
         foreach ($products as $product) {
-            Product::create($product);
+            Product::create([
+                ...$product,
+                'supplier_id' => $supplierIds[array_rand($supplierIds)], // assign random supplier
+            ]);
         }
     }
 }

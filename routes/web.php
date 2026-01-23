@@ -10,6 +10,7 @@ use App\Http\Controllers\Inventory\StockController;
 Route::get('/', function () {
     if (Auth::check()) {
         $user = Auth::user();
+        /** @var \App\Models\User $user */
         $role = $user->roles()->first()?->name;
 
         return redirect(match ($role) {
@@ -79,7 +80,9 @@ Route::middleware(['auth'])->group(function () {
 
     
         Route::get('/movements', fn () => Inertia::render('InventoryPage/Movements'))->name('dash.inventory.movements');
-        Route::get('/low-stock', fn () => Inertia::render('InventoryPage/LowStock'))->name('dash.inventory.lowstock');
+        //Route::get('/low-stock', fn () => Inertia::render('InventoryPage/LowStock'))->name('dash.inventory.lowstock');
+
+        Route::get('/low-stock', [StockController::class, 'lowStock'])->name('dash.inventory.lowstock');
         Route::get('/purchases', fn () => Inertia::render('InventoryPage/Purchases'))->name('dash.inventory.purchases');
         Route::get('/suppliers', [SupplierController::class, 'index'])->name('dash.inventory.suppliers');
     });

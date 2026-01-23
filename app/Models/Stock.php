@@ -11,9 +11,10 @@ class Stock extends Model
 
     protected $fillable = [
         'product_id',
+        'supplier_id',
         'filled_qty',
         'empty_qty',
-        'total_qty',
+        'restock_at',
         'last_counted_at',
         'updated_by',
         'reason',
@@ -27,5 +28,10 @@ class Stock extends Model
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function supplier()
+    {
+        return $this->belongsTo(Supplier::class);
     }
 }
