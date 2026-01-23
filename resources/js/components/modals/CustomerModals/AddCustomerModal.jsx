@@ -1,3 +1,4 @@
+
 import React, { useEffect, useMemo, useState } from "react";
 import { router } from "@inertiajs/react";
 import { UserPlus, Phone, MapPin, StickyNote } from "lucide-react";
@@ -11,9 +12,7 @@ function Field({ label, hint, children }) {
   return (
     <div>
       <div className="text-xs font-extrabold text-slate-700">{label}</div>
-      {hint ? (
-        <div className="mt-0.5 text-[11px] text-slate-500">{hint}</div>
-      ) : null}
+      {hint ? <div className="mt-0.5 text-[11px] text-slate-500">{hint}</div> : null}
       <div className="mt-2">{children}</div>
     </div>
   );
@@ -48,7 +47,7 @@ function Textarea({ icon: Icon, ...props }) {
 export default function AddCustomerModal({
   open,
   onClose,
-  postTo = "/dashboard/cashier/customers",
+  postTo,
   onCreated,
   defaults,
 }) {
@@ -69,10 +68,7 @@ export default function AddCustomerModal({
     setSubmitting(false);
   }, [open, defaults]);
 
-  const phoneClean = useMemo(
-    () => String(phone || "").replace(/\s+/g, ""),
-    [phone]
-  );
+  const phoneClean = useMemo(() => String(phone || "").replace(/\s+/g, ""), [phone]);
 
   const canSubmit = useMemo(() => {
     if (!name.trim()) return false;
@@ -104,8 +100,8 @@ export default function AddCustomerModal({
       {
         name: name.trim(),
         phone: phoneClean,
-        address: address.trim(),
-        notes: notes.trim(),
+        address: address.trim() || null,
+        notes: notes.trim() || null,
       },
       {
         preserveScroll: true,

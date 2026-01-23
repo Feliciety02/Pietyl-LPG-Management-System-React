@@ -20,9 +20,7 @@ function Item({ icon: Icon, label, value, right }) {
         <Icon className="mt-0.5 h-4 w-4 text-slate-500" />
         <div className="min-w-0">
           <div className="text-xs text-slate-500">{label}</div>
-          <div className="text-sm font-extrabold text-slate-900 truncate">
-            {value || "—"}
-          </div>
+          <div className="text-sm font-extrabold text-slate-900 truncate">{value || "—"}</div>
         </div>
       </div>
       {right}
@@ -95,9 +93,7 @@ export default function CustomerDetailsModal({
       <div className="grid gap-4">
         <div className="text-center">
           <div className="text-lg font-extrabold text-slate-900">{customer.name}</div>
-          <div className="mt-1 text-xs text-slate-500">
-            Customer ID {customer.id}
-          </div>
+          <div className="mt-1 text-xs text-slate-500">Customer ID {customer.id}</div>
         </div>
 
         <div className="rounded-3xl bg-white ring-1 ring-slate-200 p-5 grid gap-4">
@@ -127,11 +123,7 @@ export default function CustomerDetailsModal({
             }
           />
 
-          <Item
-            icon={MapPin}
-            label="Address"
-            value={customer.address || "No address"}
-          />
+          <Item icon={MapPin} label="Address" value={customer.address || "No address"} />
         </div>
 
         <div className="rounded-3xl bg-slate-50 ring-1 ring-slate-200 p-5">
@@ -155,10 +147,6 @@ export default function CustomerDetailsModal({
               <span className="text-slate-600">Last purchase</span>
               <span className="font-extrabold text-slate-900">{summary.lastPurchase}</span>
             </div>
-          </div>
-
-          <div className="mt-3 text-[11px] text-slate-500">
-            This is a quick summary. Full purchase history can be shown in the customer profile later.
           </div>
         </div>
       </div>

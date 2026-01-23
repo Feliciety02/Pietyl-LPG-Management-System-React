@@ -2,7 +2,7 @@
 import React, { useMemo, useState } from "react";
 import { router, usePage, Link } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
-import AddCustomerModal from "@/components/modals/AddCustomerModal";
+import AddCustomerModal from "@/components/modals/CustomerModals/AddCustomerModal";
 import { posIcons, sidebarIconMap } from "@/components/ui/Icons";
 import { Info } from "lucide-react";
 

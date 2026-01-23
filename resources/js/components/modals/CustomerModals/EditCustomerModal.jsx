@@ -1,3 +1,4 @@
+
 import React, { useEffect, useMemo, useState } from "react";
 import { UserRound, Phone, MapPin, StickyNote } from "lucide-react";
 import ModalShell from "../ModalShell";
@@ -157,7 +158,7 @@ export default function EditCustomerModal({ open, onClose, customer, onSave }) {
           />
         </Field>
 
-        <Field label="Address" hint="Short and easy to read is best.">
+        <Field label="Address">
           <Input
             icon={MapPin}
             value={address}

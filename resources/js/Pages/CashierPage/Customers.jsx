@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
@@ -7,14 +6,10 @@ import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
 import { UserPlus, History, Eye, Pencil } from "lucide-react";
 import { SkeletonLine, SkeletonButton } from "@/components/ui/Skeleton";
-import AddCustomerModal from "@/components/modals/AddCustomerModal";
 
-import CustomerDetailsModal from "@/components/modals/CashierModals/CustomerDetailsModal";
-import EditCustomerModal from "@/components/modals/CashierModals/EditCustomerModal";
-
-function cx(...classes) {
-  return classes.filter(Boolean).join(" ");
-}
+import AddCustomerModal from "@/components/modals/CustomerModals/AddCustomerModal";
+import CustomerDetailsModal from "@/components/modals/CustomerModals/CustomerDetailsModal";
+import EditCustomerModal from "@/components/modals/CustomerModals/EditCustomerModal";
 
 function TopCard({ title, subtitle, right }) {
   return (
@@ -38,11 +33,17 @@ function buildRoleRoutes(roleKey) {
   const isAdmin = roleKey === "admin";
   const isCashier = roleKey === "cashier";
 
-  const listHref = isAdmin ? "/dashboard/admin/customers" : "/dashboard/cashier/customers";
-  const postTo = isAdmin ? "/dashboard/admin/customers" : "/dashboard/cashier/customers";
+  const listHref = isAdmin
+    ? "/dashboard/admin/customers"
+    : "/dashboard/cashier/customers";
 
-  // update endpoint suggestion
-  const updateBase = isAdmin ? "/dashboard/admin/customers" : "/dashboard/cashier/customers";
+  const postTo = isAdmin
+    ? "/dashboard/admin/customers"
+    : "/dashboard/cashier/customers";
+
+  const updateBase = isAdmin
+    ? "/dashboard/admin/customers"
+    : "/dashboard/cashier/customers";
 
   const posHref = "/dashboard/cashier/new-sale";
 
@@ -54,7 +55,8 @@ export default function Customers() {
   const user = page.props?.auth?.user;
 
   const roleKey = getRoleKey(user);
-  const { isAdmin, isCashier, listHref, postTo, updateBase, posHref } = buildRoleRoutes(roleKey);
+  const { isAdmin, isCashier, listHref, postTo, updateBase, posHref } =
+    buildRoleRoutes(roleKey);
 
   const SAMPLE = {
     data: [
@@ -90,7 +92,8 @@ export default function Customers() {
   };
 
   const customers =
-    page.props?.customers ?? (import.meta.env.DEV ? SAMPLE : { data: [], meta: null });
+    page.props?.customers ??
+    (import.meta.env.DEV ? SAMPLE : { data: [], meta: null });
 
   const rows = customers?.data || [];
   const meta = customers?.meta || null;
@@ -120,10 +123,16 @@ export default function Customers() {
   };
 
   const handlePerPage = (n) => pushQuery({ per: n, page: 1 });
-  const handlePrev = () =>
-    meta && meta.current_page > 1 && pushQuery({ page: meta.current_page - 1 });
-  const handleNext = () =>
-    meta && meta.current_page < meta.last_page && pushQuery({ page: meta.current_page + 1 });
+
+  const handlePrev = () => {
+    if (!meta || meta.current_page <= 1) return;
+    pushQuery({ page: meta.current_page - 1 });
+  };
+
+  const handleNext = () => {
+    if (!meta || meta.current_page >= meta.last_page) return;
+    pushQuery({ page: meta.current_page + 1 });
+  };
 
   const loading = Boolean(page.props?.loading);
 
@@ -148,20 +157,21 @@ export default function Customers() {
     setEditOpen(true);
   };
 
+  // IMPORTANT FIX
+  // EditCustomerModal awaits onSave, so we return a Promise that resolves onFinish.
   const saveEdit = (payload) => {
-    if (!activeCustomer?.id) return;
+    if (!activeCustomer?.id) return Promise.resolve();
 
-    router.put(
-      `${updateBase}/${activeCustomer.id}`,
-      payload,
-      {
+    return new Promise((resolve) => {
+      router.put(`${updateBase}/${activeCustomer.id}`, payload, {
         preserveScroll: true,
         onSuccess: () => {
           setEditOpen(false);
           router.reload({ only: ["customers"] });
         },
-      }
-    );
+        onFinish: () => resolve(),
+      });
+    });
   };
 
   const columns = useMemo(
