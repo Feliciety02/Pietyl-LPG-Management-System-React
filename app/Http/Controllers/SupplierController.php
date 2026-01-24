@@ -17,9 +17,8 @@ class SupplierController extends Controller
         if ($request->filled('q')) {
             $query->where(function($q) use ($request) {
                 $q->where('name', 'like', "%{$request->q}%")
-                ->orWhere('contact_person', 'like', "%{$request->q}%")
-                ->orWhere('email', 'like', "%{$request->q}%")
-                ->orWhere('phone', 'like', "%{$request->q}%");
+                  ->orWhere('email', 'like', "%{$request->q}%")
+                  ->orWhere('phone', 'like', "%{$request->q}%");
             });
         }
 
@@ -30,20 +29,20 @@ class SupplierController extends Controller
 
         // Pagination
         $perPage = $request->get('per', 10);
-        $suppliers = $query->latest()->paginate($perPage)->withQueryString();
+        $suppliers = $query->withCount('supplierProducts')->latest()->paginate($perPage)->withQueryString();
 
         return Inertia::render('AdminPage/Suppliers', [
             'suppliers' => [
                 'data' => collect($suppliers->items())->map(function ($s) {
                     return [
-                        'id'            => $s->id,
-                        'name'          => $s->name,
-                        'contact_name'  => $s->contact_person,  // <-- React expects this
-                        'phone'         => $s->phone,
-                        'email'         => $s->email,
-                        'address'       => $s->address,
-                        'is_active'     => $s->is_active,
-                        'products_count'=> 0, // <-- You don’t have this column but React uses it
+                        'id'             => $s->id,
+                        'name'           => $s->name,
+                        'contact_name'   => null, // WLA TAY CONTRACT DETAILS
+                        'phone'          => $s->phone,
+                        'email'          => $s->email,
+                        'address'        => $s->address,
+                        'is_active'      => $s->is_active,
+                        'products_count' => $s->supplier_products_count ?? 0,
                     ];
                 }),
                 'meta' => [

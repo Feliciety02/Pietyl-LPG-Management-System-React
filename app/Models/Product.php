@@ -2,36 +2,20 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Product extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
         'sku',
         'name',
-        'variant',
+        'category',
+        'is_active',
+        'created_by_user_id',
     ];
 
-    // Relationship to Stock
-    public function stocks()
+    public function variants()
     {
-        return $this->hasMany(Stock::class);
-    }
-
-    public function suppliers()
-    {
-        return $this->belongsToMany(Supplier::class, 'product_supplier')
-            ->withTimestamps()
-            ->withPivot('is_default');
-    }
-
-    public function defaultSupplier()
-    {
-        return $this->belongsToMany(Supplier::class, 'product_supplier')
-            ->wherePivot('is_default', true)
-            ->withTimestamps();
+        return $this->hasMany(ProductVariant::class);
     }
 }

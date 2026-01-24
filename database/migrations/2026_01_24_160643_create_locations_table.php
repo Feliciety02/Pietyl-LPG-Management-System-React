@@ -8,22 +8,20 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('products', function (Blueprint $table) {
+        Schema::create('locations', function (Blueprint $table) {
             $table->id();
-            $table->string('sku', 100)->unique()->nullable();
             $table->string('name');
-            $table->string('category', 50)->default('lpg');
+            $table->string('location_type', 50)->default('warehouse');
             $table->boolean('is_active')->default(true);
-            $table->foreignId('created_by_user_id')->nullable()->constrained('users')->onDelete('set null');
             $table->timestamps();
             
-            $table->index('category');
+            $table->index('location_type');
             $table->index('is_active');
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('products');
+        Schema::dropIfExists('locations');
     }
 };
