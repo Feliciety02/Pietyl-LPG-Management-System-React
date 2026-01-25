@@ -91,9 +91,7 @@ export default function Customers() {
     meta: { current_page: 1, last_page: 1, from: 1, to: 3, total: 3 },
   };
 
-  const customers =
-    page.props?.customers ??
-    (import.meta.env.DEV ? SAMPLE : { data: [], meta: null });
+  const customers = page.props?.customers ?? { data: [], meta: null };
 
   const rows = customers?.data || [];
   const meta = customers?.meta || null;
