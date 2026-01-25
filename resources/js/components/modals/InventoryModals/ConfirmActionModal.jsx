@@ -1,6 +1,6 @@
 import React from "react";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
-import ModalShell from "./ModalShell";
+import ModalShell from "../ModalShell";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");

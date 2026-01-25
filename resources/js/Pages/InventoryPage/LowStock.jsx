@@ -1,4 +1,4 @@
-
+// resources/js/pages/InventoryPage/LowStock.jsx
 import React, { useMemo, useState } from "react";
 import { router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
@@ -10,11 +10,10 @@ import useTableQuery from "@/components/Table/useTableQuery";
 
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 
-import NotifyAdminModal from "@/components/modals/NotifyAdminModal";
-import ThresholdsModal from "@/components/modals/ThresholdsModal";
-import ConfirmActionModal from "@/components/modals/ConfirmActionModal";
-import PurchaseRequestModal from "@/components/modals/PurchaseRequestModal";
-import NewPurchaseModal from "@/components/modals/NewPurchaseModal";
+import ThresholdsModal from "@/components/modals/InventoryModals/ThresholdsModal";
+import ConfirmActionModal from "@/components/modals/InventoryModals/ConfirmActionModal";
+import PurchaseRequestModal from "@/components/modals/InventoryModals/PurchaseRequestModal";
+import NewPurchaseModal from "@/components/modals/InventoryModals/NewPurchaseModal";
 
 import { inventoryActionIcons } from "@/components/ui/Icons";
 
@@ -22,7 +21,6 @@ const {
   warning: AlertTriangle,
   arrow: ArrowRight,
   newPurchase: PlusCircle,
-  notify: Bell,
   approve: CheckCircle2,
   reject: XCircle,
   thresholds: SlidersHorizontal,
@@ -35,7 +33,7 @@ function cx(...classes) {
 /* Low Stock
    Responsibilities
    Inventory Manager
-   Create purchase requests, message owner
+   Create purchase requests
    Admin
    Approve or decline requests, adjust thresholds, create purchases
 */
@@ -61,7 +59,10 @@ function RiskPill({ level }) {
   return (
     <span
       title={hint}
-      className={cx("inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1", tone)}
+      className={cx(
+        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1",
+        tone
+      )}
     >
       {label}
     </span>
@@ -101,7 +102,10 @@ function StatusPill({ status }) {
   return (
     <span
       title={hint}
-      className={cx("inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1", tone)}
+      className={cx(
+        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1",
+        tone
+      )}
     >
       {label}
     </span>
@@ -116,16 +120,12 @@ function QtyBar({ current = 0, threshold = 0 }) {
   const pct = Math.round(ratio * 100);
 
   const restockLabel = safeThreshold > 0 ? safeThreshold : "Off";
-  const tip =
-    safeThreshold > 0
-      ? "Restock level is the number where you start ordering again."
-      : "Restock alerts are turned off for this item.";
 
   return (
     <div className="w-full max-w-[220px]">
       <div className="flex items-center justify-between text-[11px] text-slate-500">
-        <span title="How many items you currently have">{safeCurrent} in stock</span>
-        <span title={tip}>restock at {restockLabel}</span>
+        <span>{safeCurrent} in stock</span>
+        <span>restock at {restockLabel}</span>
       </div>
 
       <div className="mt-1 h-2 w-full rounded-full bg-slate-100 ring-1 ring-slate-200 overflow-hidden">
@@ -135,7 +135,7 @@ function QtyBar({ current = 0, threshold = 0 }) {
       <div className="mt-1 text-[11px] text-slate-500">
         {safeThreshold > 0 ? (
           safeCurrent <= safeThreshold ? (
-            <span className="font-semibold text-amber-800">Low now. Time to restock.</span>
+            <span className="font-semibold text-amber-800">Low now</span>
           ) : (
             <span>OK</span>
           )
@@ -185,31 +185,16 @@ export default function LowStock() {
 
   const products = page.props?.products ?? [];
   const suppliers = page.props?.suppliers ?? [];
+  const productHash = page.props?.product_hash ?? [];
 
   const lowStock = page.props?.low_stock ?? { data: [], meta: null };
   const rows = lowStock?.data || [];
   const meta = lowStock?.meta || null;
 
-  const productHash = page.props?.product_hash ?? [];
-
-  const {
-    query,
-    set,
-    setPer,
-    prevPage,
-    nextPage,
-    canPrev,
-    canNext,
-  } = useTableQuery({
+  const { query, set, setPer, prevPage, nextPage, canPrev, canNext } = useTableQuery({
     endpoint: "/dashboard/inventory/low-stock",
     meta,
-    defaults: {
-      q: "",
-      risk: "all",
-      req: "all",
-      per: 10,
-      page: 1,
-    },
+    defaults: { q: "", risk: "all", req: "all", per: 10, page: 1 },
   });
 
   const q = query.q;
@@ -217,13 +202,13 @@ export default function LowStock() {
   const req = query.req;
   const per = query.per;
 
-  const [notifyOpen, setNotifyOpen] = useState(false);
   const [thresholdsOpen, setThresholdsOpen] = useState(false);
 
-  const [purchaseOpen, setPurchaseOpen] = useState(false);
-  const [purchaseItem, setPurchaseItem] = useState(null);
+  const [purchaseReqOpen, setPurchaseReqOpen] = useState(false);
+  const [purchaseReqItem, setPurchaseReqItem] = useState(null);
 
-  const [createPurchaseOpen, setCreatePurchaseOpen] = useState(false);
+  const [newPurchaseOpen, setNewPurchaseOpen] = useState(false);
+  const [newPurchaseItem, setNewPurchaseItem] = useState(null);
 
   const [confirm, setConfirm] = useState({
     open: false,
@@ -247,9 +232,7 @@ export default function LowStock() {
     { value: "rejected", label: "Declined" },
   ];
 
-  const urgentCount = useMemo(() => {
-    return rows.filter((r) => String(r.risk_level) === "critical").length;
-  }, [rows]);
+  const urgentCount = useMemo(() => rows.filter((r) => String(r.risk_level) === "critical").length, [rows]);
 
   const columns = useMemo(() => {
     const base = [
@@ -307,11 +290,7 @@ export default function LowStock() {
         key: "last",
         label: "Last update",
         render: (x) =>
-          loading ? (
-            <SkeletonLine w="w-28" />
-          ) : (
-            <span className="text-sm text-slate-700">{x.last_movement_at || "—"}</span>
-          ),
+          loading ? <SkeletonLine w="w-28" /> : <span className="text-sm text-slate-700">{x.last_movement_at || "—"}</span>,
       },
     ];
 
@@ -339,12 +318,14 @@ export default function LowStock() {
     ];
   }, [isAdmin, loading]);
 
-  const notifyAdmin = () => setNotifyOpen(true);
-  const openThresholds = () => setThresholdsOpen(true);
+  const openRequestModal = (row) => {
+    setPurchaseReqItem(row || null);
+    setPurchaseReqOpen(true);
+  };
 
-  const openPurchaseModal = (row) => {
-    setPurchaseItem(row);
-    setPurchaseOpen(true);
+  const openNewPurchaseModal = (row) => {
+    setNewPurchaseItem(row || null);
+    setNewPurchaseOpen(true);
   };
 
   const approveRequest = (row) => {
@@ -373,18 +354,6 @@ export default function LowStock() {
     });
   };
 
-  const notifyDefaultMessage = useMemo(() => {
-    const critical = rows.filter((x) => x.risk_level === "critical");
-    const warning = rows.filter((x) => x.risk_level === "warning");
-
-    const lines = ["Low stock update"];
-    if (critical.length) lines.push(`Urgent: ${critical.length} item(s)`);
-    if (warning.length) lines.push(`Low: ${warning.length} item(s)`);
-
-    const sample = rows.slice(0, 6).map((x) => `${x.name} (${x.variant}) qty ${x.current_qty}`);
-    return [...lines, "", "Items:", ...sample].join("\n");
-  }, [rows]);
-
   return (
     <Layout title="Low Stock">
       <div className="grid gap-6">
@@ -392,49 +361,38 @@ export default function LowStock() {
           title="Low stock items"
           subtitle={
             isAdmin
-              ? "Owner view. Approve requests and adjust restock levels so you don’t run out."
-              : "These items are low based on your restock levels. You can request restock anytime."
+              ? "Owner view. Approve requests, set restock levels, and create purchases."
+              : "Request restock for items that are low based on your restock levels."
           }
           right={
             <div className="flex flex-wrap items-center gap-2">
-              <div
-                title="Items that are very low"
-                className="rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200"
-              >
+              <div className="rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200">
                 {urgentCount} urgent
               </div>
 
-              <button
-                type="button"
-                onClick={() => setCreatePurchaseOpen(true)}
-                className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 transition focus:ring-4 focus:ring-teal-500/25"
-                title="Create a purchase even if the item is not low"
-              >
-                <PlusCircle className="h-4 w-4" />
-                Order stock
-              </button>
-
               {isAdmin ? (
-                <button
-                  type="button"
-                  onClick={openThresholds}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition"
-                  title="Change restock levels"
-                >
-                  <SlidersHorizontal className="h-4 w-4 text-slate-600" />
-                  Restock levels
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={notifyAdmin}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition"
-                  title="Send a message to the owner"
-                >
-                  <Bell className="h-4 w-4 text-slate-600" />
-                  Message owner
-                </button>
-              )}
+                <>
+                  <button
+                    type="button"
+                    onClick={() => openNewPurchaseModal(null)}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 transition focus:ring-4 focus:ring-teal-500/25"
+                    title="Create a new purchase"
+                  >
+                    <PlusCircle className="h-4 w-4" />
+                    Order stock
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setThresholdsOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
+                    title="Change restock levels"
+                  >
+                    <SlidersHorizontal className="h-4 w-4 text-slate-600" />
+                    Restock levels
+                  </button>
+                </>
+              ) : null}
             </div>
           }
         />
@@ -445,7 +403,9 @@ export default function LowStock() {
           placeholder="Search product, SKU, supplier..."
           filters={[
             { key: "risk", value: risk, onChange: (v) => set("risk", v, { resetPage: true }), options: riskOptions },
-            ...(isAdmin ? [{ key: "req", value: req, onChange: (v) => set("req", v, { resetPage: true }), options: reqOptions }] : []),
+            ...(isAdmin
+              ? [{ key: "req", value: req, onChange: (v) => set("req", v, { resetPage: true }), options: reqOptions }]
+              : []),
           ]}
         />
 
@@ -466,9 +426,9 @@ export default function LowStock() {
                   {!isAdmin ? (
                     <button
                       type="button"
-                      onClick={() => openPurchaseModal(row)}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
-                      title="Ask the owner to restock"
+                      onClick={() => openRequestModal(row)}
+                      className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 focus:ring-4 focus:ring-teal-500/15"
+                      title="Request restock"
                     >
                       Request restock
                       <ArrowRight className="h-4 w-4 text-slate-600" />
@@ -490,7 +450,7 @@ export default function LowStock() {
                           <button
                             type="button"
                             onClick={() => rejectRequest(row)}
-                            className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition"
+                            className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
                             title="Decline this request"
                           >
                             <XCircle className="h-4 w-4 text-slate-600" />
@@ -500,8 +460,8 @@ export default function LowStock() {
                       ) : (
                         <button
                           type="button"
-                          onClick={() => openPurchaseModal(row)}
-                          className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
+                          onClick={() => openNewPurchaseModal(row)}
+                          className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 focus:ring-4 focus:ring-teal-500/15"
                           title="Create a purchase for this item"
                         >
                           Order
@@ -526,14 +486,41 @@ export default function LowStock() {
           disableNext={!canNext}
         />
 
-        <NotifyAdminModal
-          open={notifyOpen}
-          onClose={() => setNotifyOpen(false)}
-          defaultMessage={notifyDefaultMessage}
+        <PurchaseRequestModal
+          open={purchaseReqOpen}
+          onClose={() => {
+            setPurchaseReqOpen(false);
+            setPurchaseReqItem(null);
+          }}
+          item={purchaseReqItem}
+          products={productHash}
           onSubmit={(payload) => {
-            router.post("/dashboard/inventory/low-stock/notify-admin", payload, {
+            router.post("/dashboard/inventory/purchase-requests", payload, {
               preserveScroll: true,
-              onSuccess: () => setNotifyOpen(false),
+              onSuccess: () => {
+                setPurchaseReqOpen(false);
+                setPurchaseReqItem(null);
+              },
+            });
+          }}
+        />
+
+        <NewPurchaseModal
+          open={newPurchaseOpen}
+          onClose={() => {
+            setNewPurchaseOpen(false);
+            setNewPurchaseItem(null);
+          }}
+          item={newPurchaseItem}
+          products={products}
+          suppliers={suppliers}
+          onSubmit={(payload) => {
+            router.post("/dashboard/admin/purchases", payload, {
+              preserveScroll: true,
+              onSuccess: () => {
+                setNewPurchaseOpen(false);
+                setNewPurchaseItem(null);
+              },
             });
           }}
         />
@@ -546,42 +533,6 @@ export default function LowStock() {
             router.post("/dashboard/admin/inventory/thresholds", payload, {
               preserveScroll: true,
               onSuccess: () => setThresholdsOpen(false),
-            });
-          }}
-        />
-
-        <PurchaseRequestModal
-          open={purchaseOpen}
-          onClose={() => {
-            setPurchaseOpen(false);
-            setPurchaseItem(null);
-          }}
-          product_hash={productHash}
-          onSubmit={(payload) => {
-            const endpoint = isAdmin ? "/dashboard/admin/purchase-requests" : "/dashboard/inventory/purchase-requests";
-
-            router.post(endpoint, payload, {
-              preserveScroll: true,
-              onSuccess: () => {
-                setPurchaseOpen(false);
-                setPurchaseItem(null);
-              },
-            });
-          }}
-        />
-
-        <NewPurchaseModal
-          open={createPurchaseOpen}
-          onClose={() => setCreatePurchaseOpen(false)}
-          products={products}
-          suppliers={suppliers}
-          roleKey={roleKey}
-          onSubmit={(payload) => {
-            const endpoint = isAdmin ? "/dashboard/admin/purchases" : "/dashboard/inventory/purchase-requests";
-
-            router.post(endpoint, payload, {
-              preserveScroll: true,
-              onSuccess: () => setCreatePurchaseOpen(false),
             });
           }}
         />

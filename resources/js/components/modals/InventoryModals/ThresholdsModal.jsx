@@ -1,6 +1,6 @@
 // resources/js/components/modals/ThresholdsModal.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import ModalShell from "./ModalShell";
+import ModalShell from "../ModalShell";
 import { Search, Save, RotateCcw } from "lucide-react";
 
 function cx(...classes) {
