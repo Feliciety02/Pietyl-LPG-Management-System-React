@@ -2,9 +2,14 @@
 import React, { useMemo, useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
+
 import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
+
+import NewPurchaseModal from "@/components/modals/InventoryModals/NewPurchaseModal";
+import ConfirmDeliveryModal from "@/components/modals/InventoryModals/ConfirmDeliveryModal";
+
 import {
   PlusCircle,
   FileText,
@@ -14,21 +19,12 @@ import {
   Truck,
   AlertTriangle,
 } from "lucide-react";
+
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
-
-//TODO: Create cashier first + cashier table 
-/*
-  Purchases (Inventory Manager)
-  Purpose
-  - Create purchase requests
-  - Track approval status
-  - Confirm delivered orders and capture discrepancies (damage, missing)
-  - Stock updates only happen after confirmation step
-*/
 
 function normalizeStatus(status) {
   return String(status || "").toLowerCase().replace(/\s+/g, "_");
@@ -93,24 +89,7 @@ export default function Purchases() {
 
   /*
     Expected Inertia props:
-    purchases: {
-      data: [{
-        id,
-        reference_no,
-        supplier_name,
-        product_name,
-        variant,
-        qty,
-        unit_cost,
-        total_cost,
-        status, // pending | approved | rejected | delivered | awaiting_confirmation | completed | discrepancy_reported
-        created_at,
-        received_qty,       // optional
-        damaged_qty,        // optional
-        missing_qty,        // optional
-      }],
-      meta
-    }
+    purchases: { data: [], meta }
     filters: { q, status, page, per }
   */
 
@@ -207,19 +186,19 @@ export default function Purchases() {
   };
 
   const handlePerPage = (n) => pushQuery({ per: n, page: 1 });
-  const handlePrev = () => meta && meta.current_page > 1 && pushQuery({ page: meta.current_page - 1 });
-  const handleNext = () => meta && meta.current_page < meta.last_page && pushQuery({ page: meta.current_page + 1 });
+  const handlePrev = () =>
+    meta && meta.current_page > 1 && pushQuery({ page: meta.current_page - 1 });
+  const handleNext = () =>
+    meta && meta.current_page < meta.last_page && pushQuery({ page: meta.current_page + 1 });
 
   const loading = Boolean(page.props?.loading);
 
-  const fillerRows = useMemo(
-    () =>
-      Array.from({ length: perInitial }).map((_, i) => ({
-        id: `__filler__${i}`,
-        __filler: true,
-      })),
-    [perInitial]
-  );
+  const fillerRows = useMemo(() => {
+    return Array.from({ length: perInitial }).map((_, i) => ({
+      id: `__filler__${i}`,
+      __filler: true,
+    }));
+  }, [perInitial]);
 
   const tableRows = loading ? fillerRows : rows;
 
@@ -294,13 +273,18 @@ export default function Purchases() {
       {
         key: "status",
         label: "Status",
-        render: (x) => (x?.__filler ? <SkeletonPill w="w-28" /> : <StatusPill status={x.status} />),
+        render: (x) =>
+          x?.__filler ? <SkeletonPill w="w-28" /> : <StatusPill status={x.status} />,
       },
       {
         key: "date",
         label: "Created",
         render: (x) =>
-          x?.__filler ? <SkeletonLine w="w-28" /> : <span className="text-sm text-slate-700">{x.created_at}</span>,
+          x?.__filler ? (
+            <SkeletonLine w="w-28" />
+          ) : (
+            <span className="text-sm text-slate-700">{x.created_at}</span>
+          ),
       },
     ],
     []
@@ -314,10 +298,36 @@ export default function Purchases() {
     return isInventoryManager && (s === "delivered" || s === "awaiting_confirmation");
   };
 
-  const canEditPending = (x) => normalizeStatus(x?.status) === "pending" && isInventoryManager;
+  const canEditPending = (x) =>
+    normalizeStatus(x?.status) === "pending" && isInventoryManager;
 
   const markDeliveredHint = "Mark delivered is usually set by Admin or supplier process.";
   const confirmHint = "Confirm delivery to update stock and record damages or shortages.";
+
+  /* ===================== MODALS ===================== */
+  const [newPurchaseOpen, setNewPurchaseOpen] = useState(false);
+
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [confirmModalMode, setConfirmModalMode] = useState("confirm"); // confirm | report
+  const [activePurchase, setActivePurchase] = useState(null);
+
+  const openConfirm = (row) => {
+    setActivePurchase(row);
+    setConfirmModalMode("confirm");
+    setConfirmModalOpen(true);
+  };
+
+  const openReport = (row) => {
+    setActivePurchase(row);
+    setConfirmModalMode("report");
+    setConfirmModalOpen(true);
+  };
+
+  const closeConfirmModal = () => {
+    setConfirmModalOpen(false);
+    setActivePurchase(null);
+    setConfirmModalMode("confirm");
+  };
 
   return (
     <Layout title="Purchases">
@@ -327,13 +337,14 @@ export default function Purchases() {
           subtitle="Create and track purchase requests. Stock updates only happen after delivery confirmation."
           right={
             canCreate ? (
-              <Link
-                href="/dashboard/inventory/purchases/create"
+              <button
+                type="button"
+                onClick={() => setNewPurchaseOpen(true)}
                 className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 focus:ring-4 focus:ring-teal-500/25"
               >
                 <PlusCircle className="h-4 w-4" />
                 New purchase
-              </Link>
+              </button>
             ) : null
           }
         />
@@ -381,13 +392,16 @@ export default function Purchases() {
                   </Link>
                 ) : null}
 
-                {/* Optional: Admin action placeholder, if you add it later */}
                 {roleKey === "admin" && normalizeStatus(x.status) === "approved" ? (
                   <button
                     type="button"
                     title={markDeliveredHint}
                     onClick={() =>
-                      router.post(`/dashboard/inventory/purchases/${x.id}/mark-delivered`, {}, { preserveScroll: true })
+                      router.post(
+                        `/dashboard/inventory/purchases/${x.id}/mark-delivered`,
+                        {},
+                        { preserveScroll: true }
+                      )
                     }
                     className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
                   >
@@ -396,30 +410,29 @@ export default function Purchases() {
                   </button>
                 ) : null}
 
-                {/* Inventory manager confirmation */}
                 {canConfirmDelivery(x) ? (
-                  <Link
+                  <button
+                    type="button"
                     title={confirmHint}
-                    href={`/dashboard/inventory/purchases/${x.id}/confirm`}
+                    onClick={() => openConfirm(x)}
                     className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-3 py-2 text-xs font-extrabold text-white hover:bg-teal-700 focus:ring-4 focus:ring-teal-500/25"
                   >
                     <CheckCircle2 className="h-4 w-4" />
                     Confirm
-                  </Link>
+                  </button>
                 ) : null}
 
-                {/* Discrepancy shortcut if you want a separate flow */}
                 {canConfirmDelivery(x) ? (
-                  <Link
-                    href={`/dashboard/inventory/purchases/${x.id}/discrepancy`}
+                  <button
+                    type="button"
+                    onClick={() => openReport(x)}
                     className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
                   >
                     <AlertTriangle className="h-4 w-4 text-slate-600" />
                     Report
-                  </Link>
+                  </button>
                 ) : null}
 
-                {/* Rejected info only */}
                 {normalizeStatus(x.status) === "rejected" ? (
                   <span className="inline-flex items-center gap-2 rounded-2xl bg-rose-600/10 px-3 py-2 text-xs font-extrabold text-rose-900 ring-1 ring-rose-700/10">
                     <XCircle className="h-4 w-4" />
@@ -439,6 +452,38 @@ export default function Purchases() {
           onNext={handleNext}
           disablePrev={!meta || meta.current_page <= 1}
           disableNext={!meta || meta.current_page >= meta.last_page}
+        />
+
+        {/* MODALS */}
+        <NewPurchaseModal
+          open={newPurchaseOpen}
+          onClose={() => setNewPurchaseOpen(false)}
+          onSubmit={(payload) => {
+            router.post("/dashboard/inventory/purchases", payload, {
+              preserveScroll: true,
+              onSuccess: () => setNewPurchaseOpen(false),
+            });
+          }}
+        />
+
+        <ConfirmDeliveryModal
+          open={confirmModalOpen}
+          mode={confirmModalMode}
+          purchase={activePurchase}
+          onClose={closeConfirmModal}
+          onSubmit={(payload) => {
+            if (!activePurchase?.id) return;
+
+            const url =
+              confirmModalMode === "report"
+                ? `/dashboard/inventory/purchases/${activePurchase.id}/discrepancy`
+                : `/dashboard/inventory/purchases/${activePurchase.id}/confirm`;
+
+            router.post(url, payload, {
+              preserveScroll: true,
+              onSuccess: () => closeConfirmModal(),
+            });
+          }}
         />
       </div>
     </Layout>

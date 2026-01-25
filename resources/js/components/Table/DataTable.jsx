@@ -25,7 +25,7 @@ export default function DataTable({
 
   return (
     <div className="overflow-x-auto rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm">
-      <table className="min-w-full text-left">
+      <table className="min-w-full text-left table-fixed">
         <thead className="bg-slate-50">
           <tr className="text-xs font-extrabold text-slate-600">
             {columns.map((col) => {
@@ -36,7 +36,7 @@ export default function DataTable({
                 <th
                   key={col.key}
                   className={cx(
-                    "px-6 py-3 whitespace-nowrap",
+                    "px-4 py-3 whitespace-nowrap",
                     col.sortable ? "cursor-pointer select-none hover:text-teal-700" : ""
                   )}
                   onClick={() => handleSort(col.key, col.sortable)}
@@ -45,7 +45,7 @@ export default function DataTable({
                     {col.label}
 
                     {col.sortable ? (
-                      <span className="flex flex-col">
+                      <span className="flex flex-col leading-none">
                         <ChevronUp
                           className={cx(
                             "h-3 w-3",
@@ -65,7 +65,9 @@ export default function DataTable({
               );
             })}
 
-            {renderActions ? <th className="px-6 py-3 text-right">Actions</th> : null}
+            {renderActions ? (
+              <th className="px-4 py-3 text-right whitespace-nowrap">Actions</th>
+            ) : null}
           </tr>
         </thead>
 
@@ -73,14 +75,14 @@ export default function DataTable({
           {loading ? (
             [...Array(6)].map((_, i) => (
               <tr key={i}>
-                <td className="px-6 py-4" colSpan={colCount}>
+                <td className="px-4 py-4" colSpan={colCount}>
                   <div className="h-4 w-full animate-pulse rounded bg-slate-200" />
                 </td>
               </tr>
             ))
           ) : rows.length === 0 ? (
             <tr>
-              <td className="px-6 py-14 text-center" colSpan={colCount}>
+              <td className="px-4 py-14 text-center" colSpan={colCount}>
                 <div className="text-sm font-extrabold text-slate-900">{emptyTitle}</div>
                 <div className="mt-1 text-sm text-slate-600">{emptyHint}</div>
               </td>
@@ -92,8 +94,9 @@ export default function DataTable({
                   <td
                     key={col.key}
                     className={cx(
-                      "px-6 py-4 text-sm text-slate-800 align-middle",
-                      col.nowrap ? "whitespace-nowrap" : ""
+                      "px-4 py-3 text-sm text-slate-800 align-middle",
+                      col.nowrap ? "whitespace-nowrap" : "",
+                      col.truncate ? "truncate" : ""
                     )}
                   >
                     {col.render ? col.render(row) : row?.[col.key]}
@@ -101,7 +104,9 @@ export default function DataTable({
                 ))}
 
                 {renderActions ? (
-                  <td className="px-6 py-4 text-right align-middle">{renderActions(row)}</td>
+                  <td className="px-4 py-3 text-right whitespace-nowrap align-middle">
+                    {renderActions(row)}
+                  </td>
                 ) : null}
               </tr>
             ))
