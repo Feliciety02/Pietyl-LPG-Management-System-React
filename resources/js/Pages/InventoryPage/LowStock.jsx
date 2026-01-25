@@ -1,4 +1,3 @@
-// resources/js/pages/InventoryPage/LowStock.jsx
 import React, { useMemo, useState } from "react";
 import { router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
@@ -7,11 +6,7 @@ import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
 
-import {
-  SkeletonLine,
-  SkeletonPill,
-  SkeletonButton,
-} from "@/components/ui/Skeleton";
+import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 
 import NotifyAdminModal from "@/components/modals/NotifyAdminModal";
 import ThresholdsModal from "@/components/modals/ThresholdsModal";
@@ -35,7 +30,14 @@ function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
-/* friendly wording helpers */
+/* Low Stock
+   Responsibilities
+   Inventory Manager
+   Create purchase requests, message owner, maintain thresholds (if allowed by owner)
+   Admin
+   Approve or decline requests, adjust thresholds, create purchases
+*/
+
 function getRiskCopy(level) {
   const v = String(level || "ok").toLowerCase();
   if (v === "critical") return { label: "URGENT", hint: "Very low. Restock now." };
@@ -57,10 +59,7 @@ function RiskPill({ level }) {
   return (
     <span
       title={hint}
-      className={cx(
-        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1",
-        tone
-      )}
+      className={cx("inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1", tone)}
     >
       {label}
     </span>
@@ -100,10 +99,7 @@ function StatusPill({ status }) {
   return (
     <span
       title={hint}
-      className={cx(
-        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1",
-        tone
-      )}
+      className={cx("inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1", tone)}
     >
       {label}
     </span>
@@ -124,27 +120,20 @@ function QtyBar({ current = 0, threshold = 0 }) {
       : "Restock alerts are turned off for this item.";
 
   return (
-    <div className="w-full max-w-[200px]">
+    <div className="w-full max-w-[220px]">
       <div className="flex items-center justify-between text-[11px] text-slate-500">
         <span title="How many items you currently have">{safeCurrent} in stock</span>
-        <span title={tip}>
-          restock at {restockLabel}
-        </span>
+        <span title={tip}>restock at {restockLabel}</span>
       </div>
 
       <div className="mt-1 h-2 w-full rounded-full bg-slate-100 ring-1 ring-slate-200 overflow-hidden">
-        <div
-          className="h-full rounded-full bg-teal-600"
-          style={{ width: `${pct}%` }}
-        />
+        <div className="h-full rounded-full bg-teal-600" style={{ width: `${pct}%` }} />
       </div>
 
       <div className="mt-1 text-[11px] text-slate-500">
         {safeThreshold > 0 ? (
           safeCurrent <= safeThreshold ? (
-            <span className="font-semibold text-amber-800">
-              Low now. Time to restock.
-            </span>
+            <span className="font-semibold text-amber-800">Low now. Time to restock.</span>
           ) : (
             <span>OK</span>
           )
@@ -176,9 +165,7 @@ function EmptyHint() {
       <div className="mx-auto h-12 w-12 rounded-2xl bg-teal-600/10 ring-1 ring-teal-700/10 flex items-center justify-center">
         <AlertTriangle className="h-6 w-6 text-teal-700" />
       </div>
-      <div className="mt-4 text-base font-extrabold text-slate-900">
-        Everything looks good
-      </div>
+      <div className="mt-4 text-base font-extrabold text-slate-900">Everything looks good</div>
       <div className="mt-1 text-sm text-slate-600">
         No items are currently low based on your restock levels.
       </div>
@@ -192,107 +179,12 @@ export default function LowStock() {
   const roleKey = page.props?.auth?.user?.role || "inventory_manager";
   const isAdmin = roleKey === "admin";
 
-  const [createPurchaseOpen, setCreatePurchaseOpen] = useState(false);
+  const loading = Boolean(page.props?.loading);
 
-  // expected from backend
-  // products: [{ id, sku, name, variant, default_supplier_id, supplier_ids: [] }]
-  // suppliers: [{ id, name }]
-  const products =
-    page.props?.products ??
-    (import.meta.env.DEV
-      ? [
-          {
-            id: 11,
-            sku: "LPG-11KG",
-            name: "LPG Cylinder",
-            variant: "11kg",
-            default_supplier_id: 1,
-          },
-          {
-            id: 12,
-            sku: "LPG-22KG",
-            name: "LPG Cylinder",
-            variant: "22kg",
-            default_supplier_id: 2,
-          },
-          {
-            id: 31,
-            sku: "REG-REFILL",
-            name: "Refill Service",
-            variant: "Standard",
-            default_supplier_id: 3,
-          },
-        ]
-      : []);
-
-  const suppliers =
-    page.props?.suppliers ??
-    (import.meta.env.DEV
-      ? [
-          { id: 1, name: "Petron LPG Supply" },
-          { id: 2, name: "Shellane Distributors" },
-          { id: 3, name: "Regasco Trading" },
-        ]
-      : []);
-  
-
-  
-  const SAMPLE_LOW_STOCK = {
-    data: [
-      {
-        id: 11,
-        sku: "LPG-11KG",
-        name: "LPG Cylinder",
-        variant: "11kg",
-        supplier_name: "Petron LPG Supply",
-        current_qty: 2,
-        reorder_level: 10,
-        est_days_left: 2,
-        risk_level: "critical",
-        last_movement_at: "Today 10:24 AM",
-        purchase_request_id: 901,
-        purchase_request_status: "pending",
-        requested_by_name: "Inventory Manager",
-        requested_at: "Today 9:11 AM",
-      },
-      {
-        id: 12,
-        sku: "LPG-22KG",
-        name: "LPG Cylinder",
-        variant: "22kg",
-        supplier_name: "Shellane Distributors",
-        current_qty: 6,
-        reorder_level: 12,
-        est_days_left: 4,
-        risk_level: "warning",
-        last_movement_at: "Yesterday 5:10 PM",
-        purchase_request_id: null,
-        purchase_request_status: "none",
-        requested_by_name: null,
-        requested_at: null,
-      },
-      {
-        id: 31,
-        sku: "REG-REFILL",
-        name: "Refill Service",
-        variant: "Standard",
-        supplier_name: "Regasco Trading",
-        current_qty: 8,
-        reorder_level: 15,
-        est_days_left: null,
-        risk_level: "warning",
-        last_movement_at: "Yesterday 3:02 PM",
-        purchase_request_id: 905,
-        purchase_request_status: "approved",
-        requested_by_name: "Inventory Manager",
-        requested_at: "Yesterday 9:02 AM",
-      },
-    ],
-    meta: { current_page: 1, last_page: 1, from: 1, to: 3, total: 3 },
-  };
+  const products = page.props?.products ?? [];
+  const suppliers = page.props?.suppliers ?? [];
 
   const lowStock = page.props?.low_stock ?? { data: [], meta: null };
-
   const rows = lowStock?.data || [];
   const meta = lowStock?.meta || null;
 
@@ -311,6 +203,8 @@ export default function LowStock() {
 
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [purchaseItem, setPurchaseItem] = useState(null);
+
+  const [createPurchaseOpen, setCreatePurchaseOpen] = useState(false);
 
   const productHash = page.props?.product_hash ?? [];
 
@@ -336,12 +230,20 @@ export default function LowStock() {
     { value: "rejected", label: "Declined" },
   ];
 
-  const pushQuery = (patch) => {
-    router.get(
-      "/dashboard/inventory/low-stock",
-      { q, risk, req, per: perInitial, ...patch },
-      { preserveScroll: true, preserveState: true, replace: true }
-    );
+  const pushQuery = (patch = {}) => {
+    const next = {
+      q: patch.q ?? q,
+      risk: patch.risk ?? risk,
+      req: patch.req ?? req,
+      per: patch.per ?? perInitial,
+      page: patch.page ?? 1,
+    };
+
+    router.get("/dashboard/inventory/low-stock", next, {
+      preserveScroll: true,
+      preserveState: true,
+      replace: true,
+    });
   };
 
   const handleSearch = (value) => {
@@ -360,28 +262,20 @@ export default function LowStock() {
   };
 
   const handlePerPage = (n) => pushQuery({ per: n, page: 1 });
-  const handlePrev = () =>
-    meta && meta.current_page > 1 && pushQuery({ page: meta.current_page - 1 });
-  const handleNext = () =>
-    meta && meta.current_page < meta.last_page && pushQuery({ page: meta.current_page + 1 });
 
-  const loading = Boolean(page.props?.loading);
+  const handlePrev = () => {
+    if (!meta || meta.current_page <= 1) return;
+    pushQuery({ page: meta.current_page - 1 });
+  };
 
-  const fillerRows = useMemo(
-    () =>
-      Array.from({ length: perInitial }).map((_, i) => ({
-        id: `__filler__${i}`,
-        __filler: true,
-      })),
-    [perInitial]
-  );
-
-  const tableRows = loading ? fillerRows : rows;
+  const handleNext = () => {
+    if (!meta || meta.current_page >= meta.last_page) return;
+    pushQuery({ page: meta.current_page + 1 });
+  };
 
   const urgentCount = useMemo(() => {
     return rows.filter((r) => String(r.risk_level) === "critical").length;
   }, [rows]);
-
 
   const columns = useMemo(() => {
     const base = [
@@ -389,7 +283,7 @@ export default function LowStock() {
         key: "item",
         label: "Product",
         render: (x) =>
-          x?.__filler ? (
+          loading ? (
             <div className="space-y-2">
               <SkeletonLine w="w-44" />
               <SkeletonLine w="w-28" />
@@ -397,8 +291,7 @@ export default function LowStock() {
           ) : (
             <div>
               <div className="font-extrabold text-slate-900">
-                {x.name}{" "}
-                <span className="text-slate-500 font-semibold">({x.variant})</span>
+                {x.name} <span className="text-slate-500 font-semibold">({x.variant})</span>
               </div>
               <div className="text-xs text-slate-500">
                 {x.sku || "—"} • {x.supplier_name || "No supplier"}
@@ -409,14 +302,13 @@ export default function LowStock() {
       {
         key: "risk",
         label: "Level",
-        render: (x) =>
-          x?.__filler ? <SkeletonPill w="w-24" /> : <RiskPill level={x.risk_level} />,
+        render: (x) => (loading ? <SkeletonPill w="w-24" /> : <RiskPill level={x.risk_level} />),
       },
       {
         key: "qty",
         label: "Stock",
         render: (x) =>
-          x?.__filler ? (
+          loading ? (
             <div className="space-y-2">
               <SkeletonLine w="w-40" />
               <SkeletonLine w="w-28" />
@@ -429,7 +321,7 @@ export default function LowStock() {
         key: "days",
         label: "Days left",
         render: (x) =>
-          x?.__filler ? (
+          loading ? (
             <SkeletonLine w="w-16" />
           ) : (
             <span className="text-sm font-semibold text-slate-800">
@@ -441,7 +333,7 @@ export default function LowStock() {
         key: "last",
         label: "Last update",
         render: (x) =>
-          x?.__filler ? (
+          loading ? (
             <SkeletonLine w="w-28" />
           ) : (
             <span className="text-sm text-slate-700">{x.last_movement_at || "—"}</span>
@@ -457,7 +349,7 @@ export default function LowStock() {
         key: "req_status",
         label: "Owner approval",
         render: (x) =>
-          x?.__filler ? (
+          loading ? (
             <SkeletonPill w="w-24" />
           ) : (
             <div className="space-y-1">
@@ -471,7 +363,7 @@ export default function LowStock() {
           ),
       },
     ];
-  }, [isAdmin]);
+  }, [isAdmin, loading]);
 
   const notifyAdmin = () => setNotifyOpen(true);
   const openThresholds = () => setThresholdsOpen(true);
@@ -489,11 +381,7 @@ export default function LowStock() {
       message: `Approve restock request for ${row.name} (${row.variant})?`,
       onConfirm: () => {
         setConfirm((p) => ({ ...p, open: false }));
-        router.post(
-          `/dashboard/admin/purchase-requests/${row.purchase_request_id}/approve`,
-          {},
-          { preserveScroll: true }
-        );
+        router.post(`/dashboard/admin/purchase-requests/${row.purchase_request_id}/approve`, {}, { preserveScroll: true });
       },
     });
   };
@@ -506,11 +394,7 @@ export default function LowStock() {
       message: `Decline restock request for ${row.name} (${row.variant})?`,
       onConfirm: () => {
         setConfirm((p) => ({ ...p, open: false }));
-        router.post(
-          `/dashboard/admin/purchase-requests/${row.purchase_request_id}/reject`,
-          {},
-          { preserveScroll: true }
-        );
+        router.post(`/dashboard/admin/purchase-requests/${row.purchase_request_id}/reject`, {}, { preserveScroll: true });
       },
     });
   };
@@ -523,11 +407,8 @@ export default function LowStock() {
     if (critical.length) lines.push(`Urgent: ${critical.length} item(s)`);
     if (warning.length) lines.push(`Low: ${warning.length} item(s)`);
 
-    const sample = rows
-      .slice(0, 4)
-      .map((x) => `${x.name} (${x.variant}) qty ${x.current_qty}`);
-
-    return [...lines, "", "Sample items:", ...sample].join("\n");
+    const sample = rows.slice(0, 6).map((x) => `${x.name} (${x.variant}) qty ${x.current_qty}`);
+    return [...lines, "", "Items:", ...sample].join("\n");
   }, [rows]);
 
   return (
@@ -590,9 +471,7 @@ export default function LowStock() {
           placeholder="Search product, SKU, supplier..."
           filters={[
             { key: "risk", value: risk, onChange: handleRisk, options: riskOptions },
-            ...(isAdmin
-              ? [{ key: "req", value: req, onChange: handleReq, options: reqOptions }]
-              : []),
+            ...(isAdmin ? [{ key: "req", value: req, onChange: handleReq, options: reqOptions }] : []),
           ]}
         />
 
@@ -601,12 +480,12 @@ export default function LowStock() {
         ) : (
           <DataTable
             columns={columns}
-            rows={tableRows}
+            rows={rows}
             loading={loading}
             emptyTitle="No low stock items"
             emptyHint="Try changing the search or restock levels."
             renderActions={(row) =>
-              row?.__filler ? (
+              loading ? (
                 <SkeletonButton w="w-28" />
               ) : (
                 <div className="flex items-center justify-end gap-2">
@@ -703,11 +582,9 @@ export default function LowStock() {
             setPurchaseOpen(false);
             setPurchaseItem(null);
           }}
-          product_hash = {productHash}
+          product_hash={productHash}
           onSubmit={(payload) => {
-            const endpoint = isAdmin
-              ? "/dashboard/admin/purchase-requests"
-              : "/dashboard/inventory/purchase-requests";
+            const endpoint = isAdmin ? "/dashboard/admin/purchase-requests" : "/dashboard/inventory/purchase-requests";
 
             router.post(endpoint, payload, {
               preserveScroll: true,
@@ -726,9 +603,7 @@ export default function LowStock() {
           suppliers={suppliers}
           roleKey={roleKey}
           onSubmit={(payload) => {
-            const endpoint = isAdmin
-              ? "/dashboard/admin/purchases"
-              : "/dashboard/inventory/purchase-requests";
+            const endpoint = isAdmin ? "/dashboard/admin/purchases" : "/dashboard/inventory/purchase-requests";
 
             router.post(endpoint, payload, {
               preserveScroll: true,

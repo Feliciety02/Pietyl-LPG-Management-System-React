@@ -118,7 +118,7 @@ export default function Reports() {
       ...patch,
     };
 
-    router.get("/dashboard/admin/reports", next, {
+    router.get("/Admin/reports", next, {
       preserveScroll: true,
       preserveState: true,
       replace: true,

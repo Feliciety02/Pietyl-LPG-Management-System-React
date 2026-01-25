@@ -4,12 +4,19 @@ import Layout from "../Dashboard/Layout";
 import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
-import { UserPlus, History, Eye, Pencil } from "lucide-react";
-import { SkeletonLine, SkeletonButton } from "@/components/ui/Skeleton";
+import { posIcons } from "@/components/ui/Icons";
+import {
+  SkeletonLine,
+  SkeletonPill,
+  SkeletonButton,
+} from "@/components/ui/Skeleton";
 
-import AddCustomerModal from "@/components/modals/CustomerModals/AddCustomerModal";
-import CustomerDetailsModal from "@/components/modals/CustomerModals/CustomerDetailsModal";
-import EditCustomerModal from "@/components/modals/CustomerModals/EditCustomerModal";
+import SaleDetailsModal from "@/components/modals/CashierModals/SaleDetailsModal";
+import ReprintReceiptModal from "@/components/modals/CashierModals/ReprintReceiptModal";
+
+function cx(...classes) {
+  return classes.filter(Boolean).join(" ");
+}
 
 function TopCard({ title, subtitle, right }) {
   return (
@@ -25,94 +32,150 @@ function TopCard({ title, subtitle, right }) {
   );
 }
 
-function getRoleKey(user) {
-  return String(user?.role || "cashier");
+function MethodPill({ method }) {
+  const m = String(method || "cash").toLowerCase();
+  const tone =
+    m === "gcash"
+      ? "bg-teal-600/10 text-teal-900 ring-teal-700/10"
+      : m === "card"
+      ? "bg-slate-100 text-slate-700 ring-slate-200"
+      : "bg-amber-600/10 text-amber-900 ring-amber-700/10";
+
+  return (
+    <span
+      className={cx(
+        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1",
+        tone
+      )}
+    >
+      {m.toUpperCase()}
+    </span>
+  );
 }
 
-function buildRoleRoutes(roleKey) {
-  const isAdmin = roleKey === "admin";
-  const isCashier = roleKey === "cashier";
+function StatusPill({ status }) {
+  const s = String(status || "paid").toLowerCase();
+  const tone =
+    s === "paid"
+      ? "bg-teal-600/10 text-teal-900 ring-teal-700/10"
+      : s === "failed"
+      ? "bg-rose-600/10 text-rose-900 ring-rose-700/10"
+      : "bg-amber-600/10 text-amber-900 ring-amber-700/10";
 
-  const listHref = isAdmin
-    ? "/dashboard/admin/customers"
-    : "/dashboard/cashier/customers";
-
-  const postTo = isAdmin
-    ? "/dashboard/admin/customers"
-    : "/dashboard/cashier/customers";
-
-  const updateBase = isAdmin
-    ? "/dashboard/admin/customers"
-    : "/dashboard/cashier/customers";
-
-  const posHref = "/dashboard/cashier/new-sale";
-
-  return { isAdmin, isCashier, listHref, postTo, updateBase, posHref };
+  return (
+    <span
+      className={cx(
+        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1",
+        tone
+      )}
+    >
+      {s.toUpperCase()}
+    </span>
+  );
 }
 
-export default function Customers() {
+function money(n) {
+  const v = Number(n || 0);
+  return `₱${v.toLocaleString()}`;
+}
+
+export default function Sales() {
   const page = usePage();
-  const user = page.props?.auth?.user;
 
-  const roleKey = getRoleKey(user);
-  const { isAdmin, isCashier, listHref, postTo, updateBase, posHref } =
-    buildRoleRoutes(roleKey);
+  const role = page.props?.auth?.user?.role || "cashier";
+  const isAdmin = role === "admin";
+  const isCashier = role === "cashier";
 
   const SAMPLE = {
     data: [
       {
-        id: 101,
-        name: "Ana Santos",
-        phone: "0917 123 4567",
-        address: "Davao City",
-        purchases: 12,
-        last_purchase_at: "Today 9:20 AM",
-        total_spent: 8950,
+        id: 2001,
+        ref: "TXN-10021",
+        customer: "Ana Santos",
+        total: 950,
+        method: "gcash",
+        status: "paid",
+        created_at: "Today 9:20 AM",
+        lines: [
+          {
+            name: "LPG Cylinder",
+            variant: "11kg",
+            mode: "refill",
+            qty: 1,
+            unit_price: 850,
+          },
+        ],
       },
       {
-        id: 102,
-        name: "Mark Dela Cruz",
-        phone: "0922 222 8899",
-        address: "Panabo City",
-        purchases: 6,
-        last_purchase_at: "Yesterday 2:10 PM",
-        total_spent: 4210,
+        id: 2000,
+        ref: "TXN-10020",
+        customer: "Walk in",
+        total: 1800,
+        method: "cash",
+        status: "paid",
+        created_at: "Today 8:55 AM",
+        lines: [
+          {
+            name: "LPG Cylinder",
+            variant: "22kg",
+            mode: "swap",
+            qty: 1,
+            unit_price: 1800,
+          },
+        ],
       },
       {
-        id: 103,
-        name: "Walk in profile",
-        phone: "",
-        address: "",
-        purchases: 0,
-        last_purchase_at: "",
-        total_spent: 0,
+        id: 1999,
+        ref: "TXN-10019",
+        customer: "Mark Dela Cruz",
+        total: 650,
+        method: "card",
+        status: "failed",
+        created_at: "Yesterday 2:10 PM",
+        lines: [
+          {
+            name: "Regulator",
+            variant: "Standard",
+            mode: "swap",
+            qty: 1,
+            unit_price: 650,
+          },
+        ],
       },
     ],
     meta: { current_page: 1, last_page: 1, from: 1, to: 3, total: 3 },
   };
 
-  const customers =
-    page.props?.customers ??
+  const sales =
+    page.props?.sales ??
     (import.meta.env.DEV ? SAMPLE : { data: [], meta: null });
 
-  const rows = customers?.data || [];
-  const meta = customers?.meta || null;
+  const rows = sales?.data ?? [];
+  const meta = sales?.meta ?? null;
 
   const query = page.props?.filters || {};
   const qInitial = query?.q || "";
+  const statusInitial = query?.status || "all";
   const perInitial = Number(query?.per || 10);
 
   const [q, setQ] = useState(qInitial);
-  const [openAdd, setOpenAdd] = useState(false);
+  const [status, setStatus] = useState(statusInitial);
 
-  const [activeCustomer, setActiveCustomer] = useState(null);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
+  const [activeSale, setActiveSale] = useState(null);
+  const [viewOpen, setViewOpen] = useState(false);
+  const [reprintOpen, setReprintOpen] = useState(false);
+
+  const statusOptions = [
+    { value: "all", label: "All status" },
+    { value: "paid", label: "Paid" },
+    { value: "failed", label: "Failed" },
+    { value: "pending", label: "Pending" },
+  ];
 
   const pushQuery = (patch) => {
     router.get(
-      listHref,
-      { q, per: perInitial, ...patch },
+      "/dashboard/cashier/sales",
+      { q, status, per: perInitial, ...patch },
       { preserveScroll: true, preserveState: true, replace: true }
     );
   };
@@ -122,17 +185,18 @@ export default function Customers() {
     pushQuery({ q: value, page: 1 });
   };
 
+  const handleStatus = (value) => {
+    setStatus(value);
+    pushQuery({ status: value, page: 1 });
+  };
+
   const handlePerPage = (n) => pushQuery({ per: n, page: 1 });
-
-  const handlePrev = () => {
-    if (!meta || meta.current_page <= 1) return;
-    pushQuery({ page: meta.current_page - 1 });
-  };
-
-  const handleNext = () => {
-    if (!meta || meta.current_page >= meta.last_page) return;
+  const handlePrev = () =>
+    meta && meta.current_page > 1 && pushQuery({ page: meta.current_page - 1 });
+  const handleNext = () =>
+    meta &&
+    meta.current_page < meta.last_page &&
     pushQuery({ page: meta.current_page + 1 });
-  };
 
   const loading = Boolean(page.props?.loading);
 
@@ -147,70 +211,69 @@ export default function Customers() {
 
   const tableRows = loading ? fillerRows : rows;
 
-  const openDetails = (c) => {
-    setActiveCustomer(c);
-    setDetailsOpen(true);
+  const openView = (row) => {
+    setActiveSale(row);
+    setViewOpen(true);
   };
 
-  const openEdit = (c) => {
-    setActiveCustomer(c);
-    setEditOpen(true);
-  };
-
-  // IMPORTANT FIX
-  // EditCustomerModal awaits onSave, so we return a Promise that resolves onFinish.
-  const saveEdit = (payload) => {
-    if (!activeCustomer?.id) return Promise.resolve();
-
-    return new Promise((resolve) => {
-      router.put(`${updateBase}/${activeCustomer.id}`, payload, {
-        preserveScroll: true,
-        onSuccess: () => {
-          setEditOpen(false);
-          router.reload({ only: ["customers"] });
-        },
-        onFinish: () => resolve(),
-      });
-    });
+  const openReprint = (row) => {
+    setActiveSale(row);
+    setReprintOpen(true);
   };
 
   const columns = useMemo(
     () => [
       {
-        key: "name",
-        label: "Customer",
-        render: (c) =>
-          c?.__filler ? (
+        key: "ref",
+        label: "Sale",
+        render: (x) =>
+          x?.__filler ? (
             <div className="space-y-2">
-              <SkeletonLine w="w-40" />
-              <SkeletonLine w="w-28" />
+              <SkeletonLine w="w-32" />
+              <SkeletonLine w="w-44" />
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={() => openDetails(c)}
-              className="text-left group"
-              title="View customer details"
-            >
-              <div className="font-extrabold text-slate-900 group-hover:text-teal-700 transition">
-                {c.name}
-              </div>
+            <div>
+              <div className="font-extrabold text-slate-900">{x.ref}</div>
               <div className="text-xs text-slate-500">
-                {c.phone || "No phone"} • {c.address || "No address"}
+                {x.customer || "Walk in"}
               </div>
-            </button>
+            </div>
           ),
       },
       {
-        key: "purchases",
-        label: "Purchases",
-        render: (c) =>
-          c?.__filler ? (
-            <SkeletonLine w="w-14" />
+        key: "total",
+        label: "Total",
+        render: (x) =>
+          x?.__filler ? (
+            <SkeletonLine w="w-20" />
           ) : (
-            <span className="inline-flex items-center gap-1 text-sm font-extrabold text-slate-900">
-              <History className="h-4 w-4 text-slate-500" />
-              {c.purchases ?? 0}
+            <span className="text-sm font-extrabold text-slate-900">
+              {money(x.total)}
+            </span>
+          ),
+      },
+      {
+        key: "method",
+        label: "Method",
+        render: (x) =>
+          x?.__filler ? <SkeletonPill w="w-20" /> : <MethodPill method={x.method} />,
+      },
+      {
+        key: "status",
+        label: "Status",
+        render: (x) =>
+          x?.__filler ? <SkeletonPill w="w-24" /> : <StatusPill status={x.status} />,
+      },
+      {
+        key: "created_at",
+        label: "Time",
+        render: (x) =>
+          x?.__filler ? (
+            <SkeletonLine w="w-28" />
+          ) : (
+            <span className="text-sm text-slate-700">
+              {x.created_at || "—"}
             </span>
           ),
       },
@@ -218,82 +281,76 @@ export default function Customers() {
     []
   );
 
+  const ReceiptIcon = posIcons.receipt;
+  const ViewIcon = posIcons.search;
+
+  const readOnly = !(isAdmin || isCashier);
+
   return (
-    <Layout title="Customers">
+    <Layout title="Sales">
       <div className="grid gap-6">
         <TopCard
-          title="Customers"
-          subtitle={
-            isAdmin
-              ? "View customers and purchase activity for oversight and reporting."
-              : "Lookup customers, view purchase summary, and link them to a sale."
-          }
+          title="Sales history"
+          subtitle="View sales records and reprint receipts."
           right={
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setOpenAdd(true)}
+            readOnly ? (
+              <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[11px] font-extrabold text-slate-700 ring-1 ring-slate-200">
+                READ ONLY
+              </span>
+            ) : (
+              <Link
+                href="/dashboard/cashier/POS"
                 className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 transition focus:ring-4 focus:ring-teal-500/25"
               >
-                <UserPlus className="h-4 w-4" />
-                Add customer
-              </button>
-            </div>
+                Go to POS
+              </Link>
+            )
           }
         />
 
         <DataTableFilters
           q={q}
           onQ={handleSearch}
-          placeholder="Search customer name or phone..."
-          filters={[]}
+          placeholder="Search reference or customer..."
+          filters={[
+            {
+              key: "status",
+              value: status,
+              onChange: handleStatus,
+              options: statusOptions,
+            },
+          ]}
         />
 
         <DataTable
           columns={columns}
           rows={tableRows}
           loading={loading}
-          emptyTitle="No customers found"
-          emptyHint="Add a customer or adjust search."
-          renderActions={(c) =>
-            c?.__filler ? (
-              <SkeletonButton w="w-20" />
+          emptyTitle="No sales yet"
+          emptyHint="Completed sales will appear here."
+          renderActions={(row) =>
+            row?.__filler ? (
+              <SkeletonButton w="w-24" />
             ) : (
               <div className="flex items-center justify-end gap-2">
-                {isCashier ? (
-                  <Link
-                    href={`${posHref}?customer_id=${c.id}`}
-                    className="rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
-                    title="Use this customer in POS"
-                  >
-                    Use in POS
-                  </Link>
-                ) : (
-                  <Link
-                    href={`/dashboard/admin/customers/${c.id}`}
-                    className="rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
-                    title="Open full customer profile"
-                  >
-                    View
-                  </Link>
-                )}
-
                 <button
                   type="button"
-                  onClick={() => openDetails(c)}
-                  className="rounded-2xl bg-white p-2 ring-1 ring-slate-200 hover:bg-slate-50"
-                  title="Quick view"
+                  onClick={() => openReprint(row)}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
+                  title="Reprint receipt"
                 >
-                  <Eye className="h-4 w-4 text-slate-600" />
+                  <ReceiptIcon className="h-4 w-4 text-slate-600" />
+                  Reprint
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => openEdit(c)}
-                  className="rounded-2xl bg-white p-2 ring-1 ring-slate-200 hover:bg-slate-50"
-                  title="Edit customer"
+                  onClick={() => openView(row)}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
+                  title="View sale details"
                 >
-                  <Pencil className="h-4 w-4 text-slate-600" />
+                  <ViewIcon className="h-4 w-4 text-slate-600" />
+                  View
                 </button>
               </div>
             )
@@ -311,26 +368,16 @@ export default function Customers() {
         />
       </div>
 
-      <AddCustomerModal
-        open={openAdd}
-        onClose={() => setOpenAdd(false)}
-        postTo={postTo}
-        onCreated={() => router.reload({ only: ["customers"] })}
+      <SaleDetailsModal
+        open={viewOpen}
+        onClose={() => setViewOpen(false)}
+        sale={activeSale}
       />
 
-      <CustomerDetailsModal
-        open={detailsOpen}
-        onClose={() => setDetailsOpen(false)}
-        customer={activeCustomer}
-        isAdmin={isAdmin}
-        posHref={posHref}
-      />
-
-      <EditCustomerModal
-        open={editOpen}
-        onClose={() => setEditOpen(false)}
-        customer={activeCustomer}
-        onSave={saveEdit}
+      <ReprintReceiptModal
+        open={reprintOpen}
+        onClose={() => setReprintOpen(false)}
+        sale={activeSale}
       />
     </Layout>
   );
