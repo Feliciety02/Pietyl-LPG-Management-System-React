@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from "react";
 import { router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
@@ -5,6 +6,7 @@ import Layout from "../Dashboard/Layout";
 import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
+import useTableQuery from "@/components/Table/useTableQuery";
 
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 
@@ -33,7 +35,7 @@ function cx(...classes) {
 /* Low Stock
    Responsibilities
    Inventory Manager
-   Create purchase requests, message owner, maintain thresholds (if allowed by owner)
+   Create purchase requests, message owner
    Admin
    Approve or decline requests, adjust thresholds, create purchases
 */
@@ -188,15 +190,32 @@ export default function LowStock() {
   const rows = lowStock?.data || [];
   const meta = lowStock?.meta || null;
 
-  const query = page.props?.filters || {};
-  const qInitial = query?.q || "";
-  const riskInitial = query?.risk || "all";
-  const reqInitial = query?.req || "all";
-  const perInitial = Number(query?.per || 10);
+  const productHash = page.props?.product_hash ?? [];
 
-  const [q, setQ] = useState(qInitial);
-  const [risk, setRisk] = useState(riskInitial);
-  const [req, setReq] = useState(reqInitial);
+  const {
+    query,
+    set,
+    setPer,
+    prevPage,
+    nextPage,
+    canPrev,
+    canNext,
+  } = useTableQuery({
+    endpoint: "/dashboard/inventory/low-stock",
+    meta,
+    defaults: {
+      q: "",
+      risk: "all",
+      req: "all",
+      per: 10,
+      page: 1,
+    },
+  });
+
+  const q = query.q;
+  const risk = query.risk;
+  const req = query.req;
+  const per = query.per;
 
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [thresholdsOpen, setThresholdsOpen] = useState(false);
@@ -205,8 +224,6 @@ export default function LowStock() {
   const [purchaseItem, setPurchaseItem] = useState(null);
 
   const [createPurchaseOpen, setCreatePurchaseOpen] = useState(false);
-
-  const productHash = page.props?.product_hash ?? [];
 
   const [confirm, setConfirm] = useState({
     open: false,
@@ -229,49 +246,6 @@ export default function LowStock() {
     { value: "approved", label: "Approved" },
     { value: "rejected", label: "Declined" },
   ];
-
-  const pushQuery = (patch = {}) => {
-    const next = {
-      q: patch.q ?? q,
-      risk: patch.risk ?? risk,
-      req: patch.req ?? req,
-      per: patch.per ?? perInitial,
-      page: patch.page ?? 1,
-    };
-
-    router.get("/dashboard/inventory/low-stock", next, {
-      preserveScroll: true,
-      preserveState: true,
-      replace: true,
-    });
-  };
-
-  const handleSearch = (value) => {
-    setQ(value);
-    pushQuery({ q: value, page: 1 });
-  };
-
-  const handleRisk = (value) => {
-    setRisk(value);
-    pushQuery({ risk: value, page: 1 });
-  };
-
-  const handleReq = (value) => {
-    setReq(value);
-    pushQuery({ req: value, page: 1 });
-  };
-
-  const handlePerPage = (n) => pushQuery({ per: n, page: 1 });
-
-  const handlePrev = () => {
-    if (!meta || meta.current_page <= 1) return;
-    pushQuery({ page: meta.current_page - 1 });
-  };
-
-  const handleNext = () => {
-    if (!meta || meta.current_page >= meta.last_page) return;
-    pushQuery({ page: meta.current_page + 1 });
-  };
 
   const urgentCount = useMemo(() => {
     return rows.filter((r) => String(r.risk_level) === "critical").length;
@@ -455,7 +429,7 @@ export default function LowStock() {
                   type="button"
                   onClick={notifyAdmin}
                   className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition"
-                  title="Send a message to the owner/admin"
+                  title="Send a message to the owner"
                 >
                   <Bell className="h-4 w-4 text-slate-600" />
                   Message owner
@@ -467,11 +441,11 @@ export default function LowStock() {
 
         <DataTableFilters
           q={q}
-          onQ={handleSearch}
+          onQ={(v) => set("q", v, { resetPage: true })}
           placeholder="Search product, SKU, supplier..."
           filters={[
-            { key: "risk", value: risk, onChange: handleRisk, options: riskOptions },
-            ...(isAdmin ? [{ key: "req", value: req, onChange: handleReq, options: reqOptions }] : []),
+            { key: "risk", value: risk, onChange: (v) => set("risk", v, { resetPage: true }), options: riskOptions },
+            ...(isAdmin ? [{ key: "req", value: req, onChange: (v) => set("req", v, { resetPage: true }), options: reqOptions }] : []),
           ]}
         />
 
@@ -544,12 +518,12 @@ export default function LowStock() {
 
         <DataTablePagination
           meta={meta}
-          perPage={perInitial}
-          onPerPage={handlePerPage}
-          onPrev={handlePrev}
-          onNext={handleNext}
-          disablePrev={!meta || meta.current_page <= 1}
-          disableNext={!meta || meta.current_page >= meta.last_page}
+          perPage={per}
+          onPerPage={setPer}
+          onPrev={prevPage}
+          onNext={nextPage}
+          disablePrev={!canPrev}
+          disableNext={!canNext}
         />
 
         <NotifyAdminModal
