@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\SupplierController; # DAPAT NAA NI SA INVENTORY FOLDER PERO LATER NA I CHANGE BASIG DI MA AUTO REFACTOR
 use App\Http\Controllers\Inventory\StockController;
 use App\Http\Controllers\Cashier\CustomerController;
+use App\Http\Controllers\Cashier\SaleController;
 
 
 Route::get('/', function () {
@@ -51,8 +52,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', fn () => Inertia::render('Dashboard/Dashboard'))->name('dash.cashier');
 
         Route::get('/POS', fn () => Inertia::render('CashierPage/POS'))->name('dash.cashier.POS');
-        Route::get('/sales', fn () => Inertia::render('CashierPage/Sales'))->name('dash.cashier.sales');
-        //Route::get('/customers', fn () => Inertia::render('CashierPage/Customers'))->name('dash.cashier.customers');
+        //Route::get('/sales', fn () => Inertia::render('CashierPage/Sales'))->name('dash.cashier.sales');
+
+        Route::get('/sales', [SaleController::class, 'index'])->name('dash.cashier.sales');
         Route::get('/customers', [CustomerController::class, 'index'])->name('dash.cashier.customers');
     });
 

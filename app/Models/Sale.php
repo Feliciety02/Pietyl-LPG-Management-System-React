@@ -51,17 +51,19 @@ class Sale extends Model
         return $this->belongsTo(PriceList::class);
     }
 
+   
+
+    public function items(): HasMany
+    {
+        return $this->hasMany(SaleItem::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
     //TODO: ADD RELATIONSHIPS HERE IF NEEDED
-    // public function items(): HasMany
-    //{
-        //return $this->hasMany(SaleItem::class);
-    //}
-
-    //public function payments(): HasMany
-    //{
-        //return $this->hasMany(Payment::class);
-    //}
-
     //public function receipt(): HasOne
     //{
         //return $this->hasOne(Receipt::class);

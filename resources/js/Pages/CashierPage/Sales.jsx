@@ -146,9 +146,7 @@ export default function Sales() {
     meta: { current_page: 1, last_page: 1, from: 1, to: 3, total: 3 },
   };
 
-  const sales =
-    page.props?.sales ??
-    (import.meta.env.DEV ? SAMPLE : { data: [], meta: null });
+  const sales = page.props?.sales ?? { data: [], meta: null };
 
   const rows = sales?.data ?? [];
   const meta = sales?.meta ?? null;
