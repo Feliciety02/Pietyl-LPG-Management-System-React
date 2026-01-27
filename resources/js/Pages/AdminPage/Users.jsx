@@ -1,4 +1,3 @@
-// resources/js/Pages/AdminPage/Tabs/Users.jsx
 import React, { useMemo, useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
@@ -7,8 +6,13 @@ import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
 
-import { MoreVertical, UserPlus, Eye, Pencil, Ban, CheckCircle2 } from "lucide-react";
+import { UserPlus, Eye, Pencil, Ban, CheckCircle2 } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
+
+import {
+  TableActionButton,
+  TableActionMenu,
+} from "@/components/Table/ActionTableButton";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -57,72 +61,6 @@ function TopCard({ title, subtitle, right }) {
         </div>
         {right}
       </div>
-    </div>
-  );
-}
-
-function ActionButton({ icon: Icon, children, href, onClick, title }) {
-  const cls =
-    "inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:outline-none focus:ring-2 focus:ring-teal-500/20";
-
-  if (href) {
-    return (
-      <Link href={href} className={cls} title={title}>
-        {Icon ? <Icon className="h-4 w-4 text-slate-600" /> : null}
-        {children}
-      </Link>
-    );
-  }
-
-  return (
-    <button type="button" onClick={onClick} className={cls} title={title}>
-      {Icon ? <Icon className="h-4 w-4 text-slate-600" /> : null}
-      {children}
-    </button>
-  );
-}
-
-function MoreMenu({ open, onToggle, onClose, items = [] }) {
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white ring-1 ring-slate-200 hover:bg-slate-50 transition focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-        title="More actions"
-      >
-        <MoreVertical className="h-4 w-4 text-slate-600" />
-      </button>
-
-      {open ? (
-        <>
-          <button
-            type="button"
-            className="fixed inset-0 cursor-default"
-            onClick={onClose}
-            aria-label="Close"
-          />
-          <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white ring-1 ring-slate-200 shadow-lg overflow-hidden z-20">
-            {items.map((it, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => {
-                  onClose();
-                  it.onClick?.();
-                }}
-                className={cx(
-                  "w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-slate-50 transition",
-                  it.tone === "danger" ? "text-rose-700" : "text-slate-800"
-                )}
-              >
-                {it.icon ? <it.icon className="h-4 w-4" /> : null}
-                <span className="font-semibold">{it.label}</span>
-              </button>
-            ))}
-          </div>
-        </>
-      ) : null}
     </div>
   );
 }
@@ -236,7 +174,10 @@ export default function Users() {
     });
 
     const list = Array.from(set).sort();
-    return [{ value: "all", label: "All roles" }, ...list.map((r) => ({ value: r, label: titleCase(r) }))];
+    return [
+      { value: "all", label: "All roles" },
+      ...list.map((r) => ({ value: r, label: titleCase(r) })),
+    ];
   }, [rows]);
 
   const statusOptions = useMemo(
@@ -348,7 +289,9 @@ export default function Users() {
           u?.__filler ? (
             <SkeletonLine w="w-24" />
           ) : (
-            <div className="text-sm font-semibold text-slate-800">{u?.employee?.employee_no || "Not linked"}</div>
+            <div className="text-sm font-semibold text-slate-800">
+              {u?.employee?.employee_no || "Not linked"}
+            </div>
           ),
       },
       {
@@ -372,7 +315,11 @@ export default function Users() {
         sortable: true,
         nowrap: true,
         render: (u) =>
-          u?.__filler ? <SkeletonLine w="w-20" /> : <span className="text-sm text-slate-700">{u?.last_login_at || "Never"}</span>,
+          u?.__filler ? (
+            <SkeletonLine w="w-20" />
+          ) : (
+            <span className="text-sm text-slate-700">{u?.last_login_at || "Never"}</span>
+          ),
       },
     ],
     []
@@ -446,35 +393,64 @@ export default function Users() {
               </div>
             ) : (
               <div className="flex items-center justify-end gap-2">
-                <ActionButton
-                  icon={Eye}
+                <TableActionButton
+                  as="link"
                   href={`/dashboard/admin/users/${u.id}`}
+                  icon={Eye}
                   title="View user"
                 >
                   View
-                </ActionButton>
+                </TableActionButton>
 
-                <ActionButton
-                  icon={Pencil}
+                <TableActionButton
+                  as="link"
                   href={`/dashboard/admin/users/${u.id}/edit`}
+                  icon={Pencil}
                   title="Edit user"
                 >
                   Edit
-                </ActionButton>
+                </TableActionButton>
 
-                <MoreMenu
-                  open={menuUserId === u.id}
-                  onToggle={() => (menuUserId === u.id ? closeMenu() : openMenu(u.id))}
-                  onClose={closeMenu}
-                  items={[
-                    {
-                      label: u?.is_active ? "Disable user" : "Enable user",
-                      icon: u?.is_active ? Ban : CheckCircle2,
-                      tone: u?.is_active ? "danger" : "neutral",
-                      onClick: () => toggleActive(u),
-                    },
-                  ]}
-                />
+                <div className="relative">
+                  <TableActionMenu
+                    onClick={() => (menuUserId === u.id ? closeMenu() : openMenu(u.id))}
+                    title="More actions"
+                  />
+
+                  {menuUserId === u.id ? (
+                    <>
+                      <button
+                        type="button"
+                        className="fixed inset-0 cursor-default"
+                        onClick={closeMenu}
+                        aria-label="Close"
+                      />
+
+                      <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white ring-1 ring-slate-200 shadow-lg overflow-hidden z-20">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            closeMenu();
+                            toggleActive(u);
+                          }}
+                          className={cx(
+                            "w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-slate-50 transition",
+                            u?.is_active ? "text-rose-700" : "text-slate-800"
+                          )}
+                        >
+                          {u?.is_active ? (
+                            <Ban className="h-4 w-4" />
+                          ) : (
+                            <CheckCircle2 className="h-4 w-4" />
+                          )}
+                          <span className="font-semibold">
+                            {u?.is_active ? "Disable user" : "Enable user"}
+                          </span>
+                        </button>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
               </div>
             )
           }

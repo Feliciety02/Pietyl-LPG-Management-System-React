@@ -67,14 +67,7 @@ export default function EmployeeActionsModal({
       icon={MoreVertical}
     >
       <div className="grid gap-2">
-        <ActionCard
-          icon={Pencil}
-          title="Edit employee"
-          hint="Update position, status, and details."
-          onClick={onEdit}
-          disabled={!hasEmployee}
-        />
-
+        
         <ActionCard
           icon={Link2}
           title="Link user account"

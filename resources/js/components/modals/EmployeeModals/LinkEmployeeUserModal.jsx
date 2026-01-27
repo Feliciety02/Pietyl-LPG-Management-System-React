@@ -34,7 +34,13 @@ function InputRow({ icon: Icon, ...props }) {
   );
 }
 
-export default function LinkEmployeeUserModal({ open, onClose, employee, onSubmit, loading = false }) {
+export default function LinkEmployeeUserModal({
+  open,
+  onClose,
+  employee,
+  onSubmit,
+  loading = false,
+}) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("cashier");
   const [err, setErr] = useState("");
@@ -46,25 +52,30 @@ export default function LinkEmployeeUserModal({ open, onClose, employee, onSubmi
     setErr("");
   }, [open]);
 
-  if (!employee) return null;
-
   const canSubmit = useMemo(() => {
+    if (!employee) return false;
     if (!safeText(email)) return false;
     if (loading) return false;
     return true;
-  }, [email, loading]);
+  }, [employee, email, loading]);
 
   const submit = () => {
+    if (!employee || loading) return;
+
     const e = safeText(email).toLowerCase();
     if (!e) {
       setErr("Email is required.");
       return;
     }
+
     setErr("");
     onSubmit?.({ email: e, role });
   };
 
-  const name = `${employee.first_name || ""} ${employee.last_name || ""}`.trim() || "Employee";
+  if (!employee) return null;
+
+  const name =
+    `${employee.first_name || ""} ${employee.last_name || ""}`.trim() || "Employee";
 
   return (
     <ModalShell
@@ -92,7 +103,9 @@ export default function LinkEmployeeUserModal({ open, onClose, employee, onSubmi
             disabled={!canSubmit}
             className={cx(
               "rounded-2xl px-4 py-2 text-sm font-extrabold text-white ring-1 transition focus:outline-none focus:ring-4",
-              !canSubmit ? "bg-slate-300 ring-slate-300 cursor-not-allowed" : "bg-teal-600 ring-teal-600 hover:bg-teal-700 focus:ring-teal-500/25"
+              !canSubmit
+                ? "bg-slate-300 ring-slate-300 cursor-not-allowed"
+                : "bg-teal-600 ring-teal-600 hover:bg-teal-700 focus:ring-teal-500/25"
             )}
           >
             {loading ? "Linking..." : "Link"}

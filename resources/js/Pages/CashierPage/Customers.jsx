@@ -10,13 +10,17 @@ import DataTablePagination from "@/components/Table/DataTablePagination";
 import { UserPlus, History, Eye, Pencil, ShoppingCart } from "lucide-react";
 import { SkeletonLine, SkeletonButton } from "@/components/ui/Skeleton";
 
+import {
+  TableActionButton,
+} from "@/components/Table/ActionTableButton";
+
 import AddCustomerModal from "@/components/modals/CustomerModals/AddCustomerModal";
 import CustomerDetailsModal from "@/components/modals/CustomerModals/CustomerDetailsModal";
 import EditCustomerModal from "@/components/modals/CustomerModals/EditCustomerModal";
 
-function cx(...classes) {
-  return classes.filter(Boolean).join(" ");
-}
+/* -------------------------------------------------------------------------- */
+/* Layout                                                                      */
+/* -------------------------------------------------------------------------- */
 
 function TopCard({ title, subtitle, right }) {
   return (
@@ -32,6 +36,10 @@ function TopCard({ title, subtitle, right }) {
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/* Role helpers                                                                */
+/* -------------------------------------------------------------------------- */
+
 function getRoleKey(user) {
   return String(user?.role || "cashier");
 }
@@ -40,37 +48,29 @@ function buildRoleRoutes(roleKey) {
   const isAdmin = roleKey === "admin";
   const isCashier = roleKey === "cashier";
 
-  const listHref = isAdmin ? "/dashboard/admin/customers" : "/dashboard/cashier/customers";
-  const postTo = isAdmin ? "/dashboard/admin/customers" : "/dashboard/cashier/customers";
-  const updateBase = isAdmin ? "/dashboard/admin/customers" : "/dashboard/cashier/customers";
+  const base = isAdmin ? "/dashboard/admin" : "/dashboard/cashier";
 
-  const posHref = "/dashboard/cashier/new-sale";
-
-  return { isAdmin, isCashier, listHref, postTo, updateBase, posHref };
-}
-
-function ActionButton({ icon: Icon, label, tone = "neutral", ...props }) {
-  const base =
-    "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold ring-1 transition focus:outline-none focus:ring-2";
-  const tones = {
-    neutral: "bg-white text-slate-800 ring-slate-200 hover:bg-slate-50 focus:ring-teal-500/20",
-    teal: "bg-teal-600 text-white ring-teal-600 hover:bg-teal-700 focus:ring-teal-500/25",
+  return {
+    isAdmin,
+    isCashier,
+    listHref: `${base}/customers`,
+    postTo: `${base}/customers`,
+    updateBase: `${base}/customers`,
+    posHref: "/dashboard/cashier/new-sale",
   };
-
-  return (
-    <button type="button" className={cx(base, tones[tone] || tones.neutral)} {...props}>
-      {Icon ? <Icon className="h-4 w-4" /> : null}
-      {label}
-    </button>
-  );
 }
+
+/* -------------------------------------------------------------------------- */
+/* Page                                                                        */
+/* -------------------------------------------------------------------------- */
 
 export default function Customers() {
   const page = usePage();
   const user = page.props?.auth?.user;
 
   const roleKey = getRoleKey(user);
-  const { isAdmin, isCashier, listHref, postTo, updateBase, posHref } = buildRoleRoutes(roleKey);
+  const { isAdmin, isCashier, listHref, postTo, updateBase, posHref } =
+    buildRoleRoutes(roleKey);
 
   /* DEV SAMPLE DATA */
   const SAMPLE_CUSTOMERS = {
@@ -106,32 +106,35 @@ export default function Customers() {
         notes: "",
       },
     ],
-    meta: { current_page: 1, last_page: 1, from: 1, to: 3, total: 3 },
+    meta: { current_page: 1, last_page: 1, total: 3 },
   };
 
   const customers =
     page.props?.customers ??
     (import.meta.env.DEV ? SAMPLE_CUSTOMERS : { data: [], meta: null });
 
-  const rows = customers?.data || [];
-  const meta = customers?.meta || null;
+  const rows = customers.data || [];
+  const meta = customers.meta || null;
 
-  const query = page.props?.filters || {};
-  const qInitial = query?.q || "";
-  const per = Number(query?.per || 10);
+  const filters = page.props?.filters || {};
+  const per = Number(filters.per || 10);
 
-  const [q, setQ] = useState(qInitial);
+  const [q, setQ] = useState(filters.q || "");
   const [openAdd, setOpenAdd] = useState(false);
 
   const [activeCustomer, setActiveCustomer] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
-  const pushQuery = (patch) => {
-    router.get(listHref, { q, per, ...patch }, { preserveScroll: true, preserveState: true, replace: true });
-  };
-
   const loading = Boolean(page.props?.loading);
+
+  const pushQuery = (patch) => {
+    router.get(listHref, { q, per, ...patch }, {
+      preserveScroll: true,
+      preserveState: true,
+      replace: true,
+    });
+  };
 
   const fillerRows = useMemo(
     () =>
@@ -143,6 +146,10 @@ export default function Customers() {
   );
 
   const tableRows = loading ? fillerRows : rows;
+
+  /* -------------------------------------------------------------------------- */
+  /* Actions                                                                    */
+  /* -------------------------------------------------------------------------- */
 
   const openDetails = (c) => {
     if (!c || c.__filler) return;
@@ -156,7 +163,6 @@ export default function Customers() {
     setEditOpen(true);
   };
 
-  // EditCustomerModal awaits onSave. Return a promise and resolve onFinish.
   const saveEdit = (payload) => {
     if (!activeCustomer?.id) return Promise.resolve();
 
@@ -171,6 +177,10 @@ export default function Customers() {
       });
     });
   };
+
+  /* -------------------------------------------------------------------------- */
+  /* Columns                                                                    */
+  /* -------------------------------------------------------------------------- */
 
   const columns = useMemo(
     () => [
@@ -188,7 +198,6 @@ export default function Customers() {
               type="button"
               onClick={() => openDetails(c)}
               className="text-left group"
-              title="View customer"
             >
               <div className="font-extrabold text-slate-900 group-hover:text-teal-700 transition">
                 {c.name}
@@ -213,7 +222,7 @@ export default function Customers() {
           ),
       },
     ],
-    [per]
+    []
   );
 
   return (
@@ -224,19 +233,17 @@ export default function Customers() {
           subtitle={
             isAdmin
               ? "View customers and purchase activity for oversight and reporting."
-              : "Lookup customers, view purchase summary, and link them to a sale."
+              : "Lookup customers and link them to a sale."
           }
           right={
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setOpenAdd(true)}
-                className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 transition focus:ring-4 focus:ring-teal-500/25"
-              >
-                <UserPlus className="h-4 w-4" />
-                Add customer
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setOpenAdd(true)}
+              className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 focus:ring-4 focus:ring-teal-500/25"
+            >
+              <UserPlus className="h-4 w-4" />
+              Add customer
+            </button>
           }
         />
 
@@ -261,30 +268,32 @@ export default function Customers() {
               <SkeletonButton w="w-24" />
             ) : (
               <div className="flex items-center justify-end gap-2">
-                {isCashier ? (
-                  <Link
+                {isCashier && (
+                  <TableActionButton
+                    as="link"
                     href={`${posHref}?customer_id=${c.id}`}
-                    className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-                    title="Use this customer in POS"
+                    icon={ShoppingCart}
+                    title="Use in POS"
                   >
-                    <ShoppingCart className="h-4 w-4 text-slate-600" />
-                    Use in POS
-                  </Link>
-                ) : null}
+                    POS
+                  </TableActionButton>
+                )}
 
-                <ActionButton
+                <TableActionButton
                   icon={Eye}
-                  label="View"
                   onClick={() => openDetails(c)}
-                  title="Quick view"
-                />
+                  title="View customer"
+                >
+                  View
+                </TableActionButton>
 
-                <ActionButton
+                <TableActionButton
                   icon={Pencil}
-                  label="Edit"
                   onClick={() => openEdit(c)}
                   title="Edit customer"
-                />
+                >
+                  Edit
+                </TableActionButton>
               </div>
             )
           }
@@ -295,12 +304,16 @@ export default function Customers() {
           perPage={per}
           onPerPage={(n) => pushQuery({ per: n, page: 1 })}
           onPrev={() => meta?.current_page > 1 && pushQuery({ page: meta.current_page - 1 })}
-          onNext={() => meta?.current_page < meta?.last_page && pushQuery({ page: meta.current_page + 1 })}
+          onNext={() =>
+            meta?.current_page < meta?.last_page &&
+            pushQuery({ page: meta.current_page + 1 })
+          }
           disablePrev={!meta || meta.current_page <= 1}
           disableNext={!meta || meta.current_page >= meta.last_page}
         />
       </div>
 
+      {/* Modals */}
       <AddCustomerModal
         open={openAdd}
         onClose={() => setOpenAdd(false)}

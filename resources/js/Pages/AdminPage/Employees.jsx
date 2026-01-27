@@ -1,3 +1,4 @@
+// resources/js/Pages/AdminPage/Tabs/Employees.jsx
 import React, { useMemo, useState } from "react";
 import { router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
@@ -6,14 +7,19 @@ import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
 
-import { UserPlus, MoreVertical, Pencil } from "lucide-react";
+import { UserPlus, Pencil } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
+
+import {
+  TableActionButton,
+  TableActionMenu,
+} from "@/components/Table/ActionTableButton";
 
 import CreateEmployeeModal from "@/components/modals/EmployeeModals/CreateEmployeeModal";
 import EditEmployeeModal from "@/components/modals/EmployeeModals/EditEmployeeModal";
 import EmployeeActionsModal from "@/components/modals/EmployeeModals/EmployeeActionsModal";
 import LinkEmployeeUserModal from "@/components/modals/EmployeeModals/LinkEmployeeUserModal";
-import ConfirmActionModal from "@/components/modals/AdminModals/ConfirmActionModal";
+import ConfirmActionModal from "@/components/modals/EmployeeModals/ConfirmActionModal";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -177,6 +183,14 @@ export default function Employees() {
     setConfirmUnlinkOpen(true);
   };
 
+  const closeAll = () => {
+    setCreateOpen(false);
+    setEditOpen(false);
+    setActionsOpen(false);
+    setLinkOpen(false);
+    setConfirmUnlinkOpen(false);
+  };
+
   /* ---------- Submit handlers ---------- */
 
   const [submitting, setSubmitting] = useState(false);
@@ -188,7 +202,10 @@ export default function Employees() {
     router.post("/dashboard/admin/employees", payload, {
       preserveScroll: true,
       onFinish: () => setSubmitting(false),
-      onSuccess: () => setCreateOpen(false),
+      onSuccess: () => {
+        setCreateOpen(false);
+        router.reload({ only: ["employees"] });
+      },
     });
   };
 
@@ -199,7 +216,10 @@ export default function Employees() {
     router.put(`/dashboard/admin/employees/${id}`, payload, {
       preserveScroll: true,
       onFinish: () => setSubmitting(false),
-      onSuccess: () => setEditOpen(false),
+      onSuccess: () => {
+        setEditOpen(false);
+        router.reload({ only: ["employees"] });
+      },
     });
   };
 
@@ -210,7 +230,10 @@ export default function Employees() {
     router.post(`/dashboard/admin/employees/${id}/link-user`, payload, {
       preserveScroll: true,
       onFinish: () => setSubmitting(false),
-      onSuccess: () => setLinkOpen(false),
+      onSuccess: () => {
+        setLinkOpen(false);
+        router.reload({ only: ["employees"] });
+      },
     });
   };
 
@@ -221,7 +244,10 @@ export default function Employees() {
     router.delete(`/dashboard/admin/employees/${id}/unlink-user`, {
       preserveScroll: true,
       onFinish: () => setSubmitting(false),
-      onSuccess: () => setConfirmUnlinkOpen(false),
+      onSuccess: () => {
+        setConfirmUnlinkOpen(false);
+        router.reload({ only: ["employees"] });
+      },
     });
   };
 
@@ -276,6 +302,12 @@ export default function Employees() {
     []
   );
 
+  /* ---------- More menu state ---------- */
+
+  const [menuEmployeeId, setMenuEmployeeId] = useState(null);
+  const toggleMenu = (id) => setMenuEmployeeId((cur) => (cur === id ? null : id));
+  const closeMenu = () => setMenuEmployeeId(null);
+
   return (
     <Layout title="Employees">
       <div className="grid gap-6">
@@ -285,7 +317,10 @@ export default function Employees() {
           right={
             <button
               type="button"
-              onClick={() => setCreateOpen(true)}
+              onClick={() => {
+                setActiveEmployee(null);
+                setCreateOpen(true);
+              }}
               className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 transition focus:ring-4 focus:ring-teal-500/25"
             >
               <UserPlus className="h-4 w-4" />
@@ -322,26 +357,76 @@ export default function Employees() {
           emptyHint="Add employees or adjust filters."
           renderActions={(e) =>
             e?.__filler ? (
-              <SkeletonButton w="w-20" />
+              <div className="flex items-center justify-end gap-2">
+                <SkeletonButton w="w-20" />
+                <div className="h-9 w-9 rounded-xl bg-slate-200/80 animate-pulse" />
+              </div>
             ) : (
               <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
+                <TableActionButton
+                  icon={Pencil}
                   onClick={() => openEdit(e)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 focus:ring-2 focus:ring-teal-500/20"
+                  title="Edit employee"
                 >
-                  <Pencil className="h-4 w-4 text-slate-600" />
                   Edit
-                </button>
+                </TableActionButton>
 
-                <button
-                  type="button"
-                  onClick={() => openActions(e)}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white ring-1 ring-slate-200 hover:bg-slate-50 focus:ring-2 focus:ring-teal-500/20"
-                  title="More actions"
-                >
-                  <MoreVertical className="h-4 w-4 text-slate-600" />
-                </button>
+                <div className="relative">
+                  <TableActionMenu
+                    onClick={() => toggleMenu(e.id)}
+                    title="More actions"
+                  />
+
+                  {menuEmployeeId === e.id ? (
+                    <>
+                      <button
+                        type="button"
+                        className="fixed inset-0 cursor-default"
+                        onClick={closeMenu}
+                        aria-label="Close"
+                      />
+
+                      <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white ring-1 ring-slate-200 shadow-lg overflow-hidden z-20">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            closeMenu();
+                            openActions(e);
+                          }}
+                          className="w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-slate-50 transition text-slate-800"
+                        >
+                          <span className="font-semibold">Open actions</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            closeMenu();
+                            openLink(e);
+                          }}
+                          className="w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-slate-50 transition text-slate-800"
+                        >
+                          <span className="font-semibold">Link account</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            closeMenu();
+                            openConfirmUnlink(e);
+                          }}
+                          disabled={!e.user}
+                          className={cx(
+                            "w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-slate-50 transition",
+                            e.user ? "text-rose-700" : "text-slate-300 pointer-events-none"
+                          )}
+                        >
+                          <span className="font-semibold">Unlink account</span>
+                        </button>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
               </div>
             )
           }
@@ -352,7 +437,9 @@ export default function Employees() {
           perPage={per}
           onPerPage={(n) => pushQuery({ per: n, page: 1 })}
           onPrev={() => meta?.current_page > 1 && pushQuery({ page: meta.current_page - 1 })}
-          onNext={() => meta?.current_page < meta?.last_page && pushQuery({ page: meta.current_page + 1 })}
+          onNext={() =>
+            meta?.current_page < meta?.last_page && pushQuery({ page: meta.current_page + 1 })
+          }
           disablePrev={!meta || meta.current_page <= 1}
           disableNext={!meta || meta.current_page >= meta.last_page}
         />
@@ -360,7 +447,10 @@ export default function Employees() {
 
       <CreateEmployeeModal
         open={createOpen}
-        onClose={() => setCreateOpen(false)}
+        onClose={() => {
+          setCreateOpen(false);
+          setActiveEmployee(null);
+        }}
         onSubmit={createEmployee}
         loading={submitting}
       />
@@ -383,11 +473,11 @@ export default function Employees() {
         }}
         onLinkAccount={() => {
           setActionsOpen(false);
-          openLink(activeEmployee);
+          setLinkOpen(true);
         }}
         onUnlinkAccount={() => {
           setActionsOpen(false);
-          openConfirmUnlink(activeEmployee);
+          setConfirmUnlinkOpen(true);
         }}
       />
 

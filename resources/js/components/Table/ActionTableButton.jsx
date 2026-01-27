@@ -15,15 +15,15 @@ export function TableActionButton({
   href,
   icon: Icon,
   children,
-  tone = "neutral",     // neutral | primary | danger
-  size = "sm",          // sm | xs
+  tone = "neutral", // neutral | primary | danger
+  size = "sm", // sm | xs
   onClick,
   title,
   disabled = false,
   loading = false,
 }) {
   const base =
-    "relative inline-flex items-center justify-center gap-2 rounded-xl font-extrabold select-none " +
+    "relative inline-flex items-center justify-center gap-2 rounded-xl select-none " +
     "transition will-change-transform " +
     "focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-500/20";
 
@@ -34,7 +34,7 @@ export function TableActionButton({
 
   const tones = {
     neutral:
-      "bg-white text-slate-800 ring-1 ring-slate-200 " +
+      "bg-white text-slate-700 ring-1 ring-slate-200 " +
       "hover:bg-teal-50 hover:ring-teal-200/60 " +
       "active:bg-teal-100/60",
     primary:
@@ -47,11 +47,12 @@ export function TableActionButton({
       "active:bg-rose-100/70",
   };
 
-  const state =
-    disabled || loading ? "opacity-50 pointer-events-none" : "";
+  const state = disabled || loading ? "opacity-50 pointer-events-none" : "";
 
   const press =
-    disabled || loading ? "" : "hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.99]";
+    disabled || loading
+      ? ""
+      : "hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.99]";
 
   const className = cx(base, sizes[size], tones[tone], press, state);
 
@@ -62,7 +63,9 @@ export function TableActionButton({
       ) : null}
 
       {children ? (
-        <span className={cx("leading-none", loading && "opacity-0")}>{children}</span>
+        <span className={cx("leading-none", loading && "opacity-0")}>
+          {children}
+        </span>
       ) : null}
 
       {loading ? (
@@ -99,7 +102,6 @@ export function TableActionButton({
 
 /* -------------------------------------------
    Table Action Menu
-   wise rule: keep it neutral, never primary
 ------------------------------------------- */
 
 export function TableActionMenu({

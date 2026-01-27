@@ -1,3 +1,4 @@
+// resources/js/Pages/AdminPage/Tabs/Roles.jsx
 import React, { useMemo, useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
@@ -6,17 +7,18 @@ import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
 
-import { Plus, MoreVertical, Users } from "lucide-react";
-import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
+import { Plus, Users } from "lucide-react";
+import { SkeletonLine, SkeletonButton } from "@/components/ui/Skeleton";
+
+import {
+  TableActionButton,
+  TableActionMenu,
+} from "@/components/Table/ActionTableButton";
 
 import RoleUsersModal from "@/components/modals/AdminModals/RoleUsersModal";
 import DuplicateRoleModal from "@/components/modals/AdminModals/DuplicateRoleModal";
 import ConfirmRoleArchiveModal from "@/components/modals/AdminModals/ConfirmRoleArchiveModal";
 import RoleActionsModal from "@/components/modals/AdminModals/RoleActionsModal";
-
-function cx(...classes) {
-  return classes.filter(Boolean).join(" ");
-}
 
 function titleCase(s = "") {
   return String(s || "")
@@ -184,7 +186,9 @@ export default function Roles() {
                 <RolePill name={r.name} />
                 {r.is_system ? <SystemPill /> : null}
               </div>
-              <div className="text-xs text-slate-500">{r.label || titleCase(r.name)}</div>
+              <div className="text-xs text-slate-500">
+                {r.label || titleCase(r.name)}
+              </div>
             </div>
           ),
       },
@@ -195,7 +199,9 @@ export default function Roles() {
           r?.__filler ? (
             <SkeletonLine w="w-10" />
           ) : (
-            <span className="text-sm font-extrabold text-slate-900">{r.users_count ?? 0}</span>
+            <span className="text-sm font-extrabold text-slate-900">
+              {r.users_count ?? 0}
+            </span>
           ),
       },
       {
@@ -205,7 +211,9 @@ export default function Roles() {
           r?.__filler ? (
             <SkeletonLine w="w-10" />
           ) : (
-            <span className="text-sm font-extrabold text-slate-900">{r.permissions_count ?? 0}</span>
+            <span className="text-sm font-extrabold text-slate-900">
+              {r.permissions_count ?? 0}
+            </span>
           ),
       },
       {
@@ -270,29 +278,24 @@ export default function Roles() {
               <SkeletonButton w="w-24" />
             ) : (
               <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
+                <TableActionButton
+                  icon={Users}
                   onClick={() => {
                     setActiveRole(r);
                     setModal("users");
                   }}
-                  className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 focus:ring-2 focus:ring-teal-500/20"
+                  title="View role users"
                 >
-                  <Users className="h-4 w-4 text-slate-600" />
                   View
-                </button>
+                </TableActionButton>
 
-                <button
-                  type="button"
+                <TableActionMenu
                   onClick={() => {
                     setActiveRole(r);
                     setModal("actions");
                   }}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white ring-1 ring-slate-200 hover:bg-slate-50 focus:ring-2 focus:ring-teal-500/20"
                   title="More actions"
-                >
-                  <MoreVertical className="h-4 w-4 text-slate-600" />
-                </button>
+                />
               </div>
             )
           }
@@ -310,11 +313,8 @@ export default function Roles() {
           disableNext={!meta || meta.current_page >= meta.last_page}
         />
 
-        <RoleUsersModal
-          open={modal === "users"}
-          role={activeRole}
-          onClose={closeModals}
-        />
+        {/* MODALS */}
+        <RoleUsersModal open={modal === "users"} role={activeRole} onClose={closeModals} />
 
         <RoleActionsModal
           open={modal === "actions"}
@@ -324,17 +324,9 @@ export default function Roles() {
           onArchive={() => setModal("archive")}
         />
 
-        <DuplicateRoleModal
-          open={modal === "duplicate"}
-          role={activeRole}
-          onClose={closeModals}
-        />
+        <DuplicateRoleModal open={modal === "duplicate"} role={activeRole} onClose={closeModals} />
 
-        <ConfirmRoleArchiveModal
-          open={modal === "archive"}
-          role={activeRole}
-          onClose={closeModals}
-        />
+        <ConfirmRoleArchiveModal open={modal === "archive"} role={activeRole} onClose={closeModals} />
       </div>
     </Layout>
   );
