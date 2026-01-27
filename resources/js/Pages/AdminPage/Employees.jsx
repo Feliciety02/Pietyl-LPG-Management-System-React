@@ -1,13 +1,19 @@
 import React, { useMemo, useState } from "react";
-import { Link, router, usePage } from "@inertiajs/react";
+import { router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
 
 import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
 
-import { UserPlus, MoreVertical, Link2, Pencil } from "lucide-react";
+import { UserPlus, MoreVertical, Pencil } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
+
+import CreateEmployeeModal from "@/components/modals/EmployeeModals/CreateEmployeeModal";
+import EditEmployeeModal from "@/components/modals/EmployeeModals/EditEmployeeModal";
+import EmployeeActionsModal from "@/components/modals/EmployeeModals/EmployeeActionsModal";
+import LinkEmployeeUserModal from "@/components/modals/EmployeeModals/LinkEmployeeUserModal";
+import ConfirmActionModal from "@/components/modals/AdminModals/ConfirmActionModal";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -141,6 +147,84 @@ export default function Employees() {
 
   const tableRows = loading ? fillerRows : rows;
 
+  /* ---------- Modal state ---------- */
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [confirmUnlinkOpen, setConfirmUnlinkOpen] = useState(false);
+
+  const [activeEmployee, setActiveEmployee] = useState(null);
+
+  const openEdit = (e) => {
+    setActiveEmployee(e);
+    setEditOpen(true);
+  };
+
+  const openActions = (e) => {
+    setActiveEmployee(e);
+    setActionsOpen(true);
+  };
+
+  const openLink = (e) => {
+    setActiveEmployee(e);
+    setLinkOpen(true);
+  };
+
+  const openConfirmUnlink = (e) => {
+    setActiveEmployee(e);
+    setConfirmUnlinkOpen(true);
+  };
+
+  /* ---------- Submit handlers ---------- */
+
+  const [submitting, setSubmitting] = useState(false);
+
+  const createEmployee = (payload) => {
+    if (submitting) return;
+    setSubmitting(true);
+
+    router.post("/dashboard/admin/employees", payload, {
+      preserveScroll: true,
+      onFinish: () => setSubmitting(false),
+      onSuccess: () => setCreateOpen(false),
+    });
+  };
+
+  const updateEmployee = (id, payload) => {
+    if (!id || submitting) return;
+    setSubmitting(true);
+
+    router.put(`/dashboard/admin/employees/${id}`, payload, {
+      preserveScroll: true,
+      onFinish: () => setSubmitting(false),
+      onSuccess: () => setEditOpen(false),
+    });
+  };
+
+  const linkUser = (id, payload) => {
+    if (!id || submitting) return;
+    setSubmitting(true);
+
+    router.post(`/dashboard/admin/employees/${id}/link-user`, payload, {
+      preserveScroll: true,
+      onFinish: () => setSubmitting(false),
+      onSuccess: () => setLinkOpen(false),
+    });
+  };
+
+  const unlinkUser = (id) => {
+    if (!id || submitting) return;
+    setSubmitting(true);
+
+    router.delete(`/dashboard/admin/employees/${id}/unlink-user`, {
+      preserveScroll: true,
+      onFinish: () => setSubmitting(false),
+      onSuccess: () => setConfirmUnlinkOpen(false),
+    });
+  };
+
   /* ---------- Columns ---------- */
 
   const columns = useMemo(
@@ -164,7 +248,11 @@ export default function Employees() {
         key: "position",
         label: "Position",
         render: (e) =>
-          e?.__filler ? <SkeletonLine w="w-28" /> : <span className="text-sm">{e.position}</span>,
+          e?.__filler ? (
+            <SkeletonLine w="w-28" />
+          ) : (
+            <span className="text-sm text-slate-700">{e.position}</span>
+          ),
       },
       {
         key: "status",
@@ -195,13 +283,14 @@ export default function Employees() {
           title="Employee Directory"
           subtitle="Maintain staff records and employment status."
           right={
-            <Link
-              href="/dashboard/admin/employees/create"
+            <button
+              type="button"
+              onClick={() => setCreateOpen(true)}
               className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 transition focus:ring-4 focus:ring-teal-500/25"
             >
               <UserPlus className="h-4 w-4" />
               Add Employee
-            </Link>
+            </button>
           }
         />
 
@@ -236,27 +325,20 @@ export default function Employees() {
               <SkeletonButton w="w-20" />
             ) : (
               <div className="flex items-center justify-end gap-2">
-                <Link
-                  href={`/dashboard/admin/employees/${e.id}/edit`}
+                <button
+                  type="button"
+                  onClick={() => openEdit(e)}
                   className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 focus:ring-2 focus:ring-teal-500/20"
                 >
                   <Pencil className="h-4 w-4 text-slate-600" />
                   Edit
-                </Link>
-
-                {!e.user && (
-                  <Link
-                    href={`/dashboard/admin/users/create?employee=${e.id}`}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white ring-1 ring-slate-200 hover:bg-slate-50 focus:ring-2 focus:ring-teal-500/20"
-                    title="Link user account"
-                  >
-                    <Link2 className="h-4 w-4 text-slate-600" />
-                  </Link>
-                )}
+                </button>
 
                 <button
                   type="button"
+                  onClick={() => openActions(e)}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white ring-1 ring-slate-200 hover:bg-slate-50 focus:ring-2 focus:ring-teal-500/20"
+                  title="More actions"
                 >
                   <MoreVertical className="h-4 w-4 text-slate-600" />
                 </button>
@@ -270,13 +352,63 @@ export default function Employees() {
           perPage={per}
           onPerPage={(n) => pushQuery({ per: n, page: 1 })}
           onPrev={() => meta?.current_page > 1 && pushQuery({ page: meta.current_page - 1 })}
-          onNext={() =>
-            meta?.current_page < meta?.last_page && pushQuery({ page: meta.current_page + 1 })
-          }
+          onNext={() => meta?.current_page < meta?.last_page && pushQuery({ page: meta.current_page + 1 })}
           disablePrev={!meta || meta.current_page <= 1}
           disableNext={!meta || meta.current_page >= meta.last_page}
         />
       </div>
+
+      <CreateEmployeeModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onSubmit={createEmployee}
+        loading={submitting}
+      />
+
+      <EditEmployeeModal
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        employee={activeEmployee}
+        onSubmit={(payload) => updateEmployee(activeEmployee?.id, payload)}
+        loading={submitting}
+      />
+
+      <EmployeeActionsModal
+        open={actionsOpen}
+        onClose={() => setActionsOpen(false)}
+        employee={activeEmployee}
+        onEdit={() => {
+          setActionsOpen(false);
+          setEditOpen(true);
+        }}
+        onLinkAccount={() => {
+          setActionsOpen(false);
+          openLink(activeEmployee);
+        }}
+        onUnlinkAccount={() => {
+          setActionsOpen(false);
+          openConfirmUnlink(activeEmployee);
+        }}
+      />
+
+      <LinkEmployeeUserModal
+        open={linkOpen}
+        onClose={() => setLinkOpen(false)}
+        employee={activeEmployee}
+        onSubmit={(payload) => linkUser(activeEmployee?.id, payload)}
+        loading={submitting}
+      />
+
+      <ConfirmActionModal
+        open={confirmUnlinkOpen}
+        onClose={() => setConfirmUnlinkOpen(false)}
+        title="Unlink account"
+        message="This will detach the user account from this employee. The employee record will remain."
+        confirmLabel="Unlink"
+        tone="rose"
+        loading={submitting}
+        onConfirm={() => unlinkUser(activeEmployee?.id)}
+      />
     </Layout>
   );
 }
