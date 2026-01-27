@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Supplier\SupplierController;
 use App\Http\Controllers\Cashier\CustomerController;
 use App\Http\Controllers\Cashier\SaleController;
+use App\Http\Controllers\Inventory\StockController;
 
 
 Route::get('/', function () {
