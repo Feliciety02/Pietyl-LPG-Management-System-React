@@ -1,4 +1,3 @@
-// resources/js/Pages/AdminPage/Tabs/Products.jsx
 import React, { useMemo, useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
@@ -10,15 +9,11 @@ import DataTablePagination from "@/components/Table/DataTablePagination";
 import { PackagePlus, Building2, Pencil, Archive } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 
-import {
-  TableActionButton,
-  TableActionMenu,
-} from "@/components/Table/ActionTableButton";
+import { TableActionButton } from "@/components/Table/ActionTableButton";
 
 import AddProductModal from "@/components/modals/ProductModals/AddProductModal";
 import EditProductModal from "@/components/modals/ProductModals/EditProductModal";
 import ConfirmArchiveProductModal from "@/components/modals/ProductModals/ConfirmArchiveProductModal";
-
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -322,13 +317,17 @@ export default function Products() {
   const confirmArchive = () => {
     if (!activeProduct?.id) return;
 
-    router.post(`/dashboard/admin/products/${activeProduct.id}/archive`, {}, {
-      preserveScroll: true,
-      onSuccess: () => {
-        setArchiveOpen(false);
-        router.reload({ only: ["products"] });
-      },
-    });
+    router.post(
+      `/dashboard/admin/products/${activeProduct.id}/archive`,
+      {},
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          setArchiveOpen(false);
+          router.reload({ only: ["products"] });
+        },
+      }
+    );
   };
 
   const columns = useMemo(
@@ -349,7 +348,9 @@ export default function Products() {
             <div className="flex items-center gap-3">
               <ProductThumb src={p?.image_url} name={p?.name} />
               <div className="min-w-0">
-                <div className="font-extrabold text-slate-900 truncate">{p?.name || "Product"}</div>
+                <div className="font-extrabold text-slate-900 truncate">
+                  {p?.name || "Product"}
+                </div>
                 <div className="text-xs text-slate-500 truncate">
                   {(p?.brand ? `${p.brand} • ` : "") + (p?.sku || "No SKU")}
                 </div>
@@ -360,7 +361,8 @@ export default function Products() {
       {
         key: "type",
         label: "Type",
-        render: (p) => (p?.__filler ? <SkeletonPill w="w-20" /> : <TypePill value={p?.type} />),
+        render: (p) =>
+          p?.__filler ? <SkeletonPill w="w-20" /> : <TypePill value={p?.type} />,
       },
       {
         key: "size",
@@ -369,7 +371,9 @@ export default function Products() {
           p?.__filler ? (
             <SkeletonLine w="w-16" />
           ) : (
-            <span className="text-sm font-semibold text-slate-800">{p?.size_label || "—"}</span>
+            <span className="text-sm font-semibold text-slate-800">
+              {p?.size_label || "—"}
+            </span>
           ),
       },
       {
@@ -379,7 +383,9 @@ export default function Products() {
           p?.__filler ? (
             <SkeletonLine w="w-28" />
           ) : (
-            <span className="text-sm text-slate-700">{p?.supplier?.name || "Not set"}</span>
+            <span className="text-sm text-slate-700">
+              {p?.supplier?.name || "Not set"}
+            </span>
           ),
       },
       {
@@ -389,14 +395,20 @@ export default function Products() {
           p?.__filler ? (
             <SkeletonLine w="w-20" />
           ) : (
-            <span className="text-sm font-semibold text-slate-800">{p?.default_price ?? "—"}</span>
+            <span className="text-sm font-semibold text-slate-800">
+              {p?.default_price ?? "—"}
+            </span>
           ),
       },
       {
         key: "status",
         label: "Status",
         render: (p) =>
-          p?.__filler ? <SkeletonPill w="w-20" /> : <StatusPill active={Boolean(p?.is_active)} />,
+          p?.__filler ? (
+            <SkeletonPill w="w-20" />
+          ) : (
+            <StatusPill active={Boolean(p?.is_active)} />
+          ),
       },
     ],
     []
@@ -475,28 +487,31 @@ export default function Products() {
           emptyTitle="No products found"
           emptyHint="Create a new product or adjust filters."
           renderActions={(p) =>
-            p?.__filler ? (
-              <div className="flex items-center justify-end gap-2">
-                <SkeletonButton w="w-20" />
-                <div className="h-9 w-9 rounded-xl bg-slate-200/80 animate-pulse" />
-              </div>
-            ) : (
-              <div className="flex items-center justify-end gap-2">
-                <TableActionButton
-                  icon={Pencil}
-                  onClick={() => openEdit(p)}
-                  title="Edit product"
-                >
-                  Edit
-                </TableActionButton>
+              p?.__filler ? (
+                <div className="flex items-center justify-end gap-2">
+                  <SkeletonButton w="w-32" />
+                </div>
+              ) : (
+                <div className="flex items-center justify-end gap-2">
+                  <TableActionButton
+                    icon={Pencil}
+                    onClick={() => openEdit(p)}
+                    title="Edit product"
+                  >
+                    Edit
+                  </TableActionButton>
 
-                <TableActionMenu
-                  onClick={() => openArchive(p)}
-                  title="More actions"
-                />
-              </div>
-            )
-          }
+                  <TableActionButton
+                    tone="danger"
+                    icon={Archive}
+                    onClick={() => openArchive(p)}
+                    title="Archive product"
+                  >
+                    Archive
+                  </TableActionButton>
+                </div>
+              )
+            }
         />
 
         <DataTablePagination
@@ -515,20 +530,20 @@ export default function Products() {
         open={addOpen}
         onClose={() => setAddOpen(false)}
         onSubmit={createProduct}
+        suppliers={suppliers}
       />
 
       <EditProductModal
         open={editOpen}
         onClose={() => setEditOpen(false)}
         product={activeProduct}
-        onSave={saveEdit}
+        onSubmit={(payload) => saveEdit(payload)}
       />
 
       <ConfirmArchiveProductModal
         open={archiveOpen}
         onClose={() => setArchiveOpen(false)}
         product={activeProduct}
-        icon={Archive}
         onConfirm={confirmArchive}
       />
     </Layout>
