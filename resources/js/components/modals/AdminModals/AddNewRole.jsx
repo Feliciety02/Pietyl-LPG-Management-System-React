@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Copy, Layers3 } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { Layers3, Plus } from "lucide-react";
 import ModalShell from "../ModalShell";
 
 function cx(...classes) {
@@ -24,28 +24,14 @@ function Field({ label, hint, children }) {
   );
 }
 
-export default function DuplicateRoleModal({
+export default function NewRoleModal({
   open,
   onClose,
-  role,
   onSubmit,
   loading = false,
 }) {
   const [name, setName] = useState("");
   const [label, setLabel] = useState("");
-
-  const roleLabel = role ? String(role.label || role.name || "role") : "role";
-  const roleKey = role ? String(role.name || "role") : "role";
-
-  useEffect(() => {
-    if (!open) return;
-
-    const baseKey = normalizeKey(role?.name || "");
-    const baseLabel = String(role?.label || "");
-
-    setName(baseKey ? `${baseKey}_copy` : "");
-    setLabel(baseLabel ? `${baseLabel} Copy` : "");
-  }, [open, role]);
 
   const normalized = useMemo(() => normalizeKey(name), [name]);
   const canSubmit = normalized.length > 0 && !loading;
@@ -65,8 +51,8 @@ export default function DuplicateRoleModal({
       onClose={onClose}
       maxWidthClass="max-w-md"
       layout="compact"
-      title="Duplicate role"
-      subtitle={`Copy settings from ${roleLabel}`}
+      title="Create new role"
+      subtitle="Define a new access role for the system"
       icon={Layers3}
       footer={
         <div className="flex items-center justify-end gap-2">
@@ -96,10 +82,11 @@ export default function DuplicateRoleModal({
       }
     >
       <div className="grid gap-4">
+        {/* INFO CARD */}
         <div className="rounded-2xl bg-slate-50 ring-1 ring-slate-200 p-4">
           <div className="flex items-start gap-3">
             <div className="h-10 w-10 rounded-2xl bg-white ring-1 ring-slate-200 flex items-center justify-center">
-              <Copy className="h-5 w-5 text-slate-600" />
+              <Plus className="h-5 w-5 text-slate-600" />
             </div>
 
             <div className="min-w-0">
@@ -107,33 +94,18 @@ export default function DuplicateRoleModal({
                 You’re creating a new role
               </div>
               <div className="mt-1 text-sm font-semibold text-slate-600 leading-relaxed">
-                It will inherit the same access and permissions as{" "}
-                <span className="font-semibold text-slate-700">{roleLabel}</span>.
-              </div>
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="inline-flex items-center rounded-2xl bg-white ring-1 ring-slate-200 px-3 py-1 text-xs font-semibold text-slate-700">
-                  source key: {roleKey}
-                </span>
-                {role?.permissions_count != null ? (
-                  <span className="inline-flex items-center rounded-2xl bg-white ring-1 ring-slate-200 px-3 py-1 text-xs font-semibold text-slate-700">
-                    permissions: {role.permissions_count}
-                  </span>
-                ) : null}
-                {role?.users_count != null ? (
-                  <span className="inline-flex items-center rounded-2xl bg-white ring-1 ring-slate-200 px-3 py-1 text-xs font-semibold text-slate-700">
-                    users: {role.users_count}
-                  </span>
-                ) : null}
+                This role will start with no users assigned. You’ll configure
+                permissions after creation.
               </div>
             </div>
           </div>
         </div>
 
+        {/* FORM */}
         <div className="grid gap-4">
           <Field
-            label="New role key"
-            hint="use lowercase and underscores. this is what the system uses internally."
+            label="Role key"
+            hint="required. lowercase and underscores only. used internally by the system."
           >
             <input
               value={name}
@@ -145,7 +117,9 @@ export default function DuplicateRoleModal({
             {name && normalized !== name.trim() ? (
               <div className="mt-2 rounded-2xl bg-white ring-1 ring-slate-200 px-3 py-2 text-xs text-slate-600">
                 will be saved as{" "}
-                <span className="font-semibold text-slate-700">{normalized}</span>
+                <span className="font-semibold text-slate-700">
+                  {normalized}
+                </span>
               </div>
             ) : null}
           </Field>
