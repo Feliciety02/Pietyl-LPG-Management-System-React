@@ -4,8 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use App\Http\Controllers\Auth\LoginController;
-use App\Http\Controllers\SupplierController; # DAPAT NAA NI SA INVENTORY FOLDER PERO LATER NA I CHANGE BASIG DI MA AUTO REFACTOR
-use App\Http\Controllers\Inventory\StockController;
+use App\Http\Controllers\Supplier\SupplierController;
 use App\Http\Controllers\Cashier\CustomerController;
 use App\Http\Controllers\Cashier\SaleController;
 
