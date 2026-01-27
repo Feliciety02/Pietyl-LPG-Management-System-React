@@ -13,7 +13,6 @@ import {
   ArrowUpRight,
   Layers,
   ScanSearch,
-  MousePointerClick,
   FileText,
 } from "lucide-react";
 
@@ -63,7 +62,12 @@ function TypePill({ type }) {
       : "Movement";
 
   return (
-    <span className={cx("inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1", tone)}>
+    <span
+      className={cx(
+        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1",
+        tone
+      )}
+    >
       {label}
     </span>
   );
@@ -82,7 +86,12 @@ function DirectionPill({ dir }) {
   const label = d === "in" ? "Inbound" : d === "out" ? "Outbound" : "—";
 
   return (
-    <span className={cx("inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1", tone)}>
+    <span
+      className={cx(
+        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1",
+        tone
+      )}
+    >
       {label}
     </span>
   );
@@ -321,9 +330,17 @@ export default function Movements() {
       },
       {
         key: "dir",
-        label: "Direction",
-        render: (x) => (x?.__filler ? <SkeletonPill w="w-24" /> : <DirectionPill dir={x.direction} />),
-      },
+  label: "Flow",
+  align: "center",
+  render: (x) =>
+    x?.__filler ? (
+      <SkeletonPill w="w-10" />
+    ) : (
+      <div className="flex justify-center">
+        <DirectionIcon dir={x.direction} />
+      </div>
+    ),
+  },
       {
         key: "qty",
         label: "Qty",
@@ -337,12 +354,22 @@ export default function Movements() {
       {
         key: "actor",
         label: "By",
-        render: (x) => (x?.__filler ? <SkeletonLine w="w-24" /> : <span className="text-sm text-slate-700">{niceText(x.actor_name)}</span>),
+        render: (x) =>
+          x?.__filler ? (
+            <SkeletonLine w="w-24" />
+          ) : (
+            <span className="text-sm text-slate-700">{niceText(x.actor_name)}</span>
+          ),
       },
       {
         key: "date",
         label: "Occurred",
-        render: (x) => (x?.__filler ? <SkeletonLine w="w-28" /> : <span className="text-sm text-slate-700">{niceText(x.occurred_at)}</span>),
+        render: (x) =>
+          x?.__filler ? (
+            <SkeletonLine w="w-28" />
+          ) : (
+            <span className="text-sm text-slate-700">{niceText(x.occurred_at)}</span>
+          ),
       },
     ],
     []
@@ -395,7 +422,6 @@ export default function Movements() {
                     <FileText className="h-4 w-4 text-slate-600" />
                     View
                   </button>
-
                 </div>
               )
             }
