@@ -30,11 +30,21 @@ function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
+<<<<<<< HEAD
 function niceText(v, fallback = "—") {
   if (v == null) return fallback;
   const s = String(v).trim();
   return s ? s : fallback;
 }
+=======
+/* Low Stock
+   Responsibilities
+   Inventory Manager
+   Create purchase requests
+   Admin
+   Approve or decline requests, adjust thresholds, create purchases
+*/
+>>>>>>> b47e321dec3030e1eeb52ae37eefac37fa4e5851
 
 function getRiskCopy(level) {
   const v = String(level || "ok").toLowerCase();
@@ -202,6 +212,7 @@ function EmptyHint() {
   );
 }
 
+<<<<<<< HEAD
 function normalizePaginator(p) {
   const x = p || {};
   const data = Array.isArray(x.data) ? x.data : Array.isArray(x?.data?.data) ? x.data.data : [];
@@ -215,6 +226,8 @@ function normalizePaginator(p) {
   return { data, meta };
 }
 
+=======
+>>>>>>> b47e321dec3030e1eeb52ae37eefac37fa4e5851
 export default function LowStock() {
   const page = usePage();
 
@@ -227,7 +240,9 @@ export default function LowStock() {
   const suppliers = page.props?.suppliers ?? [];
   const productHash = page.props?.product_hash ?? [];
 
-  const { data: rows, meta } = normalizePaginator(page.props?.low_stock);
+  const lowStock = page.props?.low_stock ?? { data: [], meta: null };
+  const rows = lowStock?.data || [];
+  const meta = lowStock?.meta || null;
 
   const { query, set, setPer, prevPage, nextPage, canPrev, canNext } = useTableQuery({
     endpoint: "/dashboard/inventory/low-stock",
@@ -270,11 +285,95 @@ export default function LowStock() {
     { value: "rejected", label: "Declined" },
   ];
 
-  const urgentCount = useMemo(
-    () => rows.filter((r) => String(r.risk_level) === "critical").length,
-    [rows]
-  );
+  const urgentCount = useMemo(() => rows.filter((r) => String(r.risk_level) === "critical").length, [rows]);
 
+<<<<<<< HEAD
+=======
+  const columns = useMemo(() => {
+    const base = [
+      {
+        key: "item",
+        label: "Product",
+        render: (x) =>
+          loading ? (
+            <div className="space-y-2">
+              <SkeletonLine w="w-44" />
+              <SkeletonLine w="w-28" />
+            </div>
+          ) : (
+            <div>
+              <div className="font-extrabold text-slate-900">
+                {x.name} <span className="text-slate-500 font-semibold">({x.variant})</span>
+              </div>
+              <div className="text-xs text-slate-500">
+                {x.sku || "—"} • {x.supplier_name || "No supplier"}
+              </div>
+            </div>
+          ),
+      },
+      {
+        key: "risk",
+        label: "Level",
+        render: (x) => (loading ? <SkeletonPill w="w-24" /> : <RiskPill level={x.risk_level} />),
+      },
+      {
+        key: "qty",
+        label: "Stock",
+        render: (x) =>
+          loading ? (
+            <div className="space-y-2">
+              <SkeletonLine w="w-40" />
+              <SkeletonLine w="w-28" />
+            </div>
+          ) : (
+            <QtyBar current={x.current_qty} threshold={x.reorder_level} />
+          ),
+      },
+      {
+        key: "days",
+        label: "Days left",
+        render: (x) =>
+          loading ? (
+            <SkeletonLine w="w-16" />
+          ) : (
+            <span className="text-sm font-semibold text-slate-800">
+              {x.est_days_left == null ? "—" : `${x.est_days_left}d`}
+            </span>
+          ),
+      },
+      {
+        key: "last",
+        label: "Last update",
+        render: (x) =>
+          loading ? <SkeletonLine w="w-28" /> : <span className="text-sm text-slate-700">{x.last_movement_at || "—"}</span>,
+      },
+    ];
+
+    if (!isAdmin) return base;
+
+    return [
+      ...base,
+      {
+        key: "req_status",
+        label: "Owner approval",
+        render: (x) =>
+          loading ? (
+            <SkeletonPill w="w-24" />
+          ) : (
+            <div className="space-y-1">
+              <StatusPill status={x.purchase_request_status || "none"} />
+              <div className="text-[11px] text-slate-500">
+                {x.purchase_request_status && x.purchase_request_status !== "none"
+                  ? `requested by ${x.requested_by_name || "—"}`
+                  : "no request yet"}
+              </div>
+            </div>
+          ),
+      },
+    ];
+  }, [isAdmin, loading]);
+
+>>>>>>> b47e321dec3030e1eeb52ae37eefac37fa4e5851
   const openRequestModal = (row) => {
     setPurchaseReqItem(row || null);
     setPurchaseReqOpen(true);

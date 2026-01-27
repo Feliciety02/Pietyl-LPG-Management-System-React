@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Receipt;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -25,6 +26,8 @@ class DatabaseSeeder extends Seeder
             SaleSeeder::class,
             SaleItemSeeder::class,
             PaymentSeeder::class,
+            PurchaseSeeder::class,
+            ReceiptSeeder::class,
         ]);
     }
 }

@@ -1,26 +1,15 @@
-// resources/js/pages/.../Customers.jsx
 import React, { useMemo, useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
-
 import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
-
-import { UserPlus, History, Eye, Pencil, ShoppingCart } from "lucide-react";
+import { UserPlus, History, Eye, Pencil } from "lucide-react";
 import { SkeletonLine, SkeletonButton } from "@/components/ui/Skeleton";
-
-import {
-  TableActionButton,
-} from "@/components/Table/ActionTableButton";
 
 import AddCustomerModal from "@/components/modals/CustomerModals/AddCustomerModal";
 import CustomerDetailsModal from "@/components/modals/CustomerModals/CustomerDetailsModal";
 import EditCustomerModal from "@/components/modals/CustomerModals/EditCustomerModal";
-
-/* -------------------------------------------------------------------------- */
-/* Layout                                                                      */
-/* -------------------------------------------------------------------------- */
 
 function TopCard({ title, subtitle, right }) {
   return (
@@ -36,10 +25,6 @@ function TopCard({ title, subtitle, right }) {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Role helpers                                                                */
-/* -------------------------------------------------------------------------- */
-
 function getRoleKey(user) {
   return String(user?.role || "cashier");
 }
@@ -48,21 +33,22 @@ function buildRoleRoutes(roleKey) {
   const isAdmin = roleKey === "admin";
   const isCashier = roleKey === "cashier";
 
-  const base = isAdmin ? "/dashboard/admin" : "/dashboard/cashier";
+  const listHref = isAdmin
+    ? "/dashboard/admin/customers"
+    : "/dashboard/cashier/customers";
 
-  return {
-    isAdmin,
-    isCashier,
-    listHref: `${base}/customers`,
-    postTo: `${base}/customers`,
-    updateBase: `${base}/customers`,
-    posHref: "/dashboard/cashier/new-sale",
-  };
+  const postTo = isAdmin
+    ? "/dashboard/admin/customers"
+    : "/dashboard/cashier/customers";
+
+  const updateBase = isAdmin
+    ? "/dashboard/admin/customers"
+    : "/dashboard/cashier/customers";
+
+  const posHref = "/dashboard/cashier/new-sale";
+
+  return { isAdmin, isCashier, listHref, postTo, updateBase, posHref };
 }
-
-/* -------------------------------------------------------------------------- */
-/* Page                                                                        */
-/* -------------------------------------------------------------------------- */
 
 export default function Customers() {
   const page = usePage();
@@ -72,28 +58,25 @@ export default function Customers() {
   const { isAdmin, isCashier, listHref, postTo, updateBase, posHref } =
     buildRoleRoutes(roleKey);
 
-  /* DEV SAMPLE DATA */
-  const SAMPLE_CUSTOMERS = {
+  const SAMPLE = {
     data: [
       {
         id: 101,
         name: "Ana Santos",
-        phone: "09171234567",
+        phone: "0917 123 4567",
         address: "Davao City",
         purchases: 12,
-        last_purchase_at: "2026-01-27 09:20",
+        last_purchase_at: "Today 9:20 AM",
         total_spent: 8950,
-        notes: "prefers morning delivery",
       },
       {
         id: 102,
         name: "Mark Dela Cruz",
-        phone: "09222228899",
+        phone: "0922 222 8899",
         address: "Panabo City",
         purchases: 6,
-        last_purchase_at: "2026-01-26 14:10",
+        last_purchase_at: "Yesterday 2:10 PM",
         total_spent: 4210,
-        notes: "",
       },
       {
         id: 103,
@@ -103,66 +86,77 @@ export default function Customers() {
         purchases: 0,
         last_purchase_at: "",
         total_spent: 0,
-        notes: "",
       },
     ],
-    meta: { current_page: 1, last_page: 1, total: 3 },
+    meta: { current_page: 1, last_page: 1, from: 1, to: 3, total: 3 },
   };
 
-  const customers =
-    page.props?.customers ??
-    (import.meta.env.DEV ? SAMPLE_CUSTOMERS : { data: [], meta: null });
+  const customers = page.props?.customers ?? { data: [], meta: null };
 
-  const rows = customers.data || [];
-  const meta = customers.meta || null;
+  const rows = customers?.data || [];
+  const meta = customers?.meta || null;
 
-  const filters = page.props?.filters || {};
-  const per = Number(filters.per || 10);
+  const query = page.props?.filters || {};
+  const qInitial = query?.q || "";
+  const perInitial = Number(query?.per || 10);
 
-  const [q, setQ] = useState(filters.q || "");
+  const [q, setQ] = useState(qInitial);
   const [openAdd, setOpenAdd] = useState(false);
 
   const [activeCustomer, setActiveCustomer] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
-  const loading = Boolean(page.props?.loading);
-
   const pushQuery = (patch) => {
-    router.get(listHref, { q, per, ...patch }, {
-      preserveScroll: true,
-      preserveState: true,
-      replace: true,
-    });
+    router.get(
+      listHref,
+      { q, per: perInitial, ...patch },
+      { preserveScroll: true, preserveState: true, replace: true }
+    );
   };
+
+  const handleSearch = (value) => {
+    setQ(value);
+    pushQuery({ q: value, page: 1 });
+  };
+
+  const handlePerPage = (n) => pushQuery({ per: n, page: 1 });
+
+  const handlePrev = () => {
+    if (!meta || meta.current_page <= 1) return;
+    pushQuery({ page: meta.current_page - 1 });
+  };
+
+  const handleNext = () => {
+    if (!meta || meta.current_page >= meta.last_page) return;
+    pushQuery({ page: meta.current_page + 1 });
+  };
+
+  const loading = Boolean(page.props?.loading);
 
   const fillerRows = useMemo(
     () =>
-      Array.from({ length: per }).map((_, i) => ({
+      Array.from({ length: perInitial }).map((_, i) => ({
         id: `__filler__${i}`,
         __filler: true,
       })),
-    [per]
+    [perInitial]
   );
 
   const tableRows = loading ? fillerRows : rows;
 
-  /* -------------------------------------------------------------------------- */
-  /* Actions                                                                    */
-  /* -------------------------------------------------------------------------- */
-
   const openDetails = (c) => {
-    if (!c || c.__filler) return;
     setActiveCustomer(c);
     setDetailsOpen(true);
   };
 
   const openEdit = (c) => {
-    if (!c || c.__filler) return;
     setActiveCustomer(c);
     setEditOpen(true);
   };
 
+  // IMPORTANT FIX
+  // EditCustomerModal awaits onSave, so we return a Promise that resolves onFinish.
   const saveEdit = (payload) => {
     if (!activeCustomer?.id) return Promise.resolve();
 
@@ -177,10 +171,6 @@ export default function Customers() {
       });
     });
   };
-
-  /* -------------------------------------------------------------------------- */
-  /* Columns                                                                    */
-  /* -------------------------------------------------------------------------- */
 
   const columns = useMemo(
     () => [
@@ -198,6 +188,7 @@ export default function Customers() {
               type="button"
               onClick={() => openDetails(c)}
               className="text-left group"
+              title="View customer details"
             >
               <div className="font-extrabold text-slate-900 group-hover:text-teal-700 transition">
                 {c.name}
@@ -215,7 +206,7 @@ export default function Customers() {
           c?.__filler ? (
             <SkeletonLine w="w-14" />
           ) : (
-            <span className="inline-flex items-center gap-2 text-sm font-extrabold text-slate-900">
+            <span className="inline-flex items-center gap-1 text-sm font-extrabold text-slate-900">
               <History className="h-4 w-4 text-slate-500" />
               {c.purchases ?? 0}
             </span>
@@ -233,26 +224,25 @@ export default function Customers() {
           subtitle={
             isAdmin
               ? "View customers and purchase activity for oversight and reporting."
-              : "Lookup customers and link them to a sale."
+              : "Lookup customers, view purchase summary, and link them to a sale."
           }
           right={
-            <button
-              type="button"
-              onClick={() => setOpenAdd(true)}
-              className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 focus:ring-4 focus:ring-teal-500/25"
-            >
-              <UserPlus className="h-4 w-4" />
-              Add customer
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setOpenAdd(true)}
+                className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 transition focus:ring-4 focus:ring-teal-500/25"
+              >
+                <UserPlus className="h-4 w-4" />
+                Add customer
+              </button>
+            </div>
           }
         />
 
         <DataTableFilters
           q={q}
-          onQ={(v) => {
-            setQ(v);
-            pushQuery({ q: v, page: 1 });
-          }}
+          onQ={handleSearch}
           placeholder="Search customer name or phone..."
           filters={[]}
         />
@@ -265,35 +255,44 @@ export default function Customers() {
           emptyHint="Add a customer or adjust search."
           renderActions={(c) =>
             c?.__filler ? (
-              <SkeletonButton w="w-24" />
+              <SkeletonButton w="w-20" />
             ) : (
               <div className="flex items-center justify-end gap-2">
-                {isCashier && (
-                  <TableActionButton
-                    as="link"
+                {isCashier ? (
+                  <Link
                     href={`${posHref}?customer_id=${c.id}`}
-                    icon={ShoppingCart}
-                    title="Use in POS"
+                    className="rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
+                    title="Use this customer in POS"
                   >
-                    POS
-                  </TableActionButton>
+                    Use in POS
+                  </Link>
+                ) : (
+                  <Link
+                    href={`/dashboard/admin/customers/${c.id}`}
+                    className="rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
+                    title="Open full customer profile"
+                  >
+                    View
+                  </Link>
                 )}
 
-                <TableActionButton
-                  icon={Eye}
+                <button
+                  type="button"
                   onClick={() => openDetails(c)}
-                  title="View customer"
+                  className="rounded-2xl bg-white p-2 ring-1 ring-slate-200 hover:bg-slate-50"
+                  title="Quick view"
                 >
-                  View
-                </TableActionButton>
+                  <Eye className="h-4 w-4 text-slate-600" />
+                </button>
 
-                <TableActionButton
-                  icon={Pencil}
+                <button
+                  type="button"
                   onClick={() => openEdit(c)}
+                  className="rounded-2xl bg-white p-2 ring-1 ring-slate-200 hover:bg-slate-50"
                   title="Edit customer"
                 >
-                  Edit
-                </TableActionButton>
+                  <Pencil className="h-4 w-4 text-slate-600" />
+                </button>
               </div>
             )
           }
@@ -301,19 +300,15 @@ export default function Customers() {
 
         <DataTablePagination
           meta={meta}
-          perPage={per}
-          onPerPage={(n) => pushQuery({ per: n, page: 1 })}
-          onPrev={() => meta?.current_page > 1 && pushQuery({ page: meta.current_page - 1 })}
-          onNext={() =>
-            meta?.current_page < meta?.last_page &&
-            pushQuery({ page: meta.current_page + 1 })
-          }
+          perPage={perInitial}
+          onPerPage={handlePerPage}
+          onPrev={handlePrev}
+          onNext={handleNext}
           disablePrev={!meta || meta.current_page <= 1}
           disableNext={!meta || meta.current_page >= meta.last_page}
         />
       </div>
 
-      {/* Modals */}
       <AddCustomerModal
         open={openAdd}
         onClose={() => setOpenAdd(false)}

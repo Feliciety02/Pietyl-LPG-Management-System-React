@@ -25,13 +25,13 @@ class Customer extends Model
     }
 
 
+    
+    public function sales(): HasMany  // ← ADD THIS
+    {
+        return $this->hasMany(Sale::class);
+    }
+
     //TODO: ADD RELATIONSHIPS HERE IF NEEDED
-    //public function sales(): HasMany
-    //{
-        //return $this->hasMany(Sale::class);
-    //}
-
-
     //public function deliveries(): HasMany
     //{
         //return $this->hasMany(Delivery::class);

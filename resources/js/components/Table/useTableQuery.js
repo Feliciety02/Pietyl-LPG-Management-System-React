@@ -1,18 +1,9 @@
+
 import { router, usePage } from "@inertiajs/react";
 import { useMemo } from "react";
 
 function normalize(u = "") {
   return String(u).split("?")[0];
-}
-
-function parseQuery(url = "") {
-  const s = String(url || "");
-  const qs = s.includes("?") ? s.split("?")[1] : "";
-  const params = new URLSearchParams(qs);
-
-  const obj = {};
-  for (const [k, v] of params.entries()) obj[k] = v;
-  return obj;
 }
 
 function toNum(v, fallback) {
@@ -22,47 +13,29 @@ function toNum(v, fallback) {
 
 export default function useTableQuery({ endpoint, meta = null, defaults = {} }) {
   const page = usePage();
-
   const url = normalize(page?.url || endpoint || "");
-  const urlQuery = useMemo(() => parseQuery(page?.url || ""), [page?.url]);
 
-  const propFilters = page.props?.filters || {};
-
-  const getVal = (key, fallback = "") => {
-    const v = propFilters?.[key] ?? urlQuery?.[key] ?? fallback;
-    return v == null ? fallback : v;
-  };
+  const initialFilters = page.props?.filters || {};
 
   const query = useMemo(() => {
     return {
-      q: getVal("q", defaults.q ?? ""),
-      risk: getVal("risk", defaults.risk ?? "all"),
-      req: getVal("req", defaults.req ?? "all"),
-
-      per: toNum(getVal("per", defaults.per ?? 10), defaults.per ?? 10),
-      page: toNum(getVal("page", defaults.page ?? 1), defaults.page ?? 1),
-
-      sort: getVal("sort", defaults.sort ?? ""),
-      dir: getVal("dir", defaults.dir ?? "asc"),
+      q: initialFilters?.q ?? defaults.q ?? "",
+      risk: initialFilters?.risk ?? defaults.risk ?? "all",
+      req: initialFilters?.req ?? defaults.req ?? "all",
+      per: toNum(initialFilters?.per ?? defaults.per, 10),
+      page: toNum(initialFilters?.page ?? defaults.page, 1),
     };
   }, [
-    urlQuery,
-    propFilters,
+    initialFilters,
     defaults.q,
     defaults.risk,
     defaults.req,
     defaults.per,
     defaults.page,
-    defaults.sort,
-    defaults.dir,
   ]);
 
   const push = (patch = {}) => {
     const next = { ...query, ...patch };
-
-    Object.keys(next).forEach((k) => {
-      if (next[k] === "" || next[k] == null) delete next[k];
-    });
 
     router.get(endpoint || url, next, {
       preserveScroll: true,

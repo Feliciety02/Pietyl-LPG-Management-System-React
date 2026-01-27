@@ -4,10 +4,10 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use App\Http\Controllers\Auth\LoginController;
-use App\Http\Controllers\SupplierController; # DAPAT NAA NI SA INVENTORY FOLDER PERO LATER NA I CHANGE BASIG DI MA AUTO REFACTOR
-use App\Http\Controllers\Inventory\StockController;
+use App\Http\Controllers\Supplier\SupplierController;
 use App\Http\Controllers\Cashier\CustomerController;
 use App\Http\Controllers\Cashier\SaleController;
+use App\Http\Controllers\Inventory\StockController;
 
 
 Route::get('/', function () {
@@ -38,6 +38,7 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('dashboard/admin')->middleware('role:admin')->group(function () {
         Route::get('/', fn () => Inertia::render('Dashboard/Dashboard'))->name('dash.admin');
 
+        Route::get('/users', fn () => Inertia::render('AdminPage/Users'))->name('dash.admin.users');
         Route::get('/employees', fn () => Inertia::render('AdminPage/Employees'))->name('dash.admin.employees');
         Route::get('/customers', fn () => Inertia::render('CashierPage/Customers'))->name('dash.admin.customer');  
         Route::get('/roles', fn () => Inertia::render('AdminPage/Roles'))->name('dash.admin.roles');
@@ -54,7 +55,13 @@ Route::middleware(['auth'])->group(function () {
         //Route::get('/sales', fn () => Inertia::render('CashierPage/Sales'))->name('dash.cashier.sales');
 
         Route::get('/sales', [SaleController::class, 'index'])->name('dash.cashier.sales');
+
         Route::get('/customers', [CustomerController::class, 'index'])->name('dash.cashier.customers');
+        Route::post('/customers', [CustomerController::class, 'store'])->name('dash.cashier.customers.store');
+        Route::get('/customers/{customer}', [CustomerController::class, 'show'])->name('dash.cashier.customers.show');
+        Route::put('/customers/{customer}', [CustomerController::class, 'update'])->name('dash.cashier.customers.update');
+        Route::delete('/customers/{customer}', [CustomerController::class, 'destroy'])->name('dash.cashier.customers.destroy');
+        
     });
 
     Route::prefix('dashboard/accountant')->middleware('role:accountant')->group(function () {
@@ -78,7 +85,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', fn () => Inertia::render('Dashboard/Dashboard'))->name('dash.inventory');
 
         // Stock Management
-        Route::get('/counts', [StockController::class, 'index'])->name('dash.inventory.counts');
+        Route::get('/counts', [StockController::class, 'stockCount'])->name('dash.inventory.counts');
         Route::post('/counts/{inventoryBalance}', [StockController::class, 'update'])->name('dash.inventory.counts.update');
         Route::get('/low-stock', [StockController::class, 'lowStock'])->name('dash.inventory.lowstock');
     

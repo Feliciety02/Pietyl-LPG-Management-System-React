@@ -1,90 +1,30 @@
 import React, { useMemo, useState } from "react";
-import { router, usePage } from "@inertiajs/react";
+import { Link, router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
-
 import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
-
-import ViewMovementModal from "@/components/modals/InventoryModals/ViewMovementModal";
-
-import {
-  ArrowDownLeft,
-  ArrowUpRight,
-  Layers,
-  ScanSearch,
-  FileText,
-} from "lucide-react";
-
+import { ArrowRight, ArrowDownLeft, ArrowUpRight, Layers, ScanSearch } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 
+
+//TODO: EVENT SOURCING HERE
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
-function niceText(v) {
-  if (v == null) return "—";
-  const s = String(v).trim();
-  return s ? s : "—";
-}
-
-function normalizeType(type) {
-  return String(type || "").toLowerCase().trim();
-}
-
-function normalizeDir(dir) {
-  return String(dir || "").toLowerCase().trim();
-}
-
 function TypePill({ type }) {
-  const t = normalizeType(type);
+  const t = String(type || "").toLowerCase();
 
   const tone =
     t === "purchase" || t === "refill"
       ? "bg-teal-600/10 text-teal-900 ring-teal-700/10"
-      : t === "swap"
-      ? "bg-amber-600/10 text-amber-900 ring-amber-700/10"
       : t === "sale" || t === "delivery"
       ? "bg-slate-100 text-slate-700 ring-slate-200"
-      : "bg-slate-100 text-slate-700 ring-slate-200";
-
-  const label =
-    t === "purchase"
-      ? "Purchase"
-      : t === "refill"
-      ? "Refill"
-      : t === "sale"
-      ? "Sale"
-      : t === "delivery"
-      ? "Delivery"
       : t === "swap"
-      ? "Swap"
-      : "Movement";
-
-  return (
-    <span
-      className={cx(
-        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1",
-        tone
-      )}
-    >
-      {label}
-    </span>
-  );
-}
-
-function DirectionPill({ dir }) {
-  const d = normalizeDir(dir);
-
-  const tone =
-    d === "in"
-      ? "bg-teal-600/10 text-teal-900 ring-teal-700/10"
-      : d === "out"
-      ? "bg-slate-100 text-slate-700 ring-slate-200"
+      ? "bg-amber-600/10 text-amber-900 ring-amber-700/10"
       : "bg-slate-100 text-slate-700 ring-slate-200";
 
-  const label = d === "in" ? "Inbound" : d === "out" ? "Outbound" : "—";
-
   return (
     <span
       className={cx(
@@ -92,14 +32,16 @@ function DirectionPill({ dir }) {
         tone
       )}
     >
-      {label}
+      {String(type || "movement").toUpperCase()}
     </span>
   );
 }
 
 function DirectionIcon({ dir }) {
-  const d = normalizeDir(dir);
-  const Icon = d === "in" ? ArrowDownLeft : d === "out" ? ArrowUpRight : Layers;
+  const d = String(dir || "").toLowerCase();
+
+  const Icon =
+    d === "in" ? ArrowDownLeft : d === "out" ? ArrowUpRight : Layers;
 
   const tone =
     d === "in"
@@ -146,6 +88,30 @@ function EmptyHint() {
 export default function Movements() {
   const page = usePage();
 
+
+  /*
+    Expected Inertia props from backend:
+    movements: {
+      data: [{
+        id,
+        occurred_at,            // ISO datetime or formatted string
+        direction,             // "in" | "out"
+        type,                  // "sale" | "swap" | "delivery" | "purchase" | "refill"
+        sku,
+        product_name,
+        variant,
+        qty,                   // integer
+        reference_type,        // "sale" | "delivery" | "purchase" | ...
+        reference_id,          // string or number
+        actor_name,            // who triggered the movement
+      }],
+      meta,
+      links
+    }
+    filters: { q, type, dir, page, per }
+  */
+
+  // DEV ONLY – sample movements for UI development
   const SAMPLE_MOVEMENTS = {
     data: [
       {
@@ -201,7 +167,13 @@ export default function Movements() {
         actor_name: "Cashier 1",
       },
     ],
-    meta: { current_page: 1, last_page: 1, from: 1, to: 4, total: 4 },
+    meta: {
+      current_page: 1,
+      last_page: 1,
+      from: 1,
+      to: 4,
+      total: 4,
+    },
   };
 
   const movements =
@@ -220,9 +192,6 @@ export default function Movements() {
   const [q, setQ] = useState(qInitial);
   const [type, setType] = useState(typeInitial);
   const [dir, setDir] = useState(dirInitial);
-
-  const [viewOpen, setViewOpen] = useState(false);
-  const [viewItem, setViewItem] = useState(null);
 
   const typeOptions = [
     { value: "all", label: "All types" },
@@ -247,59 +216,62 @@ export default function Movements() {
     );
   };
 
-  const handleSearch = (v) => {
-    setQ(v);
-    pushQuery({ q: v, page: 1 });
+  const handleSearch = (value) => {
+    setQ(value);
+    pushQuery({ q: value, page: 1 });
   };
 
-  const handleType = (v) => {
-    setType(v);
-    pushQuery({ type: v, page: 1 });
+  const handleType = (value) => {
+    setType(value);
+    pushQuery({ type: value, page: 1 });
   };
 
-  const handleDir = (v) => {
-    setDir(v);
-    pushQuery({ dir: v, page: 1 });
+  const handleDir = (value) => {
+    setDir(value);
+    pushQuery({ dir: value, page: 1 });
   };
 
   const handlePerPage = (n) => pushQuery({ per: n, page: 1 });
-  const handlePrev = () => meta && meta.current_page > 1 && pushQuery({ page: meta.current_page - 1 });
-  const handleNext = () => meta && meta.current_page < meta.last_page && pushQuery({ page: meta.current_page + 1 });
+  const handlePrev = () =>
+    meta && meta.current_page > 1 && pushQuery({ page: meta.current_page - 1 });
+  const handleNext = () =>
+    meta && meta.current_page < meta.last_page && pushQuery({ page: meta.current_page + 1 });
 
   const loading = Boolean(page.props?.loading);
 
-  const fillerRows = useMemo(() => {
-    return Array.from({ length: perInitial }).map((_, i) => ({
-      id: `__filler__${i}`,
-      __filler: true,
-    }));
-  }, [perInitial]);
+  const fillerRows = useMemo(
+    () =>
+      Array.from({ length: perInitial }).map((_, i) => ({
+        id: `__filler__${i}`,
+        __filler: true,
+      })),
+    [perInitial]
+  );
 
   const tableRows = loading ? fillerRows : rows;
-
-  const openView = (row) => {
-    if (!row || row.__filler) return;
-    setViewItem(row);
-    setViewOpen(true);
-  };
-
-  const closeView = () => {
-    setViewOpen(false);
-    setViewItem(null);
-  };
 
   const columns = useMemo(
     () => [
       {
-        key: "item",
-        label: "Item",
+        key: "when",
+        label: "When",
+        render: (x) =>
+          x?.__filler ? (
+            <SkeletonLine w="w-28" />
+          ) : (
+            <div className="text-sm font-semibold text-slate-800">{x.occurred_at || "—"}</div>
+          ),
+      },
+      {
+        key: "movement",
+        label: "Movement",
         render: (x) =>
           x?.__filler ? (
             <div className="flex items-center gap-3">
               <SkeletonPill w="w-10" />
               <div className="space-y-2">
-                <SkeletonLine w="w-40" />
-                <SkeletonLine w="w-24" />
+                <SkeletonLine w="w-44" />
+                <SkeletonLine w="w-28" />
               </div>
             </div>
           ) : (
@@ -307,17 +279,10 @@ export default function Movements() {
               <DirectionIcon dir={x.direction} />
               <div className="min-w-0">
                 <div className="font-extrabold text-slate-900 truncate">
-                  {niceText(x.product_name)}{" "}
-                  {x.variant ? <span className="text-slate-500 font-semibold">({x.variant})</span> : null}
+                  {x.product_name} <span className="text-slate-500 font-semibold">({x.variant})</span>
                 </div>
-                <div className="mt-1 text-xs text-slate-500 truncate">
-                  {x.reference_id ? (
-                    <>
-                      Ref <span className="font-semibold text-slate-700">{x.reference_id}</span>
-                    </>
-                  ) : (
-                    "—"
-                  )}
+                <div className="text-xs text-slate-500 truncate">
+                  {x.sku || "—"} • {x.actor_name || "System"}
                 </div>
               </div>
             </div>
@@ -326,21 +291,9 @@ export default function Movements() {
       {
         key: "type",
         label: "Type",
-        render: (x) => (x?.__filler ? <SkeletonPill w="w-20" /> : <TypePill type={x.type} />),
+        render: (x) =>
+          x?.__filler ? <SkeletonPill w="w-24" /> : <TypePill type={x.type} />,
       },
-      {
-        key: "dir",
-  label: "Flow",
-  align: "center",
-  render: (x) =>
-    x?.__filler ? (
-      <SkeletonPill w="w-10" />
-    ) : (
-      <div className="flex justify-center">
-        <DirectionIcon dir={x.direction} />
-      </div>
-    ),
-  },
       {
         key: "qty",
         label: "Qty",
@@ -348,27 +301,20 @@ export default function Movements() {
           x?.__filler ? (
             <SkeletonLine w="w-10" />
           ) : (
-            <span className="text-sm font-extrabold text-slate-900">{Number(x.qty || 0)}</span>
+            <span className="text-sm font-extrabold text-slate-900">{x.qty ?? 0}</span>
           ),
       },
       {
-        key: "actor",
-        label: "By",
+        key: "ref",
+        label: "Reference",
         render: (x) =>
           x?.__filler ? (
             <SkeletonLine w="w-24" />
           ) : (
-            <span className="text-sm text-slate-700">{niceText(x.actor_name)}</span>
-          ),
-      },
-      {
-        key: "date",
-        label: "Occurred",
-        render: (x) =>
-          x?.__filler ? (
-            <SkeletonLine w="w-28" />
-          ) : (
-            <span className="text-sm text-slate-700">{niceText(x.occurred_at)}</span>
+            <span className="text-sm text-slate-700">
+              {x.reference_type ? String(x.reference_type).toUpperCase() : "—"}{" "}
+              {x.reference_id ? `• ${x.reference_id}` : ""}
+            </span>
           ),
       },
     ],
@@ -382,7 +328,7 @@ export default function Movements() {
       <div className="grid gap-6">
         <TopCard
           title="Movements"
-          subtitle="A simple history of inventory changes. Use View to open details."
+          subtitle="Read only log of inventory changes from sales, deliveries, swaps, purchases, and refills."
           right={
             <div className="rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200">
               {totalCount} records
@@ -393,14 +339,14 @@ export default function Movements() {
         <DataTableFilters
           q={q}
           onQ={handleSearch}
-          placeholder="Search product, reference ID, or user..."
+          placeholder="Search SKU, product, reference ID, user..."
           filters={[
             { key: "type", value: type, onChange: handleType, options: typeOptions },
             { key: "dir", value: dir, onChange: handleDir, options: dirOptions },
           ]}
         />
 
-        {!loading && rows.length === 0 ? (
+        {(!loading && rows.length === 0) ? (
           <EmptyHint />
         ) : (
           <DataTable
@@ -411,17 +357,17 @@ export default function Movements() {
             emptyHint="Try adjusting filters."
             renderActions={(x) =>
               x?.__filler ? (
-                <SkeletonButton w="w-24" />
+                <SkeletonButton w="w-20" />
               ) : (
-                <div className="flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openView(x)}
+                <div className="flex items-center justify-end">
+                  <Link
+                    href={`/dashboard/inventory/movements/${x.id}`}
                     className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
+                    title="View movement details"
                   >
-                    <FileText className="h-4 w-4 text-slate-600" />
                     View
-                  </button>
+                    <ArrowRight className="h-4 w-4 text-slate-600" />
+                  </Link>
                 </div>
               )
             }
@@ -437,8 +383,6 @@ export default function Movements() {
           disablePrev={!meta || meta.current_page <= 1}
           disableNext={!meta || meta.current_page >= meta.last_page}
         />
-
-        <ViewMovementModal open={viewOpen} onClose={closeView} movement={viewItem} />
       </div>
     </Layout>
   );
