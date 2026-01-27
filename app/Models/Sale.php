@@ -63,11 +63,11 @@ class Sale extends Model
         return $this->hasMany(Payment::class);
     }
 
-    //TODO: ADD RELATIONSHIPS HERE IF NEEDED
-    //public function receipt(): HasOne
-    //{
-        //return $this->hasOne(Receipt::class);
-    //}
+    
+    public function receipt(): HasOne
+    {
+        return $this->hasOne(Receipt::class);
+    }
 
     // Scopes
     public function scopePaid($query)
