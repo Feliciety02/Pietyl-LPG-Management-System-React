@@ -57,19 +57,15 @@ class CustomerService
             'name' => $data['name'],
             'phone' => $data['phone'] ?? null,
             'email' => $data['email'] ?? null,
-            'customer_type' => $data['customer_type'],
+            'customer_type' => $data['customer_type'] ?? 'regular',
             'notes' => $data['notes'] ?? null,
         ]);
 
-        if (!empty($data['address_line1']) || !empty($data['city'])) {
+        if (!empty($data['address'])) {
             $customer->addresses()->create([
                 'label' => 'home',
-                'address_line1' => $data['address_line1'] ?? '',
-                'address_line2' => $data['address_line2'] ?? '',
-                'barangay' => $data['barangay'] ?? '',
-                'city' => $data['city'] ?? '',
-                'province' => $data['province'] ?? '',
-                'postal_code' => $data['postal_code'] ?? '',
+                'address_line1' => $data['address'],
+                'city' => 'Davao City',
                 'is_default' => true,
             ]);
         }

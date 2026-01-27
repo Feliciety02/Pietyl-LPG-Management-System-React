@@ -55,7 +55,13 @@ Route::middleware(['auth'])->group(function () {
         //Route::get('/sales', fn () => Inertia::render('CashierPage/Sales'))->name('dash.cashier.sales');
 
         Route::get('/sales', [SaleController::class, 'index'])->name('dash.cashier.sales');
+
         Route::get('/customers', [CustomerController::class, 'index'])->name('dash.cashier.customers');
+        Route::post('/customers', [CustomerController::class, 'store'])->name('dash.cashier.customers.store');
+        Route::get('/customers/{customer}', [CustomerController::class, 'show'])->name('dash.cashier.customers.show');
+        Route::put('/customers/{customer}', [CustomerController::class, 'update'])->name('dash.cashier.customers.update');
+        Route::delete('/customers/{customer}', [CustomerController::class, 'destroy'])->name('dash.cashier.customers.destroy');
+        
     });
 
     Route::prefix('dashboard/accountant')->middleware('role:accountant')->group(function () {

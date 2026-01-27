@@ -29,20 +29,16 @@ class CustomerController extends Controller
     }
 
     public function store(Request $request)
-    {
+    {   
+        //TODO: BASIG NEED TO ADJUST VALIDATION RULES
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'phone' => 'nullable|string|max:50',
-            'email' => 'nullable|email|max:255',
-            'customer_type' => 'required|in:walkin,regular,corporate',
-            'notes' => 'nullable|string',
-            'address_line1' => 'nullable|string|max:255',
-            'address_line2' => 'nullable|string|max:255',
-            'barangay' => 'nullable|string|max:255',
-            'city' => 'nullable|string|max:255',
-            'province' => 'nullable|string|max:255',
-            'postal_code' => 'nullable|string|max:20',
-        ]);
+        'name' => 'required|string|max:255',
+        'phone' => 'nullable|string|max:50',
+        'email' => 'nullable|email|max:255',
+        'customer_type' => 'nullable|in:walkin,regular,corporate',
+        'notes' => 'nullable|string',
+        'address' => 'nullable|string|max:255',  // ← Simple address field
+    ]);
 
         $this->svc->createCustomer($validated);
 
@@ -87,4 +83,3 @@ class CustomerController extends Controller
             ->with('success', 'Customer deleted successfully');
     }
 }
-    
