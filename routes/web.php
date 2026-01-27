@@ -38,6 +38,7 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('dashboard/admin')->middleware('role:admin')->group(function () {
         Route::get('/', fn () => Inertia::render('Dashboard/Dashboard'))->name('dash.admin');
 
+        Route::get('/users', fn () => Inertia::render('AdminPage/Users'))->name('dash.admin.users');
         Route::get('/employees', fn () => Inertia::render('AdminPage/Employees'))->name('dash.admin.employees');
         Route::get('/customers', fn () => Inertia::render('CashierPage/Customers'))->name('dash.admin.customer');  
         Route::get('/roles', fn () => Inertia::render('AdminPage/Roles'))->name('dash.admin.roles');
@@ -78,7 +79,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', fn () => Inertia::render('Dashboard/Dashboard'))->name('dash.inventory');
 
         // Stock Management
-        Route::get('/counts', [StockController::class, 'index'])->name('dash.inventory.counts');
+        Route::get('/counts', [StockController::class, 'stockCount'])->name('dash.inventory.counts');
         Route::post('/counts/{inventoryBalance}', [StockController::class, 'update'])->name('dash.inventory.counts.update');
         Route::get('/low-stock', [StockController::class, 'lowStock'])->name('dash.inventory.lowstock');
     

@@ -1,24 +1,12 @@
+// resources/js/pages/Suppliers/Suppliers.jsx
 import React, { useMemo, useState } from "react";
-import { router, usePage } from "@inertiajs/react";
+import { Link, router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
-
 import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
-
-import { TableActionButton } from "@/components/Table/ActionTableButton";
-
-import { UserPlus, Package, Eye, Pencil, Archive } from "lucide-react";
+import { UserPlus, MoreVertical, Package } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
-
-import AddSupplierModal from "@/components/modals/SupplierModals/AddSupplierModal";
-import EditSupplierModal from "@/components/modals/SupplierModals/EditSupplierModal";
-import SupplierDetailsModal from "@/components/modals/SupplierModals/SupplierDetailsModal";
-import ConfirmArchiveSupplierModal from "@/components/modals/SupplierModals/ConfirmArchiveSupplierModal";
-
-/* -------------------------------------------------------------------------- */
-/* Helpers                                                                     */
-/* -------------------------------------------------------------------------- */
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -53,10 +41,6 @@ function TopCard({ title, subtitle, right }) {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Page                                                                        */
-/* -------------------------------------------------------------------------- */
-
 export default function Suppliers() {
   const page = usePage();
 
@@ -64,13 +48,29 @@ export default function Suppliers() {
   const isAdmin = role === "admin";
   const readOnly = !isAdmin;
 
-  const basePath = isAdmin
-    ? "/dashboard/admin/suppliers"
-    : "/dashboard/inventory/suppliers";
+  const basePath = isAdmin ? "/dashboard/admin/suppliers" : "/dashboard/inventory/suppliers";
 
-  /* ----------------------- DEV SAMPLE DATA -------------------------------- */
+  /*
+    Expected Inertia props from backend:
+    suppliers: {
+      data: [{
+        id,
+        name,
+        contact_name,
+        phone,
+        email,
+        address,
+        is_active,
+        products_count
+      }],
+      meta,
+      links
+    }
+    filters: { q, status, page, per }
+  */
 
-  const SAMPLE_SUPPLIERS = {
+  // DEV ONLY – sample suppliers for UI development
+  const SAMPLE_SUPPLIERS_SAMPLE = {
     data: [
       {
         id: 1,
@@ -99,54 +99,80 @@ export default function Suppliers() {
         phone: "09335556677",
         email: "sales@regasco.ph",
         address: "Panabo City",
+        is_active: true,
+        products_count: 2,
+      },
+      {
+        id: 4,
+        name: "Local LPG Accessories Supplier",
+        contact_name: "Mila Torres",
+        phone: "09445551234",
+        email: "lpg.accessories@gmail.com",
+        address: "Davao City",
         is_active: false,
         products_count: 1,
       },
     ],
-    meta: { current_page: 1, last_page: 1, total: 3 },
+    meta: {
+      current_page: 1,
+      last_page: 1,
+      from: 1,
+      to: 4,
+      total: 4,
+    },
   };
 
-  const suppliers =
-    page.props?.suppliers ??
-    (import.meta.env.DEV ? SAMPLE_SUPPLIERS : { data: [], meta: null });
+  const suppliers = page.props?.suppliers || { data: [], meta: null };
+  const rows = suppliers.data ?? [];
+  const meta = suppliers.meta ?? null;
 
-  const rows = suppliers?.data || [];
-  const meta = suppliers?.meta || null;
+  const query = page.props?.filters || {};
+  const qInitial = query?.q || "";
+  const statusInitial = query?.status || "all";
+  const perInitial = Number(query?.per || 10);
 
-  const filters = page.props?.filters || {};
-  const per = Number(filters.per || 10);
+  const [q, setQ] = useState(qInitial);
+  const [status, setStatus] = useState(statusInitial);
 
-  const [q, setQ] = useState(filters.q || "");
-  const [status, setStatus] = useState(filters.status || "all");
-
-  const [activeSupplier, setActiveSupplier] = useState(null);
-  const [addOpen, setAddOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [archiveOpen, setArchiveOpen] = useState(false);
-
-  const [submitting, setSubmitting] = useState(false);
-  const loading = Boolean(page.props?.loading);
-
-  /* ----------------------- Query helpers ---------------------------------- */
+  const statusOptions = [
+    { value: "all", label: "All status" },
+    { value: "active", label: "Active" },
+    { value: "inactive", label: "Inactive" },
+  ];
 
   const pushQuery = (patch) => {
     router.get(
       basePath,
-      { q, status, per, ...patch },
+      { q, status, per: perInitial, ...patch },
       { preserveScroll: true, preserveState: true, replace: true }
     );
   };
 
-  /* ----------------------- Table data ------------------------------------- */
+  const handleSearch = (value) => {
+    setQ(value);
+    pushQuery({ q: value, page: 1 });
+  };
+
+  const handleStatus = (value) => {
+    setStatus(value);
+    pushQuery({ status: value, page: 1 });
+  };
+
+  const handlePerPage = (n) => pushQuery({ per: n, page: 1 });
+  const handlePrev = () =>
+    meta && meta.current_page > 1 && pushQuery({ page: meta.current_page - 1 });
+  const handleNext = () =>
+    meta && meta.current_page < meta.last_page && pushQuery({ page: meta.current_page + 1 });
+
+  const loading = Boolean(page.props?.loading);
 
   const fillerRows = useMemo(
     () =>
-      Array.from({ length: per }).map((_, i) => ({
+      Array.from({ length: perInitial }).map((_, i) => ({
         id: `__filler__${i}`,
         __filler: true,
       })),
-    [per]
+    [perInitial]
   );
 
   const tableRows = loading ? fillerRows : rows;
@@ -198,65 +224,11 @@ export default function Suppliers() {
         key: "status",
         label: "Status",
         render: (s) =>
-          s?.__filler ? (
-            <SkeletonPill w="w-20" />
-          ) : (
-            <StatusPill active={Boolean(s.is_active)} />
-          ),
+          s?.__filler ? <SkeletonPill w="w-20" /> : <StatusPill active={Boolean(s.is_active)} />,
       },
     ],
     []
   );
-
-  /* ----------------------- Submit handlers -------------------------------- */
-
-  const createSupplier = (payload) => {
-    if (submitting) return;
-    setSubmitting(true);
-
-    router.post(basePath, payload, {
-      preserveScroll: true,
-      onFinish: () => setSubmitting(false),
-      onSuccess: () => {
-        setAddOpen(false);
-        router.reload({ only: ["suppliers"] });
-      },
-    });
-  };
-
-  const updateSupplier = (payload) => {
-    if (!activeSupplier?.id || submitting) return;
-    setSubmitting(true);
-
-    router.put(`${basePath}/${activeSupplier.id}`, payload, {
-      preserveScroll: true,
-      onFinish: () => setSubmitting(false),
-      onSuccess: () => {
-        setEditOpen(false);
-        router.reload({ only: ["suppliers"] });
-      },
-    });
-  };
-
-  const archiveSupplier = () => {
-    if (!activeSupplier?.id || submitting) return;
-    setSubmitting(true);
-
-    router.post(
-      `${basePath}/${activeSupplier.id}/archive`,
-      {},
-      {
-        preserveScroll: true,
-        onFinish: () => setSubmitting(false),
-        onSuccess: () => {
-          setArchiveOpen(false);
-          router.reload({ only: ["suppliers"] });
-        },
-      }
-    );
-  };
-
-  /* ----------------------- Render ----------------------------------------- */
 
   return (
     <Layout title="Suppliers">
@@ -265,43 +237,36 @@ export default function Suppliers() {
           title="Suppliers"
           subtitle={
             readOnly
-              ? "Reference list for purchasing"
-              : "Manage supplier information and products"
+              ? "Reference list for purchasing. Supplier management is handled by Admin."
+              : "Manage supplier information and product relationships."
           }
           right={
-            readOnly ? null : (
-              <button
-                type="button"
-                onClick={() => setAddOpen(true)}
-                className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 focus:ring-4 focus:ring-teal-500/25"
+            readOnly ? (
+              <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[11px] font-extrabold text-slate-700 ring-1 ring-slate-200">
+                READ ONLY
+              </span>
+            ) : (
+              <Link
+                href="/dashboard/admin/suppliers/create"
+                className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 transition focus:ring-4 focus:ring-teal-500/25"
               >
                 <UserPlus className="h-4 w-4" />
                 Add Supplier
-              </button>
+              </Link>
             )
           }
         />
 
         <DataTableFilters
           q={q}
-          onQ={(v) => {
-            setQ(v);
-            pushQuery({ q: v, page: 1 });
-          }}
-          placeholder="Search supplier name or contact..."
+          onQ={handleSearch}
+          placeholder="Search supplier name, contact, email..."
           filters={[
             {
               key: "status",
               value: status,
-              onChange: (v) => {
-                setStatus(v);
-                pushQuery({ status: v, page: 1 });
-              },
-              options: [
-                { value: "all", label: "All status" },
-                { value: "active", label: "Active" },
-                { value: "inactive", label: "Inactive" },
-              ],
+              onChange: handleStatus,
+              options: statusOptions,
             },
           ]}
         />
@@ -311,97 +276,50 @@ export default function Suppliers() {
           rows={tableRows}
           loading={loading}
           emptyTitle="No suppliers found"
-          emptyHint={readOnly ? "Ask admin to add suppliers" : "Add suppliers or adjust filters"}
+          emptyHint={readOnly ? "Ask Admin to add suppliers." : "Add suppliers or adjust filters."}
           renderActions={(s) =>
-              s?.__filler ? (
-                <SkeletonButton w="w-20" />
-              ) : (
-                <div className="flex items-center justify-end gap-2">
-                  <TableActionButton
-                    icon={Package}
-                    onClick={() => {
-                      setActiveSupplier(s);
-                      setDetailsOpen(true);
-                    }}
-                    title="View supplier"
-                  >
-                    View
-                  </TableActionButton>
+            s?.__filler ? (
+              <SkeletonButton w="w-20" />
+            ) : readOnly ? (
+              <div className="flex items-center justify-end">
+                <Link
+                  href={`/dashboard/inventory/suppliers/${s.id}`}
+                  className="rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
+                >
+                  View
+                </Link>
+              </div>
+            ) : (
+              <div className="flex items-center justify-end gap-2">
+                <Link
+                  href={`/dashboard/admin/suppliers/${s.id}/edit`}
+                  className="rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
+                >
+                  Edit
+                </Link>
 
-                  {!readOnly ? (
-                    <>
-                      <TableActionButton
-                        icon={Pencil}
-                        onClick={() => {
-                          setActiveSupplier(s);
-                          setEditOpen(true);
-                        }}
-                        title="Edit supplier"
-                      >
-                        Edit
-                      </TableActionButton>
-
-                      <TableActionButton
-                        tone="danger"
-                        icon={Archive}
-                        onClick={() => {
-                          setActiveSupplier(s);
-                          setArchiveOpen(true);
-                        }}
-                        title="Archive supplier"
-                      >
-                        Archive
-                      </TableActionButton>
-                    </>
-                  ) : null}
-                </div>
-              )
-            }
+                <button
+                  type="button"
+                  className="rounded-2xl bg-white p-2 ring-1 ring-slate-200 hover:bg-slate-50"
+                  title="More actions"
+                >
+                  <MoreVertical className="h-4 w-4 text-slate-600" />
+                </button>
+              </div>
+            )
+          }
         />
 
         <DataTablePagination
           meta={meta}
-          perPage={per}
-          onPerPage={(n) => pushQuery({ per: n, page: 1 })}
-          onPrev={() => meta?.current_page > 1 && pushQuery({ page: meta.current_page - 1 })}
-          onNext={() =>
-            meta?.current_page < meta?.last_page &&
-            pushQuery({ page: meta.current_page + 1 })
-          }
+          perPage={perInitial}
+          onPerPage={handlePerPage}
+          onPrev={handlePrev}
+          onNext={handleNext}
           disablePrev={!meta || meta.current_page <= 1}
           disableNext={!meta || meta.current_page >= meta.last_page}
         />
       </div>
-
-      {/* Modals */}
-      <AddSupplierModal
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        onSubmit={createSupplier}
-        loading={submitting}
-      />
-
-      <SupplierDetailsModal
-        open={detailsOpen}
-        onClose={() => setDetailsOpen(false)}
-        supplier={activeSupplier}
-      />
-
-      <EditSupplierModal
-        open={editOpen}
-        onClose={() => setEditOpen(false)}
-        supplier={activeSupplier}
-        onSubmit={updateSupplier}
-        loading={submitting}
-      />
-
-      <ConfirmArchiveSupplierModal
-        open={archiveOpen}
-        onClose={() => setArchiveOpen(false)}
-        supplier={activeSupplier}
-        onConfirm={archiveSupplier}
-        loading={submitting}
-      />
     </Layout>
   );
 }
