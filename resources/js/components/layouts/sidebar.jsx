@@ -1,4 +1,3 @@
-
 import React, { useMemo, useEffect, useState } from "react";
 import { Link, usePage } from "@inertiajs/react";
 import HeaderLogo from "../../../images/Header_Logo.png";
@@ -257,8 +256,9 @@ export default function Sidebar({
         </div>
       </div>
 
-      <div className={cx("flex-1 px-2 py-4", flattenItems(navItems).length > 10 ? "overflow-y-auto" : "overflow-y-hidden")}>
-        <nav className="space-y-2">
+      {/* ✅ scroll container */}
+      <div className="flex-1 min-h-0 px-2 py-4 overflow-y-auto sidebar-scroll">
+        <nav className="space-y-2 pb-4">
           {navItems.map((it, idx) => {
             if (!it) return null;
 

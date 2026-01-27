@@ -1,4 +1,3 @@
-// resources/js/pages/InventoryPage/LowStock.jsx
 import React, { useMemo, useState } from "react";
 import { router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
@@ -8,6 +7,8 @@ import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
 import useTableQuery from "@/components/Table/useTableQuery";
 
+import { TableActionButton } from "@/components/Table/ActionTableButton";
+
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 
 import ThresholdsModal from "@/components/modals/InventoryModals/ThresholdsModal";
@@ -15,19 +16,24 @@ import ConfirmActionModal from "@/components/modals/InventoryModals/ConfirmActio
 import PurchaseRequestModal from "@/components/modals/InventoryModals/PurchaseRequestModal";
 import NewPurchaseModal from "@/components/modals/InventoryModals/NewPurchaseModal";
 
-import { inventoryActionIcons } from "@/components/ui/Icons";
-
-const {
-  warning: AlertTriangle,
-  arrow: ArrowRight,
-  newPurchase: PlusCircle,
-  approve: CheckCircle2,
-  reject: XCircle,
-  thresholds: SlidersHorizontal,
-} = inventoryActionIcons;
+import {
+  AlertTriangle,
+  ArrowRight,
+  PlusCircle,
+  CheckCircle2,
+  XCircle,
+  SlidersHorizontal,
+  Eye,
+} from "lucide-react";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
+}
+
+function niceText(v, fallback = "—") {
+  if (v == null) return fallback;
+  const s = String(v).trim();
+  return s ? s : fallback;
 }
 
 function getRiskCopy(level) {
@@ -104,26 +110,43 @@ function StatusPill({ status }) {
   );
 }
 
-function QtyBar({ current = 0, threshold = 0 }) {
+function ProgressBar({ pct = 0 }) {
+  const safe = Number.isFinite(Number(pct)) ? Math.max(0, Math.min(100, Number(pct))) : 0;
+
+  const tone =
+    safe <= 35 ? "bg-rose-600" : safe <= 70 ? "bg-amber-600" : "bg-teal-600";
+
+  return (
+    <div className="w-full">
+      <div className="h-2 w-full rounded-full bg-slate-100 ring-1 ring-slate-200 overflow-hidden">
+        <div className={cx("h-full rounded-full", tone)} style={{ width: `${safe}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function StockMini({ current = 0, threshold = 0 }) {
   const safeThreshold = Math.max(Number(threshold || 0), 0);
   const safeCurrent = Math.max(Number(current || 0), 0);
 
-  const ratio = safeThreshold <= 0 ? 0 : Math.min(safeCurrent / safeThreshold, 1);
-  const pct = Math.round(ratio * 100);
-
-  const restockLabel = safeThreshold > 0 ? safeThreshold : "Off";
+  const pct = safeThreshold <= 0 ? 0 : Math.round(Math.min(safeCurrent / safeThreshold, 1) * 100);
 
   return (
-    <div className="w-full max-w-[220px]">
+    <div className="min-w-[220px] max-w-[260px]">
       <div className="flex items-center justify-between text-[11px] text-slate-500">
-        <span>{safeCurrent} in stock</span>
-        <span>restock at {restockLabel}</span>
+        <span>
+          <span className="font-semibold text-slate-700">{safeCurrent}</span> in stock
+        </span>
+        <span>
+          restock at{" "}
+          <span className="font-semibold text-slate-700">
+            {safeThreshold > 0 ? safeThreshold : "Off"}
+          </span>
+        </span>
       </div>
-
-      <div className="mt-1 h-2 w-full rounded-full bg-slate-100 ring-1 ring-slate-200 overflow-hidden">
-        <div className="h-full rounded-full bg-teal-600" style={{ width: `${pct}%` }} />
+      <div className="mt-1">
+        <ProgressBar pct={pct} />
       </div>
-
       <div className="mt-1 text-[11px] text-slate-500">
         {safeThreshold > 0 ? (
           safeCurrent <= safeThreshold ? (
@@ -134,6 +157,18 @@ function QtyBar({ current = 0, threshold = 0 }) {
         ) : (
           <span>Alerts off</span>
         )}
+      </div>
+    </div>
+  );
+}
+
+function InitialBadge({ name = "" }) {
+  const s = String(name || "").trim();
+  const letter = s ? s[0].toUpperCase() : "P";
+  return (
+    <div className="h-10 w-10 rounded-2xl bg-slate-50 ring-1 ring-slate-200 flex items-center justify-center">
+      <div className="h-6 w-6 rounded-xl bg-teal-600/15 flex items-center justify-center">
+        <span className="text-[11px] font-extrabold text-teal-800">{letter}</span>
       </div>
     </div>
   );
@@ -169,7 +204,6 @@ function EmptyHint() {
 
 function normalizePaginator(p) {
   const x = p || {};
-
   const data = Array.isArray(x.data) ? x.data : Array.isArray(x?.data?.data) ? x.data.data : [];
   const meta =
     x.meta && typeof x.meta === "object"
@@ -241,94 +275,6 @@ export default function LowStock() {
     [rows]
   );
 
-  const columns = useMemo(() => {
-    const base = [
-      {
-        key: "item",
-        label: "Product",
-        render: (x) =>
-          loading ? (
-            <div className="space-y-2">
-              <SkeletonLine w="w-44" />
-              <SkeletonLine w="w-28" />
-            </div>
-          ) : (
-            <div>
-              <div className="font-extrabold text-slate-900">
-                {x.name} <span className="text-slate-500 font-semibold">({x.variant})</span>
-              </div>
-              <div className="text-xs text-slate-500">
-                {x.sku || "—"} • {x.supplier_name || "No supplier"}
-              </div>
-            </div>
-          ),
-      },
-      {
-        key: "risk",
-        label: "Level",
-        render: (x) => (loading ? <SkeletonPill w="w-24" /> : <RiskPill level={x.risk_level} />),
-      },
-      {
-        key: "qty",
-        label: "Stock",
-        render: (x) =>
-          loading ? (
-            <div className="space-y-2">
-              <SkeletonLine w="w-40" />
-              <SkeletonLine w="w-28" />
-            </div>
-          ) : (
-            <QtyBar current={x.current_qty} threshold={x.reorder_level} />
-          ),
-      },
-      {
-        key: "days",
-        label: "Days left",
-        render: (x) =>
-          loading ? (
-            <SkeletonLine w="w-16" />
-          ) : (
-            <span className="text-sm font-semibold text-slate-800">
-              {x.est_days_left == null ? "—" : `${x.est_days_left}d`}
-            </span>
-          ),
-      },
-      {
-        key: "last",
-        label: "Last update",
-        render: (x) =>
-          loading ? (
-            <SkeletonLine w="w-28" />
-          ) : (
-            <span className="text-sm text-slate-700">{x.last_movement_at || "—"}</span>
-          ),
-      },
-    ];
-
-    if (!isAdmin) return base;
-
-    return [
-      ...base,
-      {
-        key: "req_status",
-        label: "Owner approval",
-        render: (x) =>
-          loading ? (
-            <SkeletonPill w="w-24" />
-          ) : (
-            <div className="space-y-1">
-              <StatusPill status={x.purchase_request_status || "none"} />
-              <div className="text-[11px] text-slate-500">
-                {x.purchase_request_status && x.purchase_request_status !== "none"
-                  ? `requested by ${x.requested_by_name || "—"}`
-                  : "no request yet"}
-              </div>
-            </div>
-          ),
-      },
-    ];
-  }, [isAdmin, loading, rows]);
-
   const openRequestModal = (row) => {
     setPurchaseReqItem(row || null);
     setPurchaseReqOpen(true);
@@ -347,7 +293,11 @@ export default function LowStock() {
       message: `Approve restock request for ${row.name} (${row.variant})?`,
       onConfirm: () => {
         setConfirm((p) => ({ ...p, open: false }));
-        router.post(`/dashboard/admin/purchase-requests/${row.purchase_request_id}/approve`, {}, { preserveScroll: true });
+        router.post(
+          `/dashboard/admin/purchase-requests/${row.purchase_request_id}/approve`,
+          {},
+          { preserveScroll: true }
+        );
       },
     });
   };
@@ -360,9 +310,99 @@ export default function LowStock() {
       message: `Decline restock request for ${row.name} (${row.variant})?`,
       onConfirm: () => {
         setConfirm((p) => ({ ...p, open: false }));
-        router.post(`/dashboard/admin/purchase-requests/${row.purchase_request_id}/reject`, {}, { preserveScroll: true });
+        router.post(
+          `/dashboard/admin/purchase-requests/${row.purchase_request_id}/reject`,
+          {},
+          { preserveScroll: true }
+        );
       },
     });
+  };
+
+  const columns = useMemo(() => {
+    const base = [
+      {
+        key: "item",
+        label: "Item",
+        render: (x) =>
+          loading ? (
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-slate-200/70 animate-pulse" />
+              <div className="space-y-2">
+                <SkeletonLine w="w-44" />
+                <SkeletonLine w="w-32" />
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 min-w-0">
+              <InitialBadge name={x.name} />
+              <div className="min-w-0">
+                <div className="font-extrabold text-slate-900 truncate">
+                  {niceText(x.name, "Product")}
+                  <span className="text-slate-500 font-semibold">
+                    {" "}
+                    {niceText(x.variant, "—")}
+                  </span>
+                </div>
+                <div className="text-xs text-slate-500 truncate">
+                  {niceText(x.sku)} • {niceText(x.supplier_name, "No supplier")}
+                </div>
+              </div>
+            </div>
+          ),
+      },
+      {
+        key: "level",
+        label: "Level",
+        render: (x) => (loading ? <SkeletonPill w="w-24" /> : <RiskPill level={x.risk_level} />),
+      },
+      {
+        key: "stock",
+        label: "Stock",
+        render: (x) =>
+          loading ? (
+            <div className="space-y-2">
+              <SkeletonLine w="w-40" />
+              <SkeletonLine w="w-28" />
+            </div>
+          ) : (
+            <StockMini current={x.current_qty} threshold={x.reorder_level} />
+          ),
+      },
+      {
+        key: "last",
+        label: "Updated",
+        render: (x) =>
+          loading ? <SkeletonLine w="w-28" /> : <span className="text-sm text-slate-700">{niceText(x.last_movement_at)}</span>,
+      },
+    ];
+
+    if (!isAdmin) return base;
+
+    return [
+      ...base,
+      {
+        key: "req_status",
+        label: "Approval",
+        render: (x) =>
+          loading ? (
+            <SkeletonPill w="w-24" />
+          ) : (
+            <div className="space-y-1">
+              <StatusPill status={x.purchase_request_status || "none"} />
+              <div className="text-[11px] text-slate-500">
+                {x.purchase_request_status && x.purchase_request_status !== "none"
+                  ? `by ${niceText(x.requested_by_name)}`
+                  : "no request"}
+              </div>
+            </div>
+          ),
+      },
+    ];
+  }, [isAdmin, loading]);
+
+  const viewItem = (row) => {
+    router.get(`/dashboard/inventory/products/${row.id}`, {}, { preserveScroll: true });
   };
 
   return (
@@ -387,7 +427,6 @@ export default function LowStock() {
                     type="button"
                     onClick={() => openNewPurchaseModal(null)}
                     className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 transition focus:ring-4 focus:ring-teal-500/25"
-                    title="Create a new purchase"
                   >
                     <PlusCircle className="h-4 w-4" />
                     Order stock
@@ -397,7 +436,6 @@ export default function LowStock() {
                     type="button"
                     onClick={() => setThresholdsOpen(true)}
                     className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
-                    title="Change restock levels"
                   >
                     <SlidersHorizontal className="h-4 w-4 text-slate-600" />
                     Restock levels
@@ -434,51 +472,29 @@ export default function LowStock() {
                 <SkeletonButton w="w-28" />
               ) : (
                 <div className="flex items-center justify-end gap-2">
+                  <TableActionButton icon={Eye} title="Quick view" onClick={() => viewItem(row)}>
+                    View
+                  </TableActionButton>
+
                   {!isAdmin ? (
-                    <button
-                      type="button"
-                      onClick={() => openRequestModal(row)}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 focus:ring-4 focus:ring-teal-500/15"
-                      title="Request restock"
-                    >
-                      Request restock
-                      <ArrowRight className="h-4 w-4 text-slate-600" />
-                    </button>
+                    <TableActionButton icon={ArrowRight} title="Request restock" onClick={() => openRequestModal(row)}>
+                      Request
+                    </TableActionButton>
+                  ) : String(row.purchase_request_status || "none") === "pending" ? (
+                    <>
+                      <TableActionButton tone="primary" icon={CheckCircle2} title="Approve request" onClick={() => approveRequest(row)}>
+                        Approve
+                      </TableActionButton>
+
+                      <TableActionButton icon={XCircle} title="Decline request" onClick={() => rejectRequest(row)}>
+                        Decline
+                      </TableActionButton>
+                    </>
                   ) : (
                     <>
-                      {String(row.purchase_request_status || "none") === "pending" ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => approveRequest(row)}
-                            className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-3 py-2 text-xs font-extrabold text-white hover:bg-teal-700 transition focus:ring-4 focus:ring-teal-500/25"
-                            title="Approve this request"
-                          >
-                            <CheckCircle2 className="h-4 w-4" />
-                            Approve
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => rejectRequest(row)}
-                            className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
-                            title="Decline this request"
-                          >
-                            <XCircle className="h-4 w-4 text-slate-600" />
-                            Decline
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => openNewPurchaseModal(row)}
-                          className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 focus:ring-4 focus:ring-teal-500/15"
-                          title="Create a purchase for this item"
-                        >
-                          Order
-                          <ArrowRight className="h-4 w-4 text-slate-600" />
-                        </button>
-                      )}
+                      <TableActionButton icon={PlusCircle} title="Create purchase" onClick={() => openNewPurchaseModal(row)}>
+                        Order
+                      </TableActionButton>
                     </>
                   )}
                 </div>
