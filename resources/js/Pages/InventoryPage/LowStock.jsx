@@ -30,14 +30,6 @@ function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
-/* Low Stock
-   Responsibilities
-   Inventory Manager
-   Create purchase requests
-   Admin
-   Approve or decline requests, adjust thresholds, create purchases
-*/
-
 function getRiskCopy(level) {
   const v = String(level || "ok").toLowerCase();
   if (v === "critical") return { label: "URGENT", hint: "Very low. Restock now." };
@@ -175,6 +167,20 @@ function EmptyHint() {
   );
 }
 
+function normalizePaginator(p) {
+  const x = p || {};
+
+  const data = Array.isArray(x.data) ? x.data : Array.isArray(x?.data?.data) ? x.data.data : [];
+  const meta =
+    x.meta && typeof x.meta === "object"
+      ? x.meta
+      : x.current_page != null || x.last_page != null
+      ? x
+      : null;
+
+  return { data, meta };
+}
+
 export default function LowStock() {
   const page = usePage();
 
@@ -187,9 +193,7 @@ export default function LowStock() {
   const suppliers = page.props?.suppliers ?? [];
   const productHash = page.props?.product_hash ?? [];
 
-  const lowStock = page.props?.low_stock ?? { data: [], meta: null };
-  const rows = lowStock?.data || [];
-  const meta = lowStock?.meta || null;
+  const { data: rows, meta } = normalizePaginator(page.props?.low_stock);
 
   const { query, set, setPer, prevPage, nextPage, canPrev, canNext } = useTableQuery({
     endpoint: "/dashboard/inventory/low-stock",
@@ -232,7 +236,10 @@ export default function LowStock() {
     { value: "rejected", label: "Declined" },
   ];
 
-  const urgentCount = useMemo(() => rows.filter((r) => String(r.risk_level) === "critical").length, [rows]);
+  const urgentCount = useMemo(
+    () => rows.filter((r) => String(r.risk_level) === "critical").length,
+    [rows]
+  );
 
   const columns = useMemo(() => {
     const base = [
@@ -290,7 +297,11 @@ export default function LowStock() {
         key: "last",
         label: "Last update",
         render: (x) =>
-          loading ? <SkeletonLine w="w-28" /> : <span className="text-sm text-slate-700">{x.last_movement_at || "—"}</span>,
+          loading ? (
+            <SkeletonLine w="w-28" />
+          ) : (
+            <span className="text-sm text-slate-700">{x.last_movement_at || "—"}</span>
+          ),
       },
     ];
 
@@ -316,7 +327,7 @@ export default function LowStock() {
           ),
       },
     ];
-  }, [isAdmin, loading]);
+  }, [isAdmin, loading, rows]);
 
   const openRequestModal = (row) => {
     setPurchaseReqItem(row || null);

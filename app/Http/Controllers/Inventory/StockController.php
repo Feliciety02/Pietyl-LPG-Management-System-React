@@ -14,44 +14,61 @@ class StockController extends Controller
     /**
      * Display stock counts page
      */
-    public function index()
+    public function index(Request $request)
     {
-        $inventoryBalances = InventoryBalance::with(['productVariant.product', 'location'])
-            ->get()
-            ->map(function ($balance) {
-                return [
-                    'id' => $balance->id,
-                    'location_id' => $balance->location_id,
-                    'location_name' => $balance->location->name ?? null,
-                    'sku' => $balance->productVariant->barcode ?? null,
-                    'product_name' => $balance->productVariant->product->name ?? null,
-                    'variant' => $balance->productVariant->variant_name ?? null,
-                    'filled_qty' => (int)$balance->qty_filled,
-                    'empty_qty' => (int)$balance->qty_empty,
-                    'total_qty' => (int)$balance->qty_on_hand,
-                    'qty_reserved' => (int)$balance->qty_reserved,
-                    'qty_available' => $balance->qty_on_hand - $balance->qty_reserved,
-                    'reorder_level' => (int)$balance->reorder_level,
-                    'last_counted_at' => $balance->updated_at?->format('M d, Y h:i A') ?? null,
-                    'updated_by' => 'System',
-                ];
-            });
+        $per = (int) $request->get('per', 10);
+        if ($per <= 0) $per = 10;
+
+        $q = trim((string) $request->get('q', ''));
+
+        $paginator = InventoryBalance::query()
+            ->with(['productVariant.product', 'location'])
+            ->when($q !== '', function ($query) use ($q) {
+                $query->whereHas('productVariant.product', function ($qq) use ($q) {
+                    $qq->where('name', 'like', "%{$q}%");
+                })->orWhereHas('productVariant', function ($qq) use ($q) {
+                    $qq->where('barcode', 'like', "%{$q}%")
+                       ->orWhere('variant_name', 'like', "%{$q}%");
+                });
+            })
+            ->orderByDesc('updated_at')
+            ->paginate($per)
+            ->withQueryString();
+
+        $rows = $paginator->getCollection()->map(function ($balance) {
+            $onHand = (int) $balance->qty_filled + (int) $balance->qty_empty;
+            $available = $onHand - (int) $balance->qty_reserved;
+
+            return [
+                'id' => $balance->id,
+                'location_id' => $balance->location_id,
+                'location_name' => $balance->location->name ?? null,
+                'sku' => $balance->productVariant->barcode ?? null,
+                'product_name' => $balance->productVariant->product->name ?? null,
+                'variant' => $balance->productVariant->variant_name ?? null,
+                'filled_qty' => (int) $balance->qty_filled,
+                'empty_qty' => (int) $balance->qty_empty,
+                'total_qty' => $onHand,
+                'qty_reserved' => (int) $balance->qty_reserved,
+                'qty_available' => $available,
+                'reorder_level' => (int) $balance->reorder_level,
+                'last_counted_at' => $balance->updated_at?->format('M d, Y h:i A') ?? null,
+                'updated_by' => 'System',
+            ];
+        });
+
+        $paginator->setCollection($rows);
 
         return Inertia::render('InventoryPage/StockCounts', [
-            'stock_counts' => [
-                'data' => $inventoryBalances,
-                'meta' => [
-                    'current_page' => 1,
-                    'last_page' => 1,
-                    'from' => 1,
-                    'to' => $inventoryBalances->count(),
-                    'total' => $inventoryBalances->count(),
-                ],
+            'stock_counts' => $paginator,
+            'filters' => [
+                'q' => $q,
+                'per' => $per,
+                'page' => (int) $request->get('page', 1),
             ],
         ]);
     }
 
-   
     public function update(Request $request, InventoryBalance $inventoryBalance)
     {
         $validated = $request->validate([
@@ -61,53 +78,70 @@ class StockController extends Controller
             'reorder_level' => 'nullable|integer|min:0',
         ]);
 
-        $oldFilled = $inventoryBalance->qty_filled;
-        $oldEmpty = $inventoryBalance->qty_empty;
-
         $inventoryBalance->update([
             'qty_filled' => $validated['filled_qty'],
             'qty_empty' => $validated['empty_qty'],
             'reorder_level' => $validated['reorder_level'] ?? $inventoryBalance->reorder_level,
         ]);
 
-        // TODO: Create stock movement record for audit trail
-        // StockMovement::create([
-        //     'location_id' => $inventoryBalance->location_id,
-        //     'product_variant_id' => $inventoryBalance->product_variant_id,
-        //     'movement_type' => 'adjustment',
-        //     'qty' => ($validated['filled_qty'] + $validated['empty_qty']) - ($oldFilled + $oldEmpty),
-        //     'performed_by_user_id' => auth()->id(),
-        //     'moved_at' => now(),
-        //     'notes' => $validated['reason'],
-        // ]);
-
         return back()->with('success', 'Stock adjusted successfully');
     }
 
-    
-    public function lowStock()
+    public function lowStock(Request $request)
     {
-        $lowStockItems = InventoryBalance::with([
-            'productVariant.product',
-            'productVariant.suppliers',
-            'location'
-        ])
-        ->get()
-        ->filter(function ($balance) {
-            $available = $balance->qty_on_hand - $balance->qty_reserved;
-            return $available <= $balance->reorder_level;
-        })
-        ->map(function ($balance) {
-            $available = $balance->qty_on_hand - $balance->qty_reserved;
-            $reorderLevel = $balance->reorder_level;
-            
-            if ($available <= $reorderLevel * 0.25) {
-                $riskLevel = 'critical';
-            } else {
-                $riskLevel = 'warning';
-            }
+        $per = (int) $request->get('per', 10);
+        if ($per <= 0) $per = 10;
 
-            $primarySupplier = $balance->productVariant->suppliers()
+        $q = trim((string) $request->get('q', ''));
+        $risk = strtolower(trim((string) $request->get('risk', 'all')));
+
+        $query = InventoryBalance::query()
+            ->with([
+                'productVariant.product',
+                'productVariant.suppliers',
+                'location'
+            ])
+            ->whereRaw('((qty_filled + qty_empty) - qty_reserved) <= reorder_level');
+
+        if ($q !== '') {
+            $query->where(function ($qq) use ($q) {
+                $qq->whereHas('productVariant.product', function ($q2) use ($q) {
+                    $q2->where('name', 'like', "%{$q}%");
+                })
+                ->orWhereHas('productVariant', function ($q2) use ($q) {
+                    $q2->where('barcode', 'like', "%{$q}%")
+                       ->orWhere('variant_name', 'like', "%{$q}%");
+                })
+                ->orWhereHas('location', function ($q2) use ($q) {
+                    $q2->where('name', 'like', "%{$q}%");
+                });
+            });
+        }
+
+        if ($risk === 'critical') {
+            $query->whereRaw('((qty_filled + qty_empty) - qty_reserved) <= (reorder_level * 0.25)');
+        }
+
+        if ($risk === 'warning') {
+            $query->whereRaw('((qty_filled + qty_empty) - qty_reserved) > (reorder_level * 0.25)');
+        }
+
+        $paginator = $query
+            ->orderByDesc('updated_at')
+            ->paginate($per)
+            ->withQueryString();
+
+        $rows = $paginator->getCollection()->map(function ($balance) {
+            $onHand = (int) $balance->qty_filled + (int) $balance->qty_empty;
+            $available = $onHand - (int) $balance->qty_reserved;
+            $reorderLevel = (int) $balance->reorder_level;
+
+            $riskLevel = ($reorderLevel > 0 && $available <= ($reorderLevel * 0.25))
+                ? 'critical'
+                : 'warning';
+
+            $primarySupplier = $balance->productVariant
+                ?->suppliers()
                 ->wherePivot('is_primary', true)
                 ->first();
 
@@ -130,44 +164,16 @@ class StockController extends Controller
             ];
         });
 
-        $productHash = [];
-        $allVariants = ProductVariant::with(['product', 'suppliers'])->get();
-        
-        foreach ($allVariants as $variant) {
-            $key = $variant->product->name . '|' . $variant->variant_name;
-            
-            if (!isset($productHash[$key])) {
-                $primarySupplier = $variant->suppliers()
-                    ->wherePivot('is_primary', true)
-                    ->first();
-                
-                $productHash[$key] = [
-                    'id' => $variant->id,
-                    'sku' => $variant->barcode,
-                    'name' => $variant->product->name,
-                    'variant' => $variant->variant_name,
-                    'default_supplier_id' => $primarySupplier?->id,
-                    'supplier_ids' => $variant->suppliers->pluck('id')->toArray(),
-                ];
-            } else {
-                $existingSuppliers = $productHash[$key]['supplier_ids'];
-                $newSuppliers = $variant->suppliers->pluck('id')->toArray();
-                $productHash[$key]['supplier_ids'] = array_unique(array_merge($existingSuppliers, $newSuppliers));
-            }
-        }
+        $paginator->setCollection($rows);
 
         return Inertia::render('InventoryPage/LowStock', [
-            'low_stock' => [
-                'data' => $lowStockItems->values(),
-                'meta' => [
-                    'current_page' => 1,
-                    'last_page' => 1,
-                    'from' => 1,
-                    'to' => $lowStockItems->count(),
-                    'total' => $lowStockItems->count(),
-                ],
+            'low_stock' => $paginator,
+            'filters' => [
+                'q' => $q,
+                'risk' => $risk,
+                'per' => $per,
+                'page' => (int) $request->get('page', 1),
             ],
-            'product_hash' => array_values($productHash),
             'suppliers' => Supplier::where('is_active', true)->get(['id', 'name']),
         ]);
     }
