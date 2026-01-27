@@ -18,9 +18,8 @@ const ROLE_META = {
         type: "group",
         label: "People",
         items: [
-          { label: "Users", href: "/dashboard/admin/users", icon: "users" },
-          { label: "Employees", href: "/dashboard/admin/employees", icon: "employees" },
           { label: "Roles", href: "/dashboard/admin/roles", icon: "roles" },
+          { label: "Employees", href: "/dashboard/admin/employees", icon: "employees" },
           { label: "Customers", href: "/dashboard/admin/customers", icon: "customers" },
         ],
       },
