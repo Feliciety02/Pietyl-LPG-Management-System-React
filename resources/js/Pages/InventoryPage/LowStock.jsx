@@ -9,7 +9,11 @@ import useTableQuery from "@/components/Table/useTableQuery";
 
 import { TableActionButton } from "@/components/Table/ActionTableButton";
 
-import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
+import {
+  SkeletonLine,
+  SkeletonPill,
+  SkeletonButton,
+} from "@/components/ui/Skeleton";
 
 import ThresholdsModal from "@/components/modals/InventoryModals/ThresholdsModal";
 import ConfirmActionModal from "@/components/modals/InventoryModals/ConfirmActionModal";
@@ -30,26 +34,18 @@ function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
-<<<<<<< HEAD
-function niceText(v, fallback = "—") {
+function niceText(v, fallback = "N/A") {
   if (v == null) return fallback;
   const s = String(v).trim();
   return s ? s : fallback;
 }
-=======
-/* Low Stock
-   Responsibilities
-   Inventory Manager
-   Create purchase requests
-   Admin
-   Approve or decline requests, adjust thresholds, create purchases
-*/
->>>>>>> b47e321dec3030e1eeb52ae37eefac37fa4e5851
 
 function getRiskCopy(level) {
   const v = String(level || "ok").toLowerCase();
-  if (v === "critical") return { label: "URGENT", hint: "Very low. Restock now." };
-  if (v === "warning") return { label: "LOW", hint: "Getting low. Plan to restock." };
+  if (v === "critical")
+    return { label: "URGENT", hint: "Very low. Restock now." };
+  if (v === "warning")
+    return { label: "LOW", hint: "Getting low. Plan to restock." };
   return { label: "OK", hint: "Stock level is fine." };
 }
 
@@ -121,7 +117,9 @@ function StatusPill({ status }) {
 }
 
 function ProgressBar({ pct = 0 }) {
-  const safe = Number.isFinite(Number(pct)) ? Math.max(0, Math.min(100, Number(pct))) : 0;
+  const safe = Number.isFinite(Number(pct))
+    ? Math.max(0, Math.min(100, Number(pct)))
+    : 0;
 
   const tone =
     safe <= 35 ? "bg-rose-600" : safe <= 70 ? "bg-amber-600" : "bg-teal-600";
@@ -139,7 +137,10 @@ function StockMini({ current = 0, threshold = 0 }) {
   const safeThreshold = Math.max(Number(threshold || 0), 0);
   const safeCurrent = Math.max(Number(current || 0), 0);
 
-  const pct = safeThreshold <= 0 ? 0 : Math.round(Math.min(safeCurrent / safeThreshold, 1) * 100);
+  const pct =
+    safeThreshold <= 0
+      ? 0
+      : Math.round(Math.min(safeCurrent / safeThreshold, 1) * 100);
 
   return (
     <div className="min-w-[220px] max-w-[260px]">
@@ -154,9 +155,11 @@ function StockMini({ current = 0, threshold = 0 }) {
           </span>
         </span>
       </div>
+
       <div className="mt-1">
         <ProgressBar pct={pct} />
       </div>
+
       <div className="mt-1 text-[11px] text-slate-500">
         {safeThreshold > 0 ? (
           safeCurrent <= safeThreshold ? (
@@ -204,7 +207,9 @@ function EmptyHint() {
       <div className="mx-auto h-12 w-12 rounded-2xl bg-teal-600/10 ring-1 ring-teal-700/10 flex items-center justify-center">
         <AlertTriangle className="h-6 w-6 text-teal-700" />
       </div>
-      <div className="mt-4 text-base font-extrabold text-slate-900">Everything looks good</div>
+      <div className="mt-4 text-base font-extrabold text-slate-900">
+        Everything looks good
+      </div>
       <div className="mt-1 text-sm text-slate-600">
         No items are currently low based on your restock levels.
       </div>
@@ -212,22 +217,6 @@ function EmptyHint() {
   );
 }
 
-<<<<<<< HEAD
-function normalizePaginator(p) {
-  const x = p || {};
-  const data = Array.isArray(x.data) ? x.data : Array.isArray(x?.data?.data) ? x.data.data : [];
-  const meta =
-    x.meta && typeof x.meta === "object"
-      ? x.meta
-      : x.current_page != null || x.last_page != null
-      ? x
-      : null;
-
-  return { data, meta };
-}
-
-=======
->>>>>>> b47e321dec3030e1eeb52ae37eefac37fa4e5851
 export default function LowStock() {
   const page = usePage();
 
@@ -244,11 +233,12 @@ export default function LowStock() {
   const rows = lowStock?.data || [];
   const meta = lowStock?.meta || null;
 
-  const { query, set, setPer, prevPage, nextPage, canPrev, canNext } = useTableQuery({
-    endpoint: "/dashboard/inventory/low-stock",
-    meta,
-    defaults: { q: "", risk: "all", req: "all", per: 10, page: 1 },
-  });
+  const { query, set, setPer, prevPage, nextPage, canPrev, canNext } =
+    useTableQuery({
+      endpoint: "/dashboard/inventory/low-stock",
+      meta,
+      defaults: { q: "", risk: "all", req: "all", per: 10, page: 1 },
+    });
 
   const q = query.q;
   const risk = query.risk;
@@ -285,95 +275,11 @@ export default function LowStock() {
     { value: "rejected", label: "Declined" },
   ];
 
-  const urgentCount = useMemo(() => rows.filter((r) => String(r.risk_level) === "critical").length, [rows]);
+  const urgentCount = useMemo(
+    () => rows.filter((r) => String(r.risk_level) === "critical").length,
+    [rows]
+  );
 
-<<<<<<< HEAD
-=======
-  const columns = useMemo(() => {
-    const base = [
-      {
-        key: "item",
-        label: "Product",
-        render: (x) =>
-          loading ? (
-            <div className="space-y-2">
-              <SkeletonLine w="w-44" />
-              <SkeletonLine w="w-28" />
-            </div>
-          ) : (
-            <div>
-              <div className="font-extrabold text-slate-900">
-                {x.name} <span className="text-slate-500 font-semibold">({x.variant})</span>
-              </div>
-              <div className="text-xs text-slate-500">
-                {x.sku || "—"} • {x.supplier_name || "No supplier"}
-              </div>
-            </div>
-          ),
-      },
-      {
-        key: "risk",
-        label: "Level",
-        render: (x) => (loading ? <SkeletonPill w="w-24" /> : <RiskPill level={x.risk_level} />),
-      },
-      {
-        key: "qty",
-        label: "Stock",
-        render: (x) =>
-          loading ? (
-            <div className="space-y-2">
-              <SkeletonLine w="w-40" />
-              <SkeletonLine w="w-28" />
-            </div>
-          ) : (
-            <QtyBar current={x.current_qty} threshold={x.reorder_level} />
-          ),
-      },
-      {
-        key: "days",
-        label: "Days left",
-        render: (x) =>
-          loading ? (
-            <SkeletonLine w="w-16" />
-          ) : (
-            <span className="text-sm font-semibold text-slate-800">
-              {x.est_days_left == null ? "—" : `${x.est_days_left}d`}
-            </span>
-          ),
-      },
-      {
-        key: "last",
-        label: "Last update",
-        render: (x) =>
-          loading ? <SkeletonLine w="w-28" /> : <span className="text-sm text-slate-700">{x.last_movement_at || "—"}</span>,
-      },
-    ];
-
-    if (!isAdmin) return base;
-
-    return [
-      ...base,
-      {
-        key: "req_status",
-        label: "Owner approval",
-        render: (x) =>
-          loading ? (
-            <SkeletonPill w="w-24" />
-          ) : (
-            <div className="space-y-1">
-              <StatusPill status={x.purchase_request_status || "none"} />
-              <div className="text-[11px] text-slate-500">
-                {x.purchase_request_status && x.purchase_request_status !== "none"
-                  ? `requested by ${x.requested_by_name || "—"}`
-                  : "no request yet"}
-              </div>
-            </div>
-          ),
-      },
-    ];
-  }, [isAdmin, loading]);
-
->>>>>>> b47e321dec3030e1eeb52ae37eefac37fa4e5851
   const openRequestModal = (row) => {
     setPurchaseReqItem(row || null);
     setPurchaseReqOpen(true);
@@ -440,7 +346,7 @@ export default function LowStock() {
                   {niceText(x.name, "Product")}
                   <span className="text-slate-500 font-semibold">
                     {" "}
-                    {niceText(x.variant, "—")}
+                    {niceText(x.variant, "N/A")}
                   </span>
                 </div>
                 <div className="text-xs text-slate-500 truncate">
@@ -453,7 +359,8 @@ export default function LowStock() {
       {
         key: "level",
         label: "Level",
-        render: (x) => (loading ? <SkeletonPill w="w-24" /> : <RiskPill level={x.risk_level} />),
+        render: (x) =>
+          loading ? <SkeletonPill w="w-24" /> : <RiskPill level={x.risk_level} />,
       },
       {
         key: "stock",
@@ -472,7 +379,13 @@ export default function LowStock() {
         key: "last",
         label: "Updated",
         render: (x) =>
-          loading ? <SkeletonLine w="w-28" /> : <span className="text-sm text-slate-700">{niceText(x.last_movement_at)}</span>,
+          loading ? (
+            <SkeletonLine w="w-28" />
+          ) : (
+            <span className="text-sm text-slate-700">
+              {niceText(x.last_movement_at)}
+            </span>
+          ),
       },
     ];
 
@@ -490,7 +403,8 @@ export default function LowStock() {
             <div className="space-y-1">
               <StatusPill status={x.purchase_request_status || "none"} />
               <div className="text-[11px] text-slate-500">
-                {x.purchase_request_status && x.purchase_request_status !== "none"
+                {x.purchase_request_status &&
+                x.purchase_request_status !== "none"
                   ? `by ${niceText(x.requested_by_name)}`
                   : "no request"}
               </div>
@@ -550,9 +464,21 @@ export default function LowStock() {
           onQ={(v) => set("q", v, { resetPage: true })}
           placeholder="Search product, SKU, supplier..."
           filters={[
-            { key: "risk", value: risk, onChange: (v) => set("risk", v, { resetPage: true }), options: riskOptions },
+            {
+              key: "risk",
+              value: risk,
+              onChange: (v) => set("risk", v, { resetPage: true }),
+              options: riskOptions,
+            },
             ...(isAdmin
-              ? [{ key: "req", value: req, onChange: (v) => set("req", v, { resetPage: true }), options: reqOptions }]
+              ? [
+                  {
+                    key: "req",
+                    value: req,
+                    onChange: (v) => set("req", v, { resetPage: true }),
+                    options: reqOptions,
+                  },
+                ]
               : []),
           ]}
         />
@@ -571,30 +497,49 @@ export default function LowStock() {
                 <SkeletonButton w="w-28" />
               ) : (
                 <div className="flex items-center justify-end gap-2">
-                  <TableActionButton icon={Eye} title="Quick view" onClick={() => viewItem(row)}>
+                  <TableActionButton
+                    icon={Eye}
+                    title="Quick view"
+                    onClick={() => viewItem(row)}
+                  >
                     View
                   </TableActionButton>
 
                   {!isAdmin ? (
-                    <TableActionButton icon={ArrowRight} title="Request restock" onClick={() => openRequestModal(row)}>
+                    <TableActionButton
+                      icon={ArrowRight}
+                      title="Request restock"
+                      onClick={() => openRequestModal(row)}
+                    >
                       Request
                     </TableActionButton>
                   ) : String(row.purchase_request_status || "none") === "pending" ? (
                     <>
-                      <TableActionButton tone="primary" icon={CheckCircle2} title="Approve request" onClick={() => approveRequest(row)}>
+                      <TableActionButton
+                        tone="primary"
+                        icon={CheckCircle2}
+                        title="Approve request"
+                        onClick={() => approveRequest(row)}
+                      >
                         Approve
                       </TableActionButton>
 
-                      <TableActionButton icon={XCircle} title="Decline request" onClick={() => rejectRequest(row)}>
+                      <TableActionButton
+                        icon={XCircle}
+                        title="Decline request"
+                        onClick={() => rejectRequest(row)}
+                      >
                         Decline
                       </TableActionButton>
                     </>
                   ) : (
-                    <>
-                      <TableActionButton icon={PlusCircle} title="Create purchase" onClick={() => openNewPurchaseModal(row)}>
-                        Order
-                      </TableActionButton>
-                    </>
+                    <TableActionButton
+                      icon={PlusCircle}
+                      title="Create purchase"
+                      onClick={() => openNewPurchaseModal(row)}
+                    >
+                      Order
+                    </TableActionButton>
                   )}
                 </div>
               )
