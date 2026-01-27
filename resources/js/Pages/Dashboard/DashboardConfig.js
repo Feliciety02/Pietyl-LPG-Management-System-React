@@ -3,7 +3,6 @@ export const DASHBOARD_CONFIG = {
   admin: {
     title: "Owner Overview",
     actions: [
-      { label: "Manage Users", href: "/dashboard/admin/users" },
       { label: "Employees", href: "/dashboard/admin/employees" },
       { label: "Products", href: "/dashboard/admin/products" },
       { label: "Suppliers", href: "/dashboard/admin/suppliers" },

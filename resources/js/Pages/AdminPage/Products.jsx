@@ -1,11 +1,19 @@
 import React, { useMemo, useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
+
 import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
-import { MoreVertical, PackagePlus, Building2 } from "lucide-react";
+
+import { PackagePlus, Building2, Pencil, Archive } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
+
+import { TableActionButton } from "@/components/Table/ActionTableButton";
+
+import AddProductModal from "@/components/modals/ProductModals/AddProductModal";
+import EditProductModal from "@/components/modals/ProductModals/EditProductModal";
+import ConfirmArchiveProductModal from "@/components/modals/ProductModals/ConfirmArchiveProductModal";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -18,6 +26,19 @@ function titleCase(s = "") {
     .filter(Boolean)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
+}
+
+function normalizePaginator(p) {
+  const x = p || {};
+  const data = Array.isArray(x.data) ? x.data : [];
+  const meta =
+    x.meta && typeof x.meta === "object"
+      ? x.meta
+      : x.current_page != null || x.last_page != null
+      ? x
+      : null;
+
+  return { data, meta };
 }
 
 function StatusPill({ active }) {
@@ -72,177 +93,143 @@ function ProductThumb({ src, name }) {
 export default function Products() {
   const page = usePage();
 
-  /*
-    Expected Inertia props from backend:
-    products: {
-      data: [{
-        id,
-        sku,
-        name,
-        brand,
-        type,              string (ex: "lpg", "accessory")
-        size_label,        string (ex: "11kg", "22kg")
-        default_price,     number|string
-        is_active,         boolean
-        image_url,         string|null
-        supplier: { id, name } | null
-      }],
-      meta,
-      links
-    }
-    suppliers: [{ id, name }] (optional for filter dropdown)
-    filters: { q, status, supplier_id, type, page, per }
-    loading: boolean (optional)
-  */
-// DEV ONLY – sample products for UI development
-const SAMPLE_PRODUCTS = {
-  data: [
-    {
-      id: 1,
-      sku: "LPG-11KG-REG",
-      name: "LPG Cylinder 11kg",
-      brand: "Petron",
-      type: "lpg",
-      size_label: "11kg",
-      default_price: "950.00",
-      is_active: true,
-      image_url: null,
-      supplier: {
+  /* DEV ONLY */
+  const SAMPLE_PRODUCTS = {
+    data: [
+      {
         id: 1,
-        name: "Petron LPG Supply",
+        sku: "LPG-11KG-REG",
+        name: "LPG Cylinder 11kg",
+        brand: "Petron",
+        type: "lpg",
+        size_label: "11kg",
+        default_price: "950.00",
+        is_active: true,
+        image_url: null,
+        supplier: { id: 1, name: "Petron LPG Supply" },
       },
-    },
-    {
-      id: 2,
-      sku: "LPG-22KG-REG",
-      name: "LPG Cylinder 22kg",
-      brand: "Petron",
-      type: "lpg",
-      size_label: "22kg",
-      default_price: "1,850.00",
-      is_active: true,
-      image_url: null,
-      supplier: {
-        id: 1,
-        name: "Petron LPG Supply",
-      },
-    },
-    {
-      id: 3,
-      sku: "LPG-11KG-SHELL",
-      name: "LPG Cylinder 11kg (Shell)",
-      brand: "Shellane",
-      type: "lpg",
-      size_label: "11kg",
-      default_price: "980.00",
-      is_active: true,
-      image_url: null,
-      supplier: {
+      {
         id: 2,
-        name: "Shellane Distributors",
+        sku: "LPG-22KG-REG",
+        name: "LPG Cylinder 22kg",
+        brand: "Petron",
+        type: "lpg",
+        size_label: "22kg",
+        default_price: "1,850.00",
+        is_active: true,
+        image_url: null,
+        supplier: { id: 1, name: "Petron LPG Supply" },
       },
-    },
-    {
-      id: 4,
-      sku: "LPG-REFILL-11KG",
-      name: "LPG Refill 11kg",
-      brand: null,
-      type: "refill",
-      size_label: "11kg",
-      default_price: "720.00",
-      is_active: true,
-      image_url: null,
-      supplier: null,
-    },
-    {
-      id: 5,
-      sku: "LPG-REFILL-22KG",
-      name: "LPG Refill 22kg",
-      brand: null,
-      type: "refill",
-      size_label: "22kg",
-      default_price: "1,420.00",
-      is_active: true,
-      image_url: null,
-      supplier: null,
-    },
-    {
-      id: 6,
-      sku: "LPG-HOSE-STD",
-      name: "LPG Hose (Standard)",
-      brand: "Regasco",
-      type: "accessory",
-      size_label: null,
-      default_price: "350.00",
-      is_active: true,
-      image_url: null,
-      supplier: {
+      {
         id: 3,
-        name: "Regasco Trading",
+        sku: "LPG-11KG-SHELL",
+        name: "LPG Cylinder 11kg (Shell)",
+        brand: "Shellane",
+        type: "lpg",
+        size_label: "11kg",
+        default_price: "980.00",
+        is_active: true,
+        image_url: null,
+        supplier: { id: 2, name: "Shellane Distributors" },
       },
-    },
-    {
-      id: 7,
-      sku: "LPG-REGULATOR",
-      name: "LPG Regulator",
-      brand: "Regasco",
-      type: "accessory",
-      size_label: null,
-      default_price: "550.00",
-      is_active: false,
-      image_url: null,
-      supplier: {
-        id: 3,
-        name: "Regasco Trading",
+      {
+        id: 4,
+        sku: "LPG-REFILL-11KG",
+        name: "LPG Refill 11kg",
+        brand: null,
+        type: "refill",
+        size_label: "11kg",
+        default_price: "720.00",
+        is_active: true,
+        image_url: null,
+        supplier: null,
       },
-    },
-  ],
-  meta: {
-    current_page: 1,
-    last_page: 1,
-    from: 1,
-    to: 7,
-    total: 7,
-  },
-};
+      {
+        id: 5,
+        sku: "LPG-REFILL-22KG",
+        name: "LPG Refill 22kg",
+        brand: null,
+        type: "refill",
+        size_label: "22kg",
+        default_price: "1,420.00",
+        is_active: true,
+        image_url: null,
+        supplier: null,
+      },
+      {
+        id: 6,
+        sku: "LPG-HOSE-STD",
+        name: "LPG Hose (Standard)",
+        brand: "Regasco",
+        type: "accessory",
+        size_label: null,
+        default_price: "350.00",
+        is_active: true,
+        image_url: null,
+        supplier: { id: 3, name: "Regasco Trading" },
+      },
+      {
+        id: 7,
+        sku: "LPG-REGULATOR",
+        name: "LPG Regulator",
+        brand: "Regasco",
+        type: "accessory",
+        size_label: null,
+        default_price: "550.00",
+        is_active: false,
+        image_url: null,
+        supplier: { id: 3, name: "Regasco Trading" },
+      },
+    ],
+    meta: { current_page: 1, last_page: 1, from: 1, to: 7, total: 7 },
+  };
 
-const SAMPLE_SUPPLIERS = [
-  { id: 1, name: "Petron LPG Supply" },
-  { id: 2, name: "Shellane Distributors" },
-  { id: 3, name: "Regasco Trading" },
-];
+  const SAMPLE_SUPPLIERS = [
+    { id: 1, name: "Petron LPG Supply" },
+    { id: 2, name: "Shellane Distributors" },
+    { id: 3, name: "Regasco Trading" },
+  ];
 
-const products =
-  page.props?.products ??
-  (import.meta.env.DEV ? SAMPLE_PRODUCTS : { data: [], meta: null });
+  const rawProducts =
+    page.props?.products ??
+    (import.meta.env.DEV ? SAMPLE_PRODUCTS : { data: [], meta: null });
 
-const suppliers =
-  page.props?.suppliers ??
-  (import.meta.env.DEV ? SAMPLE_SUPPLIERS : []);
+  const rawSuppliers =
+    page.props?.suppliers ?? (import.meta.env.DEV ? SAMPLE_SUPPLIERS : []);
 
-  //const products = page.props?.products || { data: [], meta: null };
-  const rows = products?.data || [];
-  const meta = products?.meta || null;
+  const { data: rows, meta } = normalizePaginator(rawProducts);
+  const suppliers = Array.isArray(rawSuppliers) ? rawSuppliers : [];
 
-  //const suppliers = page.props?.suppliers || [];
-
-  const query = page.props?.filters || {};
-  const qInitial = query?.q || "";
-  const statusInitial = query?.status || "all";
-  const supplierInitial = String(query?.supplier_id || "all");
-  const typeInitial = query?.type || "all";
-  const perInitial = Number(query?.per || 10);
+  const filters = page.props?.filters || {};
+  const qInitial = filters?.q || "";
+  const statusInitial = filters?.status || "all";
+  const supplierInitial = String(filters?.supplier_id || "all");
+  const typeInitial = filters?.type || "all";
+  const perInitial = Number(filters?.per || 10) || 10;
 
   const [q, setQ] = useState(qInitial);
   const [status, setStatus] = useState(statusInitial);
   const [supplierId, setSupplierId] = useState(supplierInitial);
   const [type, setType] = useState(typeInitial);
 
-  const statusOptions = [
-    { value: "all", label: "All status" },
-    { value: "active", label: "Active" },
-    { value: "archived", label: "Archived" },
-  ];
+  const loading = Boolean(page.props?.loading);
+
+  const pushQuery = (patch = {}) => {
+    router.get(
+      "/dashboard/admin/products",
+      { q, status, supplier_id: supplierId, type, per: perInitial, ...patch },
+      { preserveScroll: true, preserveState: true, replace: true }
+    );
+  };
+
+  const statusOptions = useMemo(
+    () => [
+      { value: "all", label: "All status" },
+      { value: "active", label: "Active" },
+      { value: "archived", label: "Archived" },
+    ],
+    []
+  );
 
   const supplierOptions = useMemo(() => {
     return [
@@ -263,45 +250,85 @@ const suppliers =
     ];
   }, [rows]);
 
-  const pushQuery = (patch) => {
-    router.get(
-      "/dashboard/admin/products",
-      { q, status, supplier_id: supplierId, type, per: perInitial, ...patch },
-      { preserveScroll: true, preserveState: true, replace: true }
-    );
+  const handlePrev = () => {
+    if (!meta) return;
+    if ((meta.current_page || 1) <= 1) return;
+    pushQuery({ page: (meta.current_page || 1) - 1 });
   };
 
-  const handleSearch = (value) => {
-    setQ(value);
-    pushQuery({ q: value, page: 1 });
+  const handleNext = () => {
+    if (!meta) return;
+    if ((meta.current_page || 1) >= (meta.last_page || 1)) return;
+    pushQuery({ page: (meta.current_page || 1) + 1 });
   };
 
-  const handleStatus = (value) => {
-    setStatus(value);
-    pushQuery({ status: value, page: 1 });
-  };
-
-  const handleSupplier = (value) => {
-    setSupplierId(value);
-    pushQuery({ supplier_id: value, page: 1 });
-  };
-
-  const handleType = (value) => {
-    setType(value);
-    pushQuery({ type: value, page: 1 });
-  };
-
-  const handlePerPage = (n) => pushQuery({ per: n, page: 1 });
-  const handlePrev = () => meta && meta.current_page > 1 && pushQuery({ page: meta.current_page - 1 });
-  const handleNext = () => meta && meta.current_page < meta.last_page && pushQuery({ page: meta.current_page + 1 });
-
-  const loading = Boolean(page.props?.loading);
-  const fillerRows = useMemo(
-    () => Array.from({ length: perInitial }).map((_, i) => ({ id: `__filler__${i}`, __filler: true })),
-    [perInitial]
-  );
+  const fillerRows = useMemo(() => {
+    return Array.from({ length: perInitial }).map((_, i) => ({
+      id: `__filler__${i}`,
+      __filler: true,
+    }));
+  }, [perInitial]);
 
   const tableRows = loading ? fillerRows : rows;
+
+  /* Modals */
+  const [addOpen, setAddOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [activeProduct, setActiveProduct] = useState(null);
+
+  const openEdit = (p) => {
+    if (!p || p.__filler) return;
+    setActiveProduct(p);
+    setEditOpen(true);
+  };
+
+  const openArchive = (p) => {
+    if (!p || p.__filler) return;
+    setActiveProduct(p);
+    setArchiveOpen(true);
+  };
+
+  const createProduct = (payload) => {
+    router.post("/dashboard/admin/products", payload, {
+      preserveScroll: true,
+      onSuccess: () => {
+        setAddOpen(false);
+        router.reload({ only: ["products"] });
+      },
+    });
+  };
+
+  const saveEdit = (payload) => {
+    if (!activeProduct?.id) return Promise.resolve();
+
+    return new Promise((resolve) => {
+      router.put(`/dashboard/admin/products/${activeProduct.id}`, payload, {
+        preserveScroll: true,
+        onSuccess: () => {
+          setEditOpen(false);
+          router.reload({ only: ["products"] });
+        },
+        onFinish: () => resolve(),
+      });
+    });
+  };
+
+  const confirmArchive = () => {
+    if (!activeProduct?.id) return;
+
+    router.post(
+      `/dashboard/admin/products/${activeProduct.id}/archive`,
+      {},
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          setArchiveOpen(false);
+          router.reload({ only: ["products"] });
+        },
+      }
+    );
+  };
 
   const columns = useMemo(
     () => [
@@ -334,7 +361,8 @@ const suppliers =
       {
         key: "type",
         label: "Type",
-        render: (p) => (p?.__filler ? <SkeletonPill w="w-20" /> : <TypePill value={p?.type} />),
+        render: (p) =>
+          p?.__filler ? <SkeletonPill w="w-20" /> : <TypePill value={p?.type} />,
       },
       {
         key: "size",
@@ -344,7 +372,7 @@ const suppliers =
             <SkeletonLine w="w-16" />
           ) : (
             <span className="text-sm font-semibold text-slate-800">
-              {p?.size_label || "-"}
+              {p?.size_label || "—"}
             </span>
           ),
       },
@@ -376,7 +404,11 @@ const suppliers =
         key: "status",
         label: "Status",
         render: (p) =>
-          p?.__filler ? <SkeletonPill w="w-20" /> : <StatusPill active={Boolean(p?.is_active)} />,
+          p?.__filler ? (
+            <SkeletonPill w="w-20" />
+          ) : (
+            <StatusPill active={Boolean(p?.is_active)} />
+          ),
       },
     ],
     []
@@ -384,25 +416,20 @@ const suppliers =
 
   return (
     <Layout title="Products">
-      {/* Admin Products
-         Purpose
-         Maintain the official product catalog
-         Scope lock
-         No stock adjustments and no sales entry here
-      */}
       <div className="grid gap-6">
         <TopCard
           title="Product Catalog"
           subtitle="Add and maintain LPG products, variants, pricing defaults, and suppliers."
           right={
             <div className="flex items-center gap-2">
-              <Link
-                href="/dashboard/admin/products/create"
+              <button
+                type="button"
+                onClick={() => setAddOpen(true)}
                 className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 transition focus:outline-none focus:ring-4 focus:ring-teal-500/25"
               >
                 <PackagePlus className="h-4 w-4" />
                 New Product
-              </Link>
+              </button>
 
               <Link
                 href="/dashboard/admin/suppliers"
@@ -417,25 +444,37 @@ const suppliers =
 
         <DataTableFilters
           q={q}
-          onQ={handleSearch}
+          onQ={(v) => {
+            setQ(v);
+            pushQuery({ q: v, page: 1 });
+          }}
           placeholder="Search product name, brand, sku..."
           filters={[
             {
               key: "status",
               value: status,
-              onChange: handleStatus,
+              onChange: (v) => {
+                setStatus(v);
+                pushQuery({ status: v, page: 1 });
+              },
               options: statusOptions,
             },
             {
               key: "supplier",
               value: supplierId,
-              onChange: handleSupplier,
+              onChange: (v) => {
+                setSupplierId(v);
+                pushQuery({ supplier_id: v, page: 1 });
+              },
               options: supplierOptions,
             },
             {
               key: "type",
               value: type,
-              onChange: handleType,
+              onChange: (v) => {
+                setType(v);
+                pushQuery({ type: v, page: 1 });
+              },
               options: typeOptions,
             },
           ]}
@@ -448,42 +487,65 @@ const suppliers =
           emptyTitle="No products found"
           emptyHint="Create a new product or adjust filters."
           renderActions={(p) =>
-            p?.__filler ? (
-              <div className="flex items-center justify-end gap-2">
-                <SkeletonButton w="w-20" />
-                <div className="h-9 w-9 rounded-2xl bg-slate-200/80 animate-pulse" />
-              </div>
-            ) : (
-              <div className="flex items-center justify-end gap-2">
-                <Link
-                  href={`/dashboard/admin/products/${p.id}/edit`}
-                  className="rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:outline-none focus:ring-4 focus:ring-teal-500/15"
-                >
-                  Edit
-                </Link>
+              p?.__filler ? (
+                <div className="flex items-center justify-end gap-2">
+                  <SkeletonButton w="w-32" />
+                </div>
+              ) : (
+                <div className="flex items-center justify-end gap-2">
+                  <TableActionButton
+                    icon={Pencil}
+                    onClick={() => openEdit(p)}
+                    title="Edit product"
+                  >
+                    Edit
+                  </TableActionButton>
 
-                <button
-                  type="button"
-                  className="rounded-2xl bg-white p-2 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:outline-none focus:ring-4 focus:ring-teal-500/15"
-                  title="More actions"
-                >
-                  <MoreVertical className="h-4 w-4 text-slate-600" />
-                </button>
-              </div>
-            )
-          }
+                  <TableActionButton
+                    tone="danger"
+                    icon={Archive}
+                    onClick={() => openArchive(p)}
+                    title="Archive product"
+                  >
+                    Archive
+                  </TableActionButton>
+                </div>
+              )
+            }
         />
 
         <DataTablePagination
           meta={meta}
           perPage={perInitial}
-          onPerPage={handlePerPage}
+          onPerPage={(n) => pushQuery({ per: n, page: 1 })}
           onPrev={handlePrev}
           onNext={handleNext}
-          disablePrev={!meta || meta.current_page <= 1}
-          disableNext={!meta || meta.current_page >= meta.last_page}
+          disablePrev={!meta || (meta.current_page || 1) <= 1}
+          disableNext={!meta || (meta.current_page || 1) >= (meta.last_page || 1)}
         />
       </div>
+
+      {/* Modals */}
+      <AddProductModal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        onSubmit={createProduct}
+        suppliers={suppliers}
+      />
+
+      <EditProductModal
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        product={activeProduct}
+        onSubmit={(payload) => saveEdit(payload)}
+      />
+
+      <ConfirmArchiveProductModal
+        open={archiveOpen}
+        onClose={() => setArchiveOpen(false)}
+        product={activeProduct}
+        onConfirm={confirmArchive}
+      />
     </Layout>
   );
 }

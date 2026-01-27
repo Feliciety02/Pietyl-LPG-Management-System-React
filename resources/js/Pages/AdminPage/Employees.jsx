@@ -1,11 +1,24 @@
 import React, { useMemo, useState } from "react";
-import { Link, router, usePage } from "@inertiajs/react";
+import { router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
+
 import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
-import { UserPlus, MoreVertical, Link2 } from "lucide-react";
+
+import { UserPlus, Pencil } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
+
+import {
+  TableActionButton,
+  TableActionMenu,
+} from "@/components/Table/ActionTableButton";
+
+import CreateEmployeeModal from "@/components/modals/EmployeeModals/CreateEmployeeModal";
+import EditEmployeeModal from "@/components/modals/EmployeeModals/EditEmployeeModal";
+import EmployeeActionsModal from "@/components/modals/EmployeeModals/EmployeeActionsModal";
+import LinkEmployeeUserModal from "@/components/modals/EmployeeModals/LinkEmployeeUserModal";
+import ConfirmActionModal from "@/components/modals/EmployeeModals/ConfirmActionModal";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -19,6 +32,8 @@ function titleCase(s = "") {
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 }
+
+/* ---------- Pills ---------- */
 
 function StatusPill({ status }) {
   const map = {
@@ -40,6 +55,8 @@ function StatusPill({ status }) {
   );
 }
 
+/* ---------- Layout ---------- */
+
 function TopCard({ title, subtitle, right }) {
   return (
     <div className="rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm">
@@ -54,156 +71,57 @@ function TopCard({ title, subtitle, right }) {
   );
 }
 
+/* ---------- Page ---------- */
+
 export default function Employees() {
   const page = usePage();
 
-  /*
-    Expected Inertia props from backend:
-    employees: {
-      data: [{
-        id,
-        employee_no,
-        first_name,
-        last_name,
-        phone,
-        position,
-        status,
-        user: { id, email, role } | null
-      }],
-      meta,
-      links
-    }
-    filters: { q, status, page, per }
-  */
-
-    // DEV ONLY – sample employees for UI development
-const SAMPLE_EMPLOYEES = {
-  data: [
-    {
-      id: 1,
-      employee_no: "EMP-0001",
-      first_name: "Maria",
-      last_name: "Santos",
-      phone: "09171234567",
-      position: "Owner / Admin",
-      status: "active",
-      user: {
+  /* DEV SAMPLE DATA */
+  const SAMPLE_EMPLOYEES = {
+    data: [
+      {
         id: 1,
-        email: "admin@pietylpg.com",
-        role: "admin",
+        employee_no: "EMP-0001",
+        first_name: "Maria",
+        last_name: "Santos",
+        position: "Owner / Admin",
+        status: "active",
+        user: { email: "admin@pietylpg.com", role: "admin" },
       },
-    },
-    {
-      id: 2,
-      employee_no: "EMP-0003",
-      first_name: "Juan",
-      last_name: "Dela Cruz",
-      phone: "09183456789",
-      position: "Cashier",
-      status: "active",
-      user: {
+      {
         id: 2,
-        email: "cashier1@pietylpg.com",
-        role: "cashier",
+        employee_no: "EMP-0003",
+        first_name: "Juan",
+        last_name: "Dela Cruz",
+        position: "Cashier",
+        status: "active",
+        user: { email: "cashier1@pietylpg.com", role: "cashier" },
       },
-    },
-    {
-      id: 3,
-      employee_no: "EMP-0005",
-      first_name: "Ana",
-      last_name: "Reyes",
-      phone: "09199887766",
-      position: "Accountant",
-      status: "active",
-      user: {
+      {
         id: 3,
-        email: "accounting@pietylpg.com",
-        role: "accountant",
+        employee_no: "EMP-0006",
+        first_name: "Carlos",
+        last_name: "Mendoza",
+        position: "Cashier",
+        status: "resigned",
+        user: null,
       },
-    },
-    {
-      id: 4,
-      employee_no: "EMP-0008",
-      first_name: "Liza",
-      last_name: "Gomez",
-      phone: "09221234567",
-      position: "Inventory Manager",
-      status: "active",
-      user: {
-        id: 5,
-        email: "inventory@pietylpg.com",
-        role: "inventory_manager",
-      },
-    },
-    {
-      id: 5,
-      employee_no: "EMP-0010",
-      first_name: "Mark",
-      last_name: "Villanueva",
-      phone: "09335551234",
-      position: "Delivery Rider",
-      status: "active",
-      user: {
-        id: 4,
-        email: "rider1@pietylpg.com",
-        role: "rider",
-      },
-    },
-    {
-      id: 6,
-      employee_no: "EMP-0006",
-      first_name: "Carlos",
-      last_name: "Mendoza",
-      phone: "09445556677",
-      position: "Cashier",
-      status: "resigned",
-      user: null,
-    },
-    {
-      id: 7,
-      employee_no: "EMP-0012",
-      first_name: "Jenny",
-      last_name: "Lopez",
-      phone: "09170001122",
-      position: "Warehouse Staff",
-      status: "inactive",
-      user: null,
-    },
-    {
-      id: 8,
-      employee_no: "EMP-0014",
-      first_name: "Paolo",
-      last_name: "Ramos",
-      phone: "09091231234",
-      position: "Delivery Rider",
-      status: "terminated",
-      user: null,
-    },
-  ],
-  meta: {
-    current_page: 1,
-    last_page: 1,
-    from: 1,
-    to: 8,
-    total: 8,
-  },
-};
+    ],
+    meta: { current_page: 1, last_page: 1, total: 3 },
+  };
 
-//const employees = page.props?.employees || { data: [], meta: null };
+  const employees =
+    page.props?.employees ??
+    (import.meta.env.DEV ? SAMPLE_EMPLOYEES : { data: [], meta: null });
 
-const employees =
-  page.props?.employees ??
-  (import.meta.env.DEV ? SAMPLE_EMPLOYEES : { data: [], meta: null });
-  const rows = employees?.data || [];
-  const meta = employees?.meta || null;
+  const rows = employees.data || [];
+  const meta = employees.meta || null;
 
   const query = page.props?.filters || {};
-  const qInitial = query?.q || "";
-  const statusInitial = query?.status || "all";
-  const perInitial = Number(query?.per || 10);
+  const per = Number(query?.per || 10);
 
-  const [q, setQ] = useState(qInitial);
-  const [status, setStatus] = useState(statusInitial);
+  const [q, setQ] = useState(query?.q || "");
+  const [status, setStatus] = useState(query?.status || "all");
 
   const statusOptions = [
     { value: "all", label: "All status" },
@@ -216,37 +134,128 @@ const employees =
   const pushQuery = (patch) => {
     router.get(
       "/dashboard/admin/employees",
-      { q, status, per: perInitial, ...patch },
+      { q, status, per, ...patch },
       { preserveScroll: true, preserveState: true, replace: true }
     );
   };
 
-  const handleSearch = (value) => {
-    setQ(value);
-    pushQuery({ q: value, page: 1 });
-  };
-
-  const handleStatus = (value) => {
-    setStatus(value);
-    pushQuery({ status: value, page: 1 });
-  };
-
-  const handlePerPage = (n) => pushQuery({ per: n, page: 1 });
-  const handlePrev = () => meta && meta.current_page > 1 && pushQuery({ page: meta.current_page - 1 });
-  const handleNext = () => meta && meta.current_page < meta.last_page && pushQuery({ page: meta.current_page + 1 });
-
   const loading = Boolean(page.props?.loading);
+
   const fillerRows = useMemo(
-    () => Array.from({ length: perInitial }).map((_, i) => ({ id: `__filler__${i}`, __filler: true })),
-    [perInitial]
+    () =>
+      Array.from({ length: per }).map((_, i) => ({
+        id: `__filler__${i}`,
+        __filler: true,
+      })),
+    [per]
   );
 
   const tableRows = loading ? fillerRows : rows;
 
+  /* ---------- Modal state ---------- */
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [confirmUnlinkOpen, setConfirmUnlinkOpen] = useState(false);
+
+  const [activeEmployee, setActiveEmployee] = useState(null);
+
+  const openEdit = (e) => {
+    setActiveEmployee(e);
+    setEditOpen(true);
+  };
+
+  const openActions = (e) => {
+    setActiveEmployee(e);
+    setActionsOpen(true);
+  };
+
+  const openLink = (e) => {
+    setActiveEmployee(e);
+    setLinkOpen(true);
+  };
+
+  const openConfirmUnlink = (e) => {
+    setActiveEmployee(e);
+    setConfirmUnlinkOpen(true);
+  };
+
+  const closeAll = () => {
+    setCreateOpen(false);
+    setEditOpen(false);
+    setActionsOpen(false);
+    setLinkOpen(false);
+    setConfirmUnlinkOpen(false);
+  };
+
+  /* ---------- Submit handlers ---------- */
+
+  const [submitting, setSubmitting] = useState(false);
+
+  const createEmployee = (payload) => {
+    if (submitting) return;
+    setSubmitting(true);
+
+    router.post("/dashboard/admin/employees", payload, {
+      preserveScroll: true,
+      onFinish: () => setSubmitting(false),
+      onSuccess: () => {
+        setCreateOpen(false);
+        router.reload({ only: ["employees"] });
+      },
+    });
+  };
+
+  const updateEmployee = (id, payload) => {
+    if (!id || submitting) return;
+    setSubmitting(true);
+
+    router.put(`/dashboard/admin/employees/${id}`, payload, {
+      preserveScroll: true,
+      onFinish: () => setSubmitting(false),
+      onSuccess: () => {
+        setEditOpen(false);
+        router.reload({ only: ["employees"] });
+      },
+    });
+  };
+
+  const linkUser = (id, payload) => {
+    if (!id || submitting) return;
+    setSubmitting(true);
+
+    router.post(`/dashboard/admin/employees/${id}/link-user`, payload, {
+      preserveScroll: true,
+      onFinish: () => setSubmitting(false),
+      onSuccess: () => {
+        setLinkOpen(false);
+        router.reload({ only: ["employees"] });
+      },
+    });
+  };
+
+  const unlinkUser = (id) => {
+    if (!id || submitting) return;
+    setSubmitting(true);
+
+    router.delete(`/dashboard/admin/employees/${id}/unlink-user`, {
+      preserveScroll: true,
+      onFinish: () => setSubmitting(false),
+      onSuccess: () => {
+        setConfirmUnlinkOpen(false);
+        router.reload({ only: ["employees"] });
+      },
+    });
+  };
+
+  /* ---------- Columns ---------- */
+
   const columns = useMemo(
     () => [
       {
-        key: "name",
+        key: "employee",
         label: "Employee",
         render: (e) =>
           e?.__filler ? (
@@ -263,15 +272,21 @@ const employees =
       {
         key: "position",
         label: "Position",
-        render: (e) => (e?.__filler ? <SkeletonLine w="w-24" /> : <span className="text-sm">{e.position || "-"}</span>),
+        render: (e) =>
+          e?.__filler ? (
+            <SkeletonLine w="w-28" />
+          ) : (
+            <span className="text-sm text-slate-700">{e.position}</span>
+          ),
       },
       {
         key: "status",
         label: "Status",
-        render: (e) => (e?.__filler ? <SkeletonPill w="w-20" /> : <StatusPill status={e.status} />),
+        render: (e) =>
+          e?.__filler ? <SkeletonPill w="w-20" /> : <StatusPill status={e.status} />,
       },
       {
-        key: "user",
+        key: "account",
         label: "Account",
         render: (e) =>
           e?.__filler ? (
@@ -286,38 +301,48 @@ const employees =
     []
   );
 
+  /* ---------- More menu state ---------- */
+
+  const [menuEmployeeId, setMenuEmployeeId] = useState(null);
+  const toggleMenu = (id) => setMenuEmployeeId((cur) => (cur === id ? null : id));
+  const closeMenu = () => setMenuEmployeeId(null);
+
   return (
     <Layout title="Employees">
-      {/* Admin Employees
-         Purpose
-         Maintain the official list of staff and employment status
-         Scope lock
-         No payroll, attendance, inventory, or delivery actions here
-      */}
       <div className="grid gap-6">
         <TopCard
           title="Employee Directory"
           subtitle="Maintain staff records and employment status."
           right={
-            <Link
-              href="/dashboard/admin/employees/create"
+            <button
+              type="button"
+              onClick={() => {
+                setActiveEmployee(null);
+                setCreateOpen(true);
+              }}
               className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 transition focus:ring-4 focus:ring-teal-500/25"
             >
               <UserPlus className="h-4 w-4" />
               Add Employee
-            </Link>
+            </button>
           }
         />
 
         <DataTableFilters
           q={q}
-          onQ={handleSearch}
+          onQ={(v) => {
+            setQ(v);
+            pushQuery({ q: v, page: 1 });
+          }}
           placeholder="Search name or employee no..."
           filters={[
             {
               key: "status",
               value: status,
-              onChange: handleStatus,
+              onChange: (v) => {
+                setStatus(v);
+                pushQuery({ status: v, page: 1 });
+              },
               options: statusOptions,
             },
           ]}
@@ -331,32 +356,76 @@ const employees =
           emptyHint="Add employees or adjust filters."
           renderActions={(e) =>
             e?.__filler ? (
-              <SkeletonButton w="w-20" />
+              <div className="flex items-center justify-end gap-2">
+                <SkeletonButton w="w-20" />
+                <div className="h-9 w-9 rounded-xl bg-slate-200/80 animate-pulse" />
+              </div>
             ) : (
-              <div className="flex items-center gap-2 justify-end">
-                <Link
-                  href={`/dashboard/admin/employees/${e.id}/edit`}
-                  className="rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
+              <div className="flex items-center justify-end gap-2">
+                <TableActionButton
+                  icon={Pencil}
+                  onClick={() => openEdit(e)}
+                  title="Edit employee"
                 >
                   Edit
-                </Link>
+                </TableActionButton>
 
-                {!e.user && (
-                  <Link
-                    href={`/dashboard/admin/users/create?employee=${e.id}`}
-                    className="rounded-2xl bg-white p-2 ring-1 ring-slate-200 hover:bg-slate-50"
-                    title="Link user account"
-                  >
-                    <Link2 className="h-4 w-4 text-slate-600" />
-                  </Link>
-                )}
+                <div className="relative">
+                  <TableActionMenu
+                    onClick={() => toggleMenu(e.id)}
+                    title="More actions"
+                  />
 
-                <button
-                  type="button"
-                  className="rounded-2xl bg-white p-2 ring-1 ring-slate-200 hover:bg-slate-50"
-                >
-                  <MoreVertical className="h-4 w-4 text-slate-600" />
-                </button>
+                  {menuEmployeeId === e.id ? (
+                    <>
+                      <button
+                        type="button"
+                        className="fixed inset-0 cursor-default"
+                        onClick={closeMenu}
+                        aria-label="Close"
+                      />
+
+                      <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white ring-1 ring-slate-200 shadow-lg overflow-hidden z-20">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            closeMenu();
+                            openActions(e);
+                          }}
+                          className="w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-slate-50 transition text-slate-800"
+                        >
+                          <span className="font-semibold">Open actions</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            closeMenu();
+                            openLink(e);
+                          }}
+                          className="w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-slate-50 transition text-slate-800"
+                        >
+                          <span className="font-semibold">Link account</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            closeMenu();
+                            openConfirmUnlink(e);
+                          }}
+                          disabled={!e.user}
+                          className={cx(
+                            "w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-slate-50 transition",
+                            e.user ? "text-rose-700" : "text-slate-300 pointer-events-none"
+                          )}
+                        >
+                          <span className="font-semibold">Unlink account</span>
+                        </button>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
               </div>
             )
           }
@@ -364,14 +433,71 @@ const employees =
 
         <DataTablePagination
           meta={meta}
-          perPage={perInitial}
-          onPerPage={handlePerPage}
-          onPrev={handlePrev}
-          onNext={handleNext}
+          perPage={per}
+          onPerPage={(n) => pushQuery({ per: n, page: 1 })}
+          onPrev={() => meta?.current_page > 1 && pushQuery({ page: meta.current_page - 1 })}
+          onNext={() =>
+            meta?.current_page < meta?.last_page && pushQuery({ page: meta.current_page + 1 })
+          }
           disablePrev={!meta || meta.current_page <= 1}
           disableNext={!meta || meta.current_page >= meta.last_page}
         />
       </div>
+
+      <CreateEmployeeModal
+        open={createOpen}
+        onClose={() => {
+          setCreateOpen(false);
+          setActiveEmployee(null);
+        }}
+        onSubmit={createEmployee}
+        loading={submitting}
+      />
+
+      <EditEmployeeModal
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        employee={activeEmployee}
+        onSubmit={(payload) => updateEmployee(activeEmployee?.id, payload)}
+        loading={submitting}
+      />
+
+      <EmployeeActionsModal
+        open={actionsOpen}
+        onClose={() => setActionsOpen(false)}
+        employee={activeEmployee}
+        onEdit={() => {
+          setActionsOpen(false);
+          setEditOpen(true);
+        }}
+        onLinkAccount={() => {
+          setActionsOpen(false);
+          setLinkOpen(true);
+        }}
+        onUnlinkAccount={() => {
+          setActionsOpen(false);
+          setConfirmUnlinkOpen(true);
+        }}
+      />
+
+      <LinkEmployeeUserModal
+        open={linkOpen}
+        onClose={() => setLinkOpen(false)}
+        employee={activeEmployee}
+        onSubmit={(payload) => linkUser(activeEmployee?.id, payload)}
+        loading={submitting}
+      />
+
+      <ConfirmActionModal
+        open={confirmUnlinkOpen}
+        onClose={() => setConfirmUnlinkOpen(false)}
+        title="Unlink account"
+        message="This will detach the user account from this employee. The employee record will remain."
+        confirmLabel="Unlink"
+        tone="rose"
+        loading={submitting}
+        onConfirm={() => unlinkUser(activeEmployee?.id)}
+      />
     </Layout>
   );
 }
