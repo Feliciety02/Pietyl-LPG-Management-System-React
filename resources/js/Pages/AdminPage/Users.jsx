@@ -1,10 +1,13 @@
+// resources/js/Pages/AdminPage/Tabs/Users.jsx
 import React, { useMemo, useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
+
 import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
-import { MoreVertical, UserPlus } from "lucide-react";
+
+import { MoreVertical, UserPlus, Eye, Pencil, Ban, CheckCircle2 } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 
 function cx(...classes) {
@@ -58,119 +61,173 @@ function TopCard({ title, subtitle, right }) {
   );
 }
 
+function ActionButton({ icon: Icon, children, href, onClick, title }) {
+  const cls =
+    "inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:outline-none focus:ring-2 focus:ring-teal-500/20";
+
+  if (href) {
+    return (
+      <Link href={href} className={cls} title={title}>
+        {Icon ? <Icon className="h-4 w-4 text-slate-600" /> : null}
+        {children}
+      </Link>
+    );
+  }
+
+  return (
+    <button type="button" onClick={onClick} className={cls} title={title}>
+      {Icon ? <Icon className="h-4 w-4 text-slate-600" /> : null}
+      {children}
+    </button>
+  );
+}
+
+function MoreMenu({ open, onToggle, onClose, items = [] }) {
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white ring-1 ring-slate-200 hover:bg-slate-50 transition focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+        title="More actions"
+      >
+        <MoreVertical className="h-4 w-4 text-slate-600" />
+      </button>
+
+      {open ? (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 cursor-default"
+            onClick={onClose}
+            aria-label="Close"
+          />
+          <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white ring-1 ring-slate-200 shadow-lg overflow-hidden z-20">
+            {items.map((it, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  onClose();
+                  it.onClick?.();
+                }}
+                className={cx(
+                  "w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-slate-50 transition",
+                  it.tone === "danger" ? "text-rose-700" : "text-slate-800"
+                )}
+              >
+                {it.icon ? <it.icon className="h-4 w-4" /> : null}
+                <span className="font-semibold">{it.label}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function normalizePaginator(p) {
+  const x = p || {};
+  const data = Array.isArray(x.data) ? x.data : [];
+  const meta =
+    x.meta && typeof x.meta === "object"
+      ? x.meta
+      : x.current_page != null || x.last_page != null
+      ? x
+      : null;
+
+  return { data, meta };
+}
+
 export default function Users() {
   const page = usePage();
 
-  /*
-    Expected Inertia props from backend:
-    users: {
-      data: [{ id, name, email, role, is_active, last_login_at, employee: { employee_no } }],
-      meta: { current_page, last_page, from, to, total },
-      links: [...]
-    }
-    filters: { q, status, role, sort, dir, per, page }
-    loading: boolean (optional)
-  */
+  const SAMPLE_USERS = {
+    data: [
+      {
+        id: 1,
+        name: "Maria Santos",
+        email: "admin@pietylpg.com",
+        role: "admin",
+        is_active: true,
+        last_login_at: "2026-01-17 08:42",
+        employee: { employee_no: "EMP-0001" },
+      },
+      {
+        id: 2,
+        name: "Juan Dela Cruz",
+        email: "cashier1@pietylpg.com",
+        role: "cashier",
+        is_active: true,
+        last_login_at: "2026-01-17 09:10",
+        employee: { employee_no: "EMP-0003" },
+      },
+      {
+        id: 3,
+        name: "Ana Reyes",
+        email: "accounting@pietylpg.com",
+        role: "accountant",
+        is_active: true,
+        last_login_at: "2026-01-16 17:45",
+        employee: { employee_no: "EMP-0005" },
+      },
+      {
+        id: 4,
+        name: "Mark Villanueva",
+        email: "rider1@pietylpg.com",
+        role: "rider",
+        is_active: true,
+        last_login_at: "2026-01-17 07:58",
+        employee: { employee_no: "EMP-0010" },
+      },
+      {
+        id: 5,
+        name: "Liza Gomez",
+        email: "inventory@pietylpg.com",
+        role: "inventory_manager",
+        is_active: true,
+        last_login_at: "2026-01-15 14:22",
+        employee: { employee_no: "EMP-0008" },
+      },
+      {
+        id: 6,
+        name: "Carlos Mendoza",
+        email: "former.staff@pietylpg.com",
+        role: "cashier",
+        is_active: false,
+        last_login_at: "2025-12-20 11:05",
+        employee: { employee_no: "EMP-0006" },
+      },
+      {
+        id: 7,
+        name: "Unlinked User",
+        email: "temp@pietylpg.com",
+        role: "cashier",
+        is_active: true,
+        last_login_at: null,
+        employee: null,
+      },
+    ],
+    meta: { current_page: 1, last_page: 1, from: 1, to: 7, total: 7 },
+  };
 
-const SAMPLE_USERS = {
-  data: [
-    {
-      id: 1,
-      name: "Maria Santos",
-      email: "admin@pietylpg.com",
-      role: "admin",
-      is_active: true,
-      last_login_at: "2026-01-17 08:42",
-      employee: { employee_no: "EMP-0001" },
-    },
-    {
-      id: 2,
-      name: "Juan Dela Cruz",
-      email: "cashier1@pietylpg.com",
-      role: "cashier",
-      is_active: true,
-      last_login_at: "2026-01-17 09:10",
-      employee: { employee_no: "EMP-0003" },
-    },
-    {
-      id: 3,
-      name: "Ana Reyes",
-      email: "accounting@pietylpg.com",
-      role: "accountant",
-      is_active: true,
-      last_login_at: "2026-01-16 17:45",
-      employee: { employee_no: "EMP-0005" },
-    },
-    {
-      id: 4,
-      name: "Mark Villanueva",
-      email: "rider1@pietylpg.com",
-      role: "rider",
-      is_active: true,
-      last_login_at: "2026-01-17 07:58",
-      employee: { employee_no: "EMP-0010" },
-    },
-    {
-      id: 5,
-      name: "Liza Gomez",
-      email: "inventory@pietylpg.com",
-      role: "inventory_manager",
-      is_active: true,
-      last_login_at: "2026-01-15 14:22",
-      employee: { employee_no: "EMP-0008" },
-    },
-    {
-      id: 6,
-      name: "Carlos Mendoza",
-      email: "former.staff@pietylpg.com",
-      role: "cashier",
-      is_active: false,
-      last_login_at: "2025-12-20 11:05",
-      employee: { employee_no: "EMP-0006" },
-    },
-    {
-      id: 7,
-      name: "Unlinked User",
-      email: "temp@pietylpg.com",
-      role: "cashier",
-      is_active: true,
-      last_login_at: null,
-      employee: null,
-    },
-  ],
-  meta: {
-    current_page: 1,
-    last_page: 1,
-    from: 1,
-    to: 7,
-    total: 7,
-  },
-};
+  const rawUsers =
+    page.props?.users ?? (import.meta.env.DEV ? SAMPLE_USERS : { data: [], meta: null });
 
-//const users = page.props?.users || { data: [], meta: null };
+  const { data: rows, meta } = normalizePaginator(rawUsers);
 
-const users =
-  page.props?.users ??
-  (import.meta.env.DEV ? SAMPLE_USERS : { data: [], meta: null });
-  const rows = users?.data || [];
-  const meta = users?.meta || null;
+  const filters = page.props?.filters || {};
+  const [q, setQ] = useState(filters.q ?? "");
+  const [status, setStatus] = useState(filters.status ?? "all");
+  const [role, setRole] = useState(filters.role ?? "all");
 
-  const query = page.props?.filters || {};
-  const qInitial = query?.q || "";
-  const statusInitial = query?.status || "all";
-  const roleInitial = query?.role || "all";
-  const sortKeyInitial = query?.sort || "name";
-  const sortDirInitial = query?.dir || "asc";
-  const perInitial = Number(query?.per || 10);
+  const [sortKey, setSortKey] = useState(filters.sort ?? "name");
+  const [sortDir, setSortDir] = useState(filters.dir ?? "asc");
 
-  const [q, setQ] = useState(qInitial);
-  const [status, setStatus] = useState(statusInitial);
-  const [role, setRole] = useState(roleInitial);
+  const [per, setPer] = useState(Number(filters.per ?? 10) || 10);
 
-  const sort = useMemo(
-    () => ({ key: sortKeyInitial, dir: sortDirInitial }),
-    [sortKeyInitial, sortDirInitial]
-  );
+  const loading = Boolean(page.props?.loading);
 
   const roleOptions = useMemo(() => {
     const set = new Set();
@@ -178,28 +235,30 @@ const users =
       if (u?.role) set.add(String(u.role));
     });
 
-    const roleList = Array.from(set).sort();
-
-    return [
-      { value: "all", label: "All roles" },
-      ...roleList.map((r) => ({ value: r, label: titleCase(r) })),
-    ];
+    const list = Array.from(set).sort();
+    return [{ value: "all", label: "All roles" }, ...list.map((r) => ({ value: r, label: titleCase(r) }))];
   }, [rows]);
 
-  const statusOptions = [
-    { value: "all", label: "All status" },
-    { value: "active", label: "Active" },
-    { value: "disabled", label: "Disabled" },
-  ];
+  const statusOptions = useMemo(
+    () => [
+      { value: "all", label: "All status" },
+      { value: "active", label: "Active" },
+      { value: "disabled", label: "Disabled" },
+    ],
+    []
+  );
 
-  const pushQuery = (patch) => {
+  const sort = useMemo(() => ({ key: sortKey, dir: sortDir }), [sortKey, sortDir]);
+
+  const pushQuery = (patch = {}) => {
     const next = {
       q,
       status,
       role,
-      sort: sort.key,
-      dir: sort.dir,
-      per: perInitial,
+      sort: sortKey,
+      dir: sortDir,
+      per,
+      page: filters.page ?? 1,
       ...patch,
     };
 
@@ -226,37 +285,37 @@ const users =
   };
 
   const handleSort = (key) => {
-    const isSame = sort.key === key;
-    const nextDir = isSame ? (sort.dir === "asc" ? "desc" : "asc") : "asc";
+    const isSame = sortKey === key;
+    const nextDir = isSame ? (sortDir === "asc" ? "desc" : "asc") : "asc";
+    setSortKey(key);
+    setSortDir(nextDir);
     pushQuery({ sort: key, dir: nextDir, page: 1 });
   };
 
   const handlePerPage = (n) => {
-    pushQuery({ per: n, page: 1 });
+    const next = Number(n) || per;
+    setPer(next);
+    pushQuery({ per: next, page: 1 });
   };
 
   const handlePrev = () => {
     if (!meta) return;
-    if (meta.current_page <= 1) return;
-    pushQuery({ page: meta.current_page - 1 });
+    if ((meta.current_page || 1) <= 1) return;
+    pushQuery({ page: (meta.current_page || 1) - 1 });
   };
 
   const handleNext = () => {
     if (!meta) return;
-    if (meta.current_page >= meta.last_page) return;
-    pushQuery({ page: meta.current_page + 1 });
+    if ((meta.current_page || 1) >= (meta.last_page || 1)) return;
+    pushQuery({ page: (meta.current_page || 1) + 1 });
   };
 
-  const loading = Boolean(page.props?.loading);
-
-  const fillerCount = perInitial || 10;
-
   const fillerRows = useMemo(() => {
-    return Array.from({ length: fillerCount }).map((_, i) => ({
+    return Array.from({ length: per || 10 }).map((_, i) => ({
       id: `__filler__${i}`,
       __filler: true,
     }));
-  }, [fillerCount]);
+  }, [per]);
 
   const tableRows = loading ? fillerRows : rows;
 
@@ -289,9 +348,7 @@ const users =
           u?.__filler ? (
             <SkeletonLine w="w-24" />
           ) : (
-            <div className="text-sm font-semibold text-slate-800">
-              {u?.employee?.employee_no || "Not linked"}
-            </div>
+            <div className="text-sm font-semibold text-slate-800">{u?.employee?.employee_no || "Not linked"}</div>
           ),
       },
       {
@@ -306,7 +363,8 @@ const users =
         label: "Status",
         sortable: true,
         nowrap: true,
-        render: (u) => (u?.__filler ? <SkeletonPill w="w-24" /> : <StatusPill active={Boolean(u?.is_active)} />),
+        render: (u) =>
+          u?.__filler ? <SkeletonPill w="w-24" /> : <StatusPill active={Boolean(u?.is_active)} />,
       },
       {
         key: "last_login_at",
@@ -314,24 +372,29 @@ const users =
         sortable: true,
         nowrap: true,
         render: (u) =>
-          u?.__filler ? (
-            <SkeletonLine w="w-20" />
-          ) : (
-            <span className="text-sm text-slate-700">{u?.last_login_at || "Never"}</span>
-          ),
+          u?.__filler ? <SkeletonLine w="w-20" /> : <span className="text-sm text-slate-700">{u?.last_login_at || "Never"}</span>,
       },
     ],
     []
   );
 
+  const [menuUserId, setMenuUserId] = useState(null);
+  const openMenu = (id) => setMenuUserId(id);
+  const closeMenu = () => setMenuUserId(null);
+
+  const toggleActive = (u) => {
+    if (!u?.id) return;
+
+    if (u?.is_active) {
+      router.post(`/dashboard/admin/users/${u.id}/disable`, {}, { preserveScroll: true });
+      return;
+    }
+
+    router.post(`/dashboard/admin/users/${u.id}/enable`, {}, { preserveScroll: true });
+  };
+
   return (
     <Layout title="Users">
-      {/* Admin Users
-         Purpose
-         Create accounts, assign roles, and control access to the system
-         Scope lock
-         No employee record editing here, only access control
-      */}
       <div className="grid gap-6">
         <TopCard
           title="User Management"
@@ -354,23 +417,13 @@ const users =
           onQ={handleSearch}
           placeholder="Search name, email, employee no..."
           filters={[
-            {
-              key: "status",
-              value: status,
-              onChange: handleStatus,
-              options: statusOptions,
-            },
-            {
-              key: "role",
-              value: role,
-              onChange: handleRole,
-              options: roleOptions,
-            },
+            { key: "status", value: status, onChange: handleStatus, options: statusOptions },
+            { key: "role", value: role, onChange: handleRole, options: roleOptions },
           ]}
           rightSlot={
             <Link
               href="/dashboard/admin/roles"
-              className="rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:outline-none focus:ring-4 focus:ring-teal-500/15"
+              className="rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:outline-none focus:ring-2 focus:ring-teal-500/20"
             >
               Manage Roles
             </Link>
@@ -389,24 +442,39 @@ const users =
             u?.__filler ? (
               <div className="flex items-center justify-end gap-2">
                 <SkeletonButton w="w-20" />
-                <div className="h-9 w-9 rounded-2xl bg-slate-200/80 animate-pulse" />
+                <div className="h-9 w-9 rounded-xl bg-slate-200/80 animate-pulse" />
               </div>
             ) : (
               <div className="flex items-center justify-end gap-2">
-                <Link
+                <ActionButton
+                  icon={Eye}
+                  href={`/dashboard/admin/users/${u.id}`}
+                  title="View user"
+                >
+                  View
+                </ActionButton>
+
+                <ActionButton
+                  icon={Pencil}
                   href={`/dashboard/admin/users/${u.id}/edit`}
-                  className="rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:outline-none focus:ring-4 focus:ring-teal-500/15"
+                  title="Edit user"
                 >
                   Edit
-                </Link>
+                </ActionButton>
 
-                <button
-                  type="button"
-                  className="rounded-2xl bg-white p-2 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:outline-none focus:ring-4 focus:ring-teal-500/15"
-                  title="More actions"
-                >
-                  <MoreVertical className="h-4 w-4 text-slate-600" />
-                </button>
+                <MoreMenu
+                  open={menuUserId === u.id}
+                  onToggle={() => (menuUserId === u.id ? closeMenu() : openMenu(u.id))}
+                  onClose={closeMenu}
+                  items={[
+                    {
+                      label: u?.is_active ? "Disable user" : "Enable user",
+                      icon: u?.is_active ? Ban : CheckCircle2,
+                      tone: u?.is_active ? "danger" : "neutral",
+                      onClick: () => toggleActive(u),
+                    },
+                  ]}
+                />
               </div>
             )
           }
@@ -414,12 +482,12 @@ const users =
 
         <DataTablePagination
           meta={meta}
-          perPage={perInitial}
+          perPage={per}
           onPerPage={handlePerPage}
           onPrev={handlePrev}
           onNext={handleNext}
-          disablePrev={!meta || meta.current_page <= 1}
-          disableNext={!meta || meta.current_page >= meta.last_page}
+          disablePrev={!meta || (meta.current_page || 1) <= 1}
+          disableNext={!meta || (meta.current_page || 1) >= (meta.last_page || 1)}
         />
       </div>
     </Layout>
