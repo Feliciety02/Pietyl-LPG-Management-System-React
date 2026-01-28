@@ -87,7 +87,7 @@ Route::middleware(['auth'])->group(function () {
 
         // Stock Management
         Route::get('/counts', [StockController::class, 'stockCount'])->name('dash.inventory.counts');
-        Route::post('/counts/{inventoryBalance}', [StockController::class, 'update'])->name('dash.inventory.counts.update');
+        Route::post('/counts/{inventoryBalance}/adjust', [StockController::class, 'update'])->name('dash.inventory.counts.update');
         Route::get('/low-stock', [StockController::class, 'lowStock'])->name('dash.inventory.lowstock');
     
 
