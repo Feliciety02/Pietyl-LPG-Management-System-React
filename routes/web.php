@@ -8,7 +8,7 @@ use App\Http\Controllers\Supplier\SupplierController;
 use App\Http\Controllers\Cashier\CustomerController;
 use App\Http\Controllers\Cashier\SaleController;
 use App\Http\Controllers\Inventory\StockController;
-
+use App\Http\Controllers\Cashier\POSController;
 
 Route::get('/', function () {
     if (Auth::check()) {
@@ -51,9 +51,10 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('dashboard/cashier')->middleware('role:cashier')->group(function () {
         Route::get('/', fn () => Inertia::render('Dashboard/Dashboard'))->name('dash.cashier');
 
-        Route::get('/POS', fn () => Inertia::render('CashierPage/POS'))->name('dash.cashier.POS');
-        //Route::get('/sales', fn () => Inertia::render('CashierPage/Sales'))->name('dash.cashier.sales');
-
+        //Route::get('/POS', fn () => Inertia::render('CashierPage/POS'))->name('dash.cashier.POS');
+        
+        Route::get('/POS', [POSController::class, 'index'])->name('dash.cashier.POS');
+        Route::post('/POS', [POSController::class, 'store'])->name('dash.cashier.POS.store');
         Route::get('/sales', [SaleController::class, 'index'])->name('dash.cashier.sales');
 
         Route::get('/customers', [CustomerController::class, 'index'])->name('dash.cashier.customers');
@@ -89,11 +90,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/counts/{inventoryBalance}', [StockController::class, 'update'])->name('dash.inventory.counts.update');
         Route::get('/low-stock', [StockController::class, 'lowStock'])->name('dash.inventory.lowstock');
     
-        Route::get('/movements', fn () => Inertia::render('InventoryPage/Movements'))->name('dash.inventory.movements');
-        
-        
+
         // Other Inventory Pages
-        Route::get('/movements', fn () => Inertia::render('InventoryPage/Movements'))->name('dash.inventory.movements');
+        Route::get('/movements', [StockController::class, 'movements'])->name('dash.inventory.movements');
         Route::get('/purchases', fn () => Inertia::render('InventoryPage/Purchases'))->name('dash.inventory.purchases');
         Route::get('/suppliers', [SupplierController::class, 'index'])->name('dash.inventory.suppliers');
         Route::get('/suppliers', [SupplierController::class, 'index'])->name('dash.inventory.suppliers');
