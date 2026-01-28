@@ -29,6 +29,7 @@ class RestockRequestController extends Controller
 
     public function store(Request $request)
     {
+        // TODO: LACKING INFORMATION FOR RESTOCK REQUEST CREATION ON request
         $data = $request->all();
         $data['requested_by_user_id'] = auth()->id();
 
