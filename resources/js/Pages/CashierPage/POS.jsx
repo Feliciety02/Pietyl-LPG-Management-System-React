@@ -185,7 +185,7 @@ export default function NewSale() {
     if (!canCheckout) return;
 
     router.post(
-      "/dashboard/cashier/new-sale",
+      "/dashboard/cashier/POS",
       {
         customer_id: customerId,
         is_delivery: delivery,

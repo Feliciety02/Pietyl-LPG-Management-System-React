@@ -8,7 +8,7 @@ use App\Http\Controllers\Supplier\SupplierController;
 use App\Http\Controllers\Cashier\CustomerController;
 use App\Http\Controllers\Cashier\SaleController;
 use App\Http\Controllers\Inventory\StockController;
-
+use App\Http\Controllers\Cashier\POSController;
 
 Route::get('/', function () {
     if (Auth::check()) {
@@ -51,9 +51,10 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('dashboard/cashier')->middleware('role:cashier')->group(function () {
         Route::get('/', fn () => Inertia::render('Dashboard/Dashboard'))->name('dash.cashier');
 
-        Route::get('/POS', fn () => Inertia::render('CashierPage/POS'))->name('dash.cashier.POS');
-        //Route::get('/sales', fn () => Inertia::render('CashierPage/Sales'))->name('dash.cashier.sales');
-
+        //Route::get('/POS', fn () => Inertia::render('CashierPage/POS'))->name('dash.cashier.POS');
+        
+        Route::get('/POS', [POSController::class, 'index'])->name('dash.cashier.POS');
+        Route::post('/POS', [POSController::class, 'store'])->name('dash.cashier.POS.store');
         Route::get('/sales', [SaleController::class, 'index'])->name('dash.cashier.sales');
 
         Route::get('/customers', [CustomerController::class, 'index'])->name('dash.cashier.customers');

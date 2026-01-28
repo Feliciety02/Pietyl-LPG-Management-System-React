@@ -28,6 +28,8 @@ class DatabaseSeeder extends Seeder
             PaymentSeeder::class,
             PurchaseSeeder::class,
             ReceiptSeeder::class,
+            StockMovementSeeder::class,
+            DeliverySeeder::class,
         ]);
     }
 }
