@@ -8,6 +8,7 @@ use App\Http\Controllers\Supplier\SupplierController;
 use App\Http\Controllers\Cashier\CustomerController;
 use App\Http\Controllers\Cashier\SaleController;
 use App\Http\Controllers\Inventory\StockController;
+use App\Http\Controllers\Inventory\RestockRequestController;
 use App\Http\Controllers\Cashier\POSController;
 
 Route::get('/', function () {
@@ -89,7 +90,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/counts', [StockController::class, 'stockCount'])->name('dash.inventory.counts');
         Route::post('/counts/{inventoryBalance}/adjust', [StockController::class, 'update'])->name('dash.inventory.counts.update');
         Route::get('/low-stock', [StockController::class, 'lowStock'])->name('dash.inventory.lowstock');
-    
+
+        // Purchase Requests (backend = RestockRequest)
+        Route::get('/purchases', [RestockRequestController::class, 'index'])->name('dash.inventory.purchases');
+        Route::post('/purchase-requests', [RestockRequestController::class, 'store'])->name('dash.inventory.purchase-requests.store');
 
         // Other Inventory Pages
         Route::get('/movements', [StockController::class, 'movements'])->name('dash.inventory.movements');

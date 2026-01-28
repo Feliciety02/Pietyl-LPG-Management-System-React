@@ -30,6 +30,8 @@ class DatabaseSeeder extends Seeder
             ReceiptSeeder::class,
             StockMovementSeeder::class,
             DeliverySeeder::class,
+            RestockRequestSeeder::class,
+            RestockRequestItemSeeder::class,
         ]);
     }
 }
