@@ -90,11 +90,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/counts/{inventoryBalance}', [StockController::class, 'update'])->name('dash.inventory.counts.update');
         Route::get('/low-stock', [StockController::class, 'lowStock'])->name('dash.inventory.lowstock');
     
-        Route::get('/movements', fn () => Inertia::render('InventoryPage/Movements'))->name('dash.inventory.movements');
-        
-        
+
         // Other Inventory Pages
-        Route::get('/movements', fn () => Inertia::render('InventoryPage/Movements'))->name('dash.inventory.movements');
+        Route::get('/movements', [StockController::class, 'movements'])->name('dash.inventory.movements');
         Route::get('/purchases', fn () => Inertia::render('InventoryPage/Purchases'))->name('dash.inventory.purchases');
         Route::get('/suppliers', [SupplierController::class, 'index'])->name('dash.inventory.suppliers');
         Route::get('/suppliers', [SupplierController::class, 'index'])->name('dash.inventory.suppliers');
