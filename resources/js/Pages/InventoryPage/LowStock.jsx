@@ -14,7 +14,7 @@ import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skel
 import ThresholdsModal from "@/components/modals/InventoryModals/ThresholdsModal";
 import ConfirmActionModal from "@/components/modals/InventoryModals/ConfirmActionModal";
 import PurchaseRequestModal from "@/components/modals/InventoryModals/PurchaseRequestModal";
-import NewPurchaseModal from "@/components/modals/InventoryModals/NewPurchaseModal";
+import NewPurchaseModal from "@/components/modals/InventoryModals/OrderStockModal";
 
 import {
   AlertTriangle,

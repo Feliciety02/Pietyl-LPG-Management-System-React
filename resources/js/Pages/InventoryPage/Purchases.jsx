@@ -7,7 +7,7 @@ import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
 
-import NewPurchaseModal from "@/components/modals/InventoryModals/NewPurchaseModal";
+import NewPurchaseModal from "@/components/modals/InventoryModals/OrderStockModal";
 import ConfirmDeliveryModal from "@/components/modals/InventoryModals/ConfirmDeliveryModal";
 import ViewPurchaseModal from "@/components/modals/InventoryModals/ViewPurchaseModal";
 
