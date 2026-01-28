@@ -1,5 +1,4 @@
-// resources/js/Pages/AdminPage/AuditLogs.jsx
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
 
@@ -7,11 +6,18 @@ import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
 
-import { ShieldCheck, Eye } from "lucide-react";
+import {
+  ShieldCheck,
+  Eye,
+  KeyRound,
+  Users,
+  ShoppingCart,
+  Boxes,
+  Banknote,
+} from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 
 import { TableActionButton } from "@/components/Table/ActionTableButton";
-
 import AuditDetailsModal from "@/components/modals/AuditLogModals/AuditDetailsModal";
 
 function cx() {
@@ -76,8 +82,90 @@ function TopCard(props) {
   );
 }
 
+function Tabs({ tabs, value, onChange }) {
+  return (
+    <div className="rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm">
+      <div className="p-3 flex flex-wrap gap-2">
+        {tabs.map(function (t) {
+          const active = t.value === value;
+
+          return (
+            <button
+              key={t.value}
+              type="button"
+              onClick={function () {
+                onChange(t.value);
+              }}
+              className={cx(
+                "inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-extrabold ring-1 transition",
+                active
+                  ? "bg-teal-600 text-white ring-teal-600 hover:bg-teal-700"
+                  : "bg-white text-slate-800 ring-slate-200 hover:bg-slate-50"
+              )}
+            >
+              {t.Icon ? (
+                <t.Icon className={cx("h-4 w-4", active ? "text-white" : "text-slate-600")} />
+              ) : null}
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function roleFromPage(page) {
+  const fromAuth = page?.props?.auth?.user?.role;
+  if (fromAuth) return String(fromAuth);
+
+  const fromUser = page?.props?.user?.role;
+  if (fromUser) return String(fromUser);
+
+  return "admin";
+}
+
+function auditBasePathForRole(role) {
+  const r = String(role || "").toLowerCase();
+
+  if (r === "admin") return "/dashboard/admin/audit";
+  if (r === "accountant") return "/dashboard/accountant/audit";
+  if (r === "cashier") return "/dashboard/cashier/audit";
+  if (r === "inventory_manager") return "/dashboard/inventory/audit";
+  if (r === "rider") return "/dashboard/rider/audit";
+
+  return "/dashboard/admin/audit";
+}
+
+function allowedSectorsForRole(role) {
+  const r = String(role || "").toLowerCase();
+
+  if (r === "admin") return ["all", "access", "people", "sales", "inventory", "finance"];
+
+  if (r === "accountant") return ["finance", "sales"];
+  if (r === "cashier") return ["sales"];
+  if (r === "inventory_manager") return ["inventory"];
+  if (r === "rider") return ["sales"];
+
+  return ["all"];
+}
+
+function defaultSectorForRole(role) {
+  const r = String(role || "").toLowerCase();
+
+  if (r === "accountant") return "finance";
+  if (r === "cashier") return "sales";
+  if (r === "inventory_manager") return "inventory";
+  if (r === "rider") return "sales";
+
+  return "all";
+}
+
 export default function AuditLogs() {
   const page = usePage();
+
+  const role = roleFromPage(page);
+  const basePath = auditBasePathForRole(role);
 
   const SAMPLE_AUDITS = {
     data: [
@@ -134,9 +222,38 @@ export default function AuditLogs() {
   const query = page.props && page.props.filters ? page.props.filters : {};
   const per = Number(query.per || 10);
 
+  const allowedSectors = allowedSectorsForRole(role);
+
   const [q, setQ] = useState(query.q || "");
   const [event, setEvent] = useState(query.event || "all");
   const [entityType, setEntityType] = useState(query.entity_type || "all");
+
+  const initialSector = allowedSectors.indexOf(query.sector) >= 0 ? query.sector : defaultSectorForRole(role);
+  const [sector, setSector] = useState(initialSector);
+
+  const allSectorTabs = [
+    { value: "all", label: "All", Icon: ShieldCheck },
+    { value: "access", label: "Access", Icon: KeyRound },
+    { value: "people", label: "People", Icon: Users },
+    { value: "sales", label: "Sales", Icon: ShoppingCart },
+    { value: "inventory", label: "Inventory", Icon: Boxes },
+    { value: "finance", label: "Finance", Icon: Banknote },
+  ];
+
+  const sectorTabs = allSectorTabs.filter(function (t) {
+    return allowedSectors.indexOf(t.value) >= 0;
+  });
+
+  const sectorPresets = {
+    all: { event: "all", entity_type: "all" },
+
+    access: { event: "all", entity_type: "User" },
+    people: { event: "all", entity_type: "Employee" },
+
+    sales: { event: "sale.create", entity_type: "Sale" },
+    inventory: { event: "inventory.adjust", entity_type: "Inventory" },
+    finance: { event: "remittance.verify", entity_type: "Remittance" },
+  };
 
   const eventOptions = [
     { value: "all", label: "All events" },
@@ -161,15 +278,51 @@ export default function AuditLogs() {
   ];
 
   function pushQuery(patch) {
-    const base = { q: q, event: event, entity_type: entityType, per: per };
+    const base = { q: q, event: event, entity_type: entityType, per: per, sector: sector };
     const nextParams = Object.assign({}, base, patch || {});
 
-    router.get("/dashboard/admin/audit", nextParams, {
+    router.get(basePath, nextParams, {
       preserveScroll: true,
       preserveState: true,
       replace: true,
     });
   }
+
+  function applySector(nextSector) {
+    const preset = sectorPresets[nextSector] || sectorPresets.all;
+
+    setSector(nextSector);
+    setEvent(preset.event);
+    setEntityType(preset.entity_type);
+
+    pushQuery({
+      sector: nextSector,
+      event: preset.event,
+      entity_type: preset.entity_type,
+      page: 1,
+    });
+  }
+
+  useEffect(
+    function () {
+      if (allowedSectors.indexOf(sector) >= 0) return;
+
+      const fallback = defaultSectorForRole(role);
+      const preset = sectorPresets[fallback] || sectorPresets.all;
+
+      setSector(fallback);
+      setEvent(preset.event);
+      setEntityType(preset.entity_type);
+
+      pushQuery({
+        sector: fallback,
+        event: preset.event,
+        entity_type: preset.entity_type,
+        page: 1,
+      });
+    },
+    [role]
+  );
 
   const loading = Boolean(page.props && page.props.loading);
 
@@ -184,60 +337,63 @@ export default function AuditLogs() {
 
   const tableRows = loading ? fillerRows : rows;
 
-  const columns = useMemo(function () {
-    return [
-      {
-        key: "when",
-        label: "When",
-        render: function (a) {
-          if (a && a.__filler) return <SkeletonLine w="w-24" />;
-          return <div className="text-sm font-semibold text-slate-900">{a.created_at}</div>;
+  const columns = useMemo(
+    function () {
+      return [
+        {
+          key: "when",
+          label: "When",
+          render: function (a) {
+            if (a && a.__filler) return <SkeletonLine w="w-24" />;
+            return <div className="text-sm font-semibold text-slate-900">{a.created_at}</div>;
+          },
         },
-      },
-      {
-        key: "actor",
-        label: "Actor",
-        render: function (a) {
-          if (a && a.__filler) return <SkeletonLine w="w-36" />;
-          return (
-            <div>
-              <div className="font-extrabold text-slate-900">{a.actor_name || "System"}</div>
-              <div className="text-xs text-slate-500">{titleCase(a.actor_role || "system")}</div>
-            </div>
-          );
+        {
+          key: "actor",
+          label: "Actor",
+          render: function (a) {
+            if (a && a.__filler) return <SkeletonLine w="w-36" />;
+            return (
+              <div>
+                <div className="font-extrabold text-slate-900">{a.actor_name || "System"}</div>
+                <div className="text-xs text-slate-500">{titleCase(a.actor_role || "system")}</div>
+              </div>
+            );
+          },
         },
-      },
-      {
-        key: "event",
-        label: "Event",
-        render: function (a) {
-          if (a && a.__filler) return <SkeletonPill w="w-24" />;
-          return <TonePill tone={eventTone(a.event)} label={a.event} />;
+        {
+          key: "event",
+          label: "Event",
+          render: function (a) {
+            if (a && a.__filler) return <SkeletonPill w="w-28" />;
+            return <TonePill tone={eventTone(a.event)} label={a.event} />;
+          },
         },
-      },
-      {
-        key: "entity",
-        label: "Entity",
-        render: function (a) {
-          if (a && a.__filler) return <SkeletonLine w="w-28" />;
-          return (
-            <div className="text-sm text-slate-700">
-              {a.entity_type}
-              {a.entity_id ? <span className="text-slate-400"> #{a.entity_id}</span> : null}
-            </div>
-          );
+        {
+          key: "entity",
+          label: "Entity",
+          render: function (a) {
+            if (a && a.__filler) return <SkeletonLine w="w-28" />;
+            return (
+              <div className="text-sm text-slate-700">
+                {a.entity_type}
+                {a.entity_id ? <span className="text-slate-400"> #{a.entity_id}</span> : null}
+              </div>
+            );
+          },
         },
-      },
-      {
-        key: "message",
-        label: "Details",
-        render: function (a) {
-          if (a && a.__filler) return <SkeletonLine w="w-48" />;
-          return <div className="text-sm text-slate-700">{a.message || "—"}</div>;
+        {
+          key: "message",
+          label: "Details",
+          render: function (a) {
+            if (a && a.__filler) return <SkeletonLine w="w-48" />;
+            return <div className="text-sm text-slate-700">{a.message || "—"}</div>;
+          },
         },
-      },
-    ];
-  }, []);
+      ];
+    },
+    []
+  );
 
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [activeAudit, setActiveAudit] = useState(null);
@@ -266,6 +422,8 @@ export default function AuditLogs() {
           }
         />
 
+        <Tabs tabs={sectorTabs} value={sector} onChange={applySector} />
+
         <DataTableFilters
           q={q}
           onQ={function (v) {
@@ -279,7 +437,12 @@ export default function AuditLogs() {
               value: event,
               onChange: function (v) {
                 setEvent(v);
-                pushQuery({ event: v, page: 1 });
+                setSector(allowedSectors.indexOf("all") >= 0 ? "all" : defaultSectorForRole(role));
+                pushQuery({
+                  event: v,
+                  sector: allowedSectors.indexOf("all") >= 0 ? "all" : defaultSectorForRole(role),
+                  page: 1,
+                });
               },
               options: eventOptions,
             },
@@ -288,7 +451,12 @@ export default function AuditLogs() {
               value: entityType,
               onChange: function (v) {
                 setEntityType(v);
-                pushQuery({ entity_type: v, page: 1 });
+                setSector(allowedSectors.indexOf("all") >= 0 ? "all" : defaultSectorForRole(role));
+                pushQuery({
+                  entity_type: v,
+                  sector: allowedSectors.indexOf("all") >= 0 ? "all" : defaultSectorForRole(role),
+                  page: 1,
+                });
               },
               options: entityOptions,
             },
@@ -312,7 +480,13 @@ export default function AuditLogs() {
 
             return (
               <div className="flex items-center justify-end gap-2">
-                <TableActionButton icon={Eye} title="View details" onClick={() => openDetails(a)}>
+                <TableActionButton
+                  icon={Eye}
+                  title="View details"
+                  onClick={function () {
+                    openDetails(a);
+                  }}
+                >
                   View
                 </TableActionButton>
               </div>
