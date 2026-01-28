@@ -66,22 +66,7 @@ class SaleSeeder extends Seeder
             'notes' => 'Delivery to Poblacion',
         ]);
 
-        // Sale 3 - FAILED
-        Sale::create([
-            'sale_number' => 'SALE-20260121-0001',
-            'sale_type' => 'walkin',
-            'customer_id' => $getWalkin()?->id,
-            'cashier_user_id' => $cashier->id,
-            'status' => 'failed',
-            'sale_datetime' => now()->subDays(6)->setHour(10)->setMinute(15),
-            'price_list_id' => $priceList?->id,
-            'subtotal' => 3500.00,
-            'discount_total' => 0,
-            'tax_total' => 0,
-            'grand_total' => 3500.00,
-            'notes' => 'Payment failed - Card declined',
-        ]);
-
+      
         // Sale 4 - PAID (Card)
         Sale::create([
             'sale_number' => 'SALE-20260121-0002',
@@ -98,21 +83,6 @@ class SaleSeeder extends Seeder
             'notes' => 'Corporate order - 3x 22kg cylinders',
         ]);
 
-        // Sale 5 - PENDING
-        Sale::create([
-            'sale_number' => 'SALE-20260122-0001',
-            'sale_type' => 'delivery',
-            'customer_id' => $getCustomer()?->id,
-            'cashier_user_id' => $cashier->id,
-            'status' => 'pending',
-            'sale_datetime' => now()->subDays(5)->setHour(9)->setMinute(0),
-            'price_list_id' => $priceList?->id,
-            'subtotal' => 950.00,
-            'discount_total' => 0,
-            'tax_total' => 0,
-            'grand_total' => 950.00,
-            'notes' => 'COD delivery',
-        ]);
 
         // Sale 6 - PAID
         Sale::create([
@@ -146,22 +116,7 @@ class SaleSeeder extends Seeder
             'notes' => null,
         ]);
 
-        // Sale 8 - FAILED
-        Sale::create([
-            'sale_number' => 'SALE-20260123-0002',
-            'sale_type' => 'walkin',
-            'customer_id' => $getWalkin()?->id,
-            'cashier_user_id' => $cashier->id,
-            'status' => 'failed',
-            'sale_datetime' => now()->subDays(4)->setHour(15)->setMinute(45),
-            'price_list_id' => $priceList?->id,
-            'subtotal' => 950.00,
-            'discount_total' => 0,
-            'tax_total' => 0,
-            'grand_total' => 950.00,
-            'notes' => 'Insufficient funds',
-        ]);
-
+    
         // Sale 9 - PAID
         Sale::create([
             'sale_number' => 'SALE-20260124-0001',
@@ -178,22 +133,7 @@ class SaleSeeder extends Seeder
             'notes' => null,
         ]);
 
-        // Sale 10 - PENDING
-        Sale::create([
-            'sale_number' => 'SALE-20260124-0002',
-            'sale_type' => 'delivery',
-            'customer_id' => $getCustomer()?->id,
-            'cashier_user_id' => $cashier->id,
-            'status' => 'pending',
-            'sale_datetime' => now()->subDays(3)->setHour(14)->setMinute(15),
-            'price_list_id' => $priceList?->id,
-            'subtotal' => 7000.00,
-            'discount_total' => 0,
-            'tax_total' => 0,
-            'grand_total' => 7000.00,
-            'notes' => 'Large order - Payment on delivery',
-        ]);
-
+     
         // Sale 11 - PAID
         Sale::create([
             'sale_number' => 'SALE-20260125-0001',
@@ -226,21 +166,6 @@ class SaleSeeder extends Seeder
             'notes' => 'Bulk order',
         ]);
 
-        // Sale 13 - FAILED
-        Sale::create([
-            'sale_number' => 'SALE-20260125-0003',
-            'sale_type' => 'walkin',
-            'customer_id' => $getWalkin()?->id,
-            'cashier_user_id' => $cashier->id,
-            'status' => 'failed',
-            'sale_datetime' => now()->subDays(2)->setHour(16)->setMinute(10),
-            'price_list_id' => $priceList?->id,
-            'subtotal' => 1750.00,
-            'discount_total' => 0,
-            'tax_total' => 0,
-            'grand_total' => 1750.00,
-            'notes' => 'GCash payment timeout',
-        ]);
 
         // Sale 14 - PAID
         Sale::create([
@@ -258,21 +183,6 @@ class SaleSeeder extends Seeder
             'notes' => null,
         ]);
 
-        // Sale 15 - PENDING
-        Sale::create([
-            'sale_number' => 'SALE-20260126-0002',
-            'sale_type' => 'delivery',
-            'customer_id' => $customers->where('name', 'XYZ Hotel')->first()?->id,
-            'cashier_user_id' => $cashier->id,
-            'status' => 'pending',
-            'sale_datetime' => now()->subDay()->setHour(13)->setMinute(20),
-            'price_list_id' => $priceList?->id,
-            'subtotal' => 10500.00,
-            'discount_total' => 0,
-            'tax_total' => 0,
-            'grand_total' => 10500.00,
-            'notes' => 'Hotel bulk order - 6x 22kg',
-        ]);
 
         // Sale 16 - PAID
         Sale::create([

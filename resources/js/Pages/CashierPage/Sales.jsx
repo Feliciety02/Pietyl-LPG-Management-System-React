@@ -1,15 +1,15 @@
 import React, { useMemo, useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
+
 import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
+
 import { posIcons } from "@/components/ui/Icons";
-import {
-  SkeletonLine,
-  SkeletonPill,
-  SkeletonButton,
-} from "@/components/ui/Skeleton";
+import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
+
+import { TableActionButton } from "@/components/Table/ActionTableButton";
 
 import SaleDetailsModal from "@/components/modals/CashierModals/SaleDetailsModal";
 import ReprintReceiptModal from "@/components/modals/CashierModals/ReprintReceiptModal";
@@ -79,6 +79,57 @@ function money(n) {
   return `₱${v.toLocaleString()}`;
 }
 
+function safeText(v) {
+  return String(v ?? "").trim();
+}
+
+function SaleAvatar({ ref }) {
+  const t = safeText(ref);
+  const seed = t.replace(/\s+/g, "").slice(-2).toUpperCase() || "TX";
+  return (
+    <div className="h-9 w-9 rounded-2xl bg-teal-600/10 ring-1 ring-teal-700/10 flex items-center justify-center">
+      <span className="text-[11px] font-extrabold text-teal-900">{seed}</span>
+    </div>
+  );
+}
+
+function MiniStat({ label, value }) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-2xl bg-slate-50 px-2.5 py-1 ring-1 ring-slate-200">
+      <span className="text-[11px] font-extrabold text-slate-600">{label}</span>
+      <span className="text-[11px] font-extrabold text-slate-900">{value}</span>
+    </div>
+  );
+}
+
+function LineSummary({ lines }) {
+  const list = Array.isArray(lines) ? lines : [];
+  const count = list.reduce((sum, it) => sum + Number(it?.qty || 0), 0);
+  if (!list.length) return <span className="text-xs text-slate-400">No items</span>;
+
+  const first = list[0];
+  const name = safeText(first?.name) || "Item";
+  const variant = safeText(first?.variant);
+  const more = list.length - 1;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-xs font-extrabold text-slate-700 truncate max-w-[240px]">
+        {name}
+        {variant ? <span className="text-slate-500"> · {variant}</span> : null}
+      </span>
+
+      {more > 0 ? (
+        <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-extrabold text-slate-700 ring-1 ring-slate-200">
+          +{more} more
+        </span>
+      ) : null}
+
+      <span className="text-[11px] font-extrabold text-slate-500">Qty {count}</span>
+    </div>
+  );
+}
+
 export default function Sales() {
   const page = usePage();
 
@@ -146,18 +197,17 @@ export default function Sales() {
     meta: { current_page: 1, last_page: 1, from: 1, to: 3, total: 3 },
   };
 
-  const sales = page.props?.sales ?? { data: [], meta: null };
+  const sales =
+    page.props?.sales ?? (import.meta.env.DEV ? SAMPLE : { data: [], meta: null });
 
   const rows = sales?.data ?? [];
   const meta = sales?.meta ?? null;
 
   const query = page.props?.filters || {};
-  const qInitial = query?.q || "";
-  const statusInitial = query?.status || "all";
-  const perInitial = Number(query?.per || 10);
+  const per = Number(query?.per || 10);
 
-  const [q, setQ] = useState(qInitial);
-  const [status, setStatus] = useState(statusInitial);
+  const [q, setQ] = useState(query?.q || "");
+  const [status, setStatus] = useState(query?.status || "all");
 
   const [activeSale, setActiveSale] = useState(null);
   const [viewOpen, setViewOpen] = useState(false);
@@ -173,38 +223,20 @@ export default function Sales() {
   const pushQuery = (patch) => {
     router.get(
       "/dashboard/cashier/sales",
-      { q, status, per: perInitial, ...patch },
+      { q, status, per, ...patch },
       { preserveScroll: true, preserveState: true, replace: true }
     );
   };
-
-  const handleSearch = (value) => {
-    setQ(value);
-    pushQuery({ q: value, page: 1 });
-  };
-
-  const handleStatus = (value) => {
-    setStatus(value);
-    pushQuery({ status: value, page: 1 });
-  };
-
-  const handlePerPage = (n) => pushQuery({ per: n, page: 1 });
-  const handlePrev = () =>
-    meta && meta.current_page > 1 && pushQuery({ page: meta.current_page - 1 });
-  const handleNext = () =>
-    meta &&
-    meta.current_page < meta.last_page &&
-    pushQuery({ page: meta.current_page + 1 });
 
   const loading = Boolean(page.props?.loading);
 
   const fillerRows = useMemo(
     () =>
-      Array.from({ length: perInitial }).map((_, i) => ({
+      Array.from({ length: per }).map((_, i) => ({
         id: `__filler__${i}`,
         __filler: true,
       })),
-    [perInitial]
+    [per]
   );
 
   const tableRows = loading ? fillerRows : rows;
@@ -219,22 +251,44 @@ export default function Sales() {
     setReprintOpen(true);
   };
 
+  const ReceiptIcon = posIcons.receipt;
+  const ViewIcon = posIcons.search;
+
   const columns = useMemo(
     () => [
       {
-        key: "ref",
+        key: "sale",
         label: "Sale",
         render: (x) =>
           x?.__filler ? (
-            <div className="space-y-2">
-              <SkeletonLine w="w-32" />
-              <SkeletonLine w="w-44" />
+            <div className="flex items-start gap-3">
+              <div className="h-9 w-9 rounded-2xl bg-slate-100 ring-1 ring-slate-200" />
+              <div className="space-y-2">
+                <SkeletonLine w="w-32" />
+                <SkeletonLine w="w-48" />
+              </div>
             </div>
           ) : (
-            <div>
-              <div className="font-extrabold text-slate-900">{x.ref}</div>
-              <div className="text-xs text-slate-500">
-                {x.customer || "Walk in"}
+            <div className="flex items-start gap-3">
+              <SaleAvatar ref={x.ref} />
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="font-extrabold text-slate-900">{x.ref}</div>
+                  <StatusPill status={x.status} />
+                  <MethodPill method={x.method} />
+                </div>
+
+                <div className="mt-1 flex flex-col gap-1">
+                  <div className="text-xs text-slate-500">
+                    <span className="font-extrabold text-slate-700">
+                      {x.customer || "Walk in"}
+                    </span>
+                    <span className="mx-2 text-slate-300">•</span>
+                    <span className="text-slate-600">{x.created_at || "Not available"}</span>
+                  </div>
+
+                  <LineSummary lines={x.lines} />
+                </div>
               </div>
             </div>
           ),
@@ -246,41 +300,14 @@ export default function Sales() {
           x?.__filler ? (
             <SkeletonLine w="w-20" />
           ) : (
-            <span className="text-sm font-extrabold text-slate-900">
-              {money(x.total)}
-            </span>
-          ),
-      },
-      {
-        key: "method",
-        label: "Method",
-        render: (x) =>
-          x?.__filler ? <SkeletonPill w="w-20" /> : <MethodPill method={x.method} />,
-      },
-      {
-        key: "status",
-        label: "Status",
-        render: (x) =>
-          x?.__filler ? <SkeletonPill w="w-24" /> : <StatusPill status={x.status} />,
-      },
-      {
-        key: "created_at",
-        label: "Time",
-        render: (x) =>
-          x?.__filler ? (
-            <SkeletonLine w="w-28" />
-          ) : (
-            <span className="text-sm text-slate-700">
-              {x.created_at || "—"}
-            </span>
+            <div className="flex justify-start">
+              <MiniStat label="Total" value={money(x.total)} />
+            </div>
           ),
       },
     ],
     []
   );
-
-  const ReceiptIcon = posIcons.receipt;
-  const ViewIcon = posIcons.search;
 
   const readOnly = !(isAdmin || isCashier);
 
@@ -308,13 +335,19 @@ export default function Sales() {
 
         <DataTableFilters
           q={q}
-          onQ={handleSearch}
+          onQ={(v) => {
+            setQ(v);
+            pushQuery({ q: v, page: 1 });
+          }}
           placeholder="Search reference or customer..."
           filters={[
             {
               key: "status",
               value: status,
-              onChange: handleStatus,
+              onChange: (v) => {
+                setStatus(v);
+                pushQuery({ status: v, page: 1 });
+              },
               options: statusOptions,
             },
           ]}
@@ -328,28 +361,27 @@ export default function Sales() {
           emptyHint="Completed sales will appear here."
           renderActions={(row) =>
             row?.__filler ? (
-              <SkeletonButton w="w-24" />
+              <div className="flex items-center justify-end gap-2">
+                <SkeletonButton w="w-24" />
+                <SkeletonButton w="w-20" />
+              </div>
             ) : (
               <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
+                <TableActionButton
+                  icon={ReceiptIcon}
                   onClick={() => openReprint(row)}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
                   title="Reprint receipt"
                 >
-                  <ReceiptIcon className="h-4 w-4 text-slate-600" />
                   Reprint
-                </button>
+                </TableActionButton>
 
-                <button
-                  type="button"
+                <TableActionButton
+                  icon={ViewIcon}
                   onClick={() => openView(row)}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
                   title="View sale details"
                 >
-                  <ViewIcon className="h-4 w-4 text-slate-600" />
                   View
-                </button>
+                </TableActionButton>
               </div>
             )
           }
@@ -357,20 +389,18 @@ export default function Sales() {
 
         <DataTablePagination
           meta={meta}
-          perPage={perInitial}
-          onPerPage={handlePerPage}
-          onPrev={handlePrev}
-          onNext={handleNext}
+          perPage={per}
+          onPerPage={(n) => pushQuery({ per: n, page: 1 })}
+          onPrev={() => meta?.current_page > 1 && pushQuery({ page: meta.current_page - 1 })}
+          onNext={() =>
+            meta?.current_page < meta?.last_page && pushQuery({ page: meta.current_page + 1 })
+          }
           disablePrev={!meta || meta.current_page <= 1}
           disableNext={!meta || meta.current_page >= meta.last_page}
         />
       </div>
 
-      <SaleDetailsModal
-        open={viewOpen}
-        onClose={() => setViewOpen(false)}
-        sale={activeSale}
-      />
+      <SaleDetailsModal open={viewOpen} onClose={() => setViewOpen(false)} sale={activeSale} />
 
       <ReprintReceiptModal
         open={reprintOpen}

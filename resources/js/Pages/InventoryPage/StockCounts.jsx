@@ -7,7 +7,7 @@ import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
 import { Boxes, PencilLine } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
-import RecountStockModal from "@/components/modals/InventoryModals/RecountStockModal";
+import RecountStockModal from "@/components/modals/StockCountModals/RecountStockModal";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
