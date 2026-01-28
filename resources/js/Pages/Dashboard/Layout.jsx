@@ -63,8 +63,8 @@ const ROLE_META = {
     title: "Accountant",
     items: [
       { label: "Overview", href: "/dashboard/accountant", icon: "overview" },
-      { label: "Remittances", href: "/dashboard/accountant/remittances", icon: "remittance" },
       { label: "Daily Summary", href: "/dashboard/accountant/daily", icon: "daily" },
+      { label: "Remittances", href: "/dashboard/accountant/remittances", icon: "remittance" },
       { label: "Ledger", href: "/dashboard/accountant/ledger", icon: "ledger" },
       { label: "Payroll", href: "/dashboard/accountant/payroll", icon: "payroll" },
       { label: "Reports", href: "/dashboard/accountant/reports", icon: "reports" },
