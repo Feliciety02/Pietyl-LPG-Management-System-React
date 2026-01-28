@@ -6,17 +6,13 @@ import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
 
-import { UserPlus, Pencil } from "lucide-react";
+import { UserPlus, Pencil, Link2, Unlink } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 
-import {
-  TableActionButton,
-  TableActionMenu,
-} from "@/components/Table/ActionTableButton";
+import { TableActionButton } from "@/components/Table/ActionTableButton";
 
 import CreateEmployeeModal from "@/components/modals/EmployeeModals/CreateEmployeeModal";
 import EditEmployeeModal from "@/components/modals/EmployeeModals/EditEmployeeModal";
-import EmployeeActionsModal from "@/components/modals/EmployeeModals/EmployeeActionsModal";
 import LinkEmployeeUserModal from "@/components/modals/EmployeeModals/LinkEmployeeUserModal";
 import ConfirmActionModal from "@/components/modals/EmployeeModals/ConfirmActionModal";
 
@@ -32,8 +28,6 @@ function titleCase(s = "") {
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 }
-
-/* ---------- Pills ---------- */
 
 function StatusPill({ status }) {
   const map = {
@@ -55,8 +49,6 @@ function StatusPill({ status }) {
   );
 }
 
-/* ---------- Layout ---------- */
-
 function TopCard({ title, subtitle, right }) {
   return (
     <div className="rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm">
@@ -71,12 +63,9 @@ function TopCard({ title, subtitle, right }) {
   );
 }
 
-/* ---------- Page ---------- */
-
 export default function Employees() {
   const page = usePage();
 
-  /* DEV SAMPLE DATA */
   const SAMPLE_EMPLOYEES = {
     data: [
       {
@@ -152,13 +141,14 @@ export default function Employees() {
 
   const tableRows = loading ? fillerRows : rows;
 
-  /* ---------- Modal state ---------- */
-
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [actionsOpen, setActionsOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
-  const [confirmUnlinkOpen, setConfirmUnlinkOpen] = useState(false);
+
+  const [confirm, setConfirm] = useState({
+    open: false,
+    employee: null,
+  });
 
   const [activeEmployee, setActiveEmployee] = useState(null);
 
@@ -167,30 +157,14 @@ export default function Employees() {
     setEditOpen(true);
   };
 
-  const openActions = (e) => {
-    setActiveEmployee(e);
-    setActionsOpen(true);
-  };
-
   const openLink = (e) => {
     setActiveEmployee(e);
     setLinkOpen(true);
   };
 
   const openConfirmUnlink = (e) => {
-    setActiveEmployee(e);
-    setConfirmUnlinkOpen(true);
+    setConfirm({ open: true, employee: e });
   };
-
-  const closeAll = () => {
-    setCreateOpen(false);
-    setEditOpen(false);
-    setActionsOpen(false);
-    setLinkOpen(false);
-    setConfirmUnlinkOpen(false);
-  };
-
-  /* ---------- Submit handlers ---------- */
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -203,6 +177,7 @@ export default function Employees() {
       onFinish: () => setSubmitting(false),
       onSuccess: () => {
         setCreateOpen(false);
+        setActiveEmployee(null);
         router.reload({ only: ["employees"] });
       },
     });
@@ -217,6 +192,7 @@ export default function Employees() {
       onFinish: () => setSubmitting(false),
       onSuccess: () => {
         setEditOpen(false);
+        setActiveEmployee(null);
         router.reload({ only: ["employees"] });
       },
     });
@@ -231,6 +207,7 @@ export default function Employees() {
       onFinish: () => setSubmitting(false),
       onSuccess: () => {
         setLinkOpen(false);
+        setActiveEmployee(null);
         router.reload({ only: ["employees"] });
       },
     });
@@ -244,13 +221,12 @@ export default function Employees() {
       preserveScroll: true,
       onFinish: () => setSubmitting(false),
       onSuccess: () => {
-        setConfirmUnlinkOpen(false);
+        setConfirm({ open: false, employee: null });
+        setActiveEmployee(null);
         router.reload({ only: ["employees"] });
       },
     });
   };
-
-  /* ---------- Columns ---------- */
 
   const columns = useMemo(
     () => [
@@ -300,12 +276,6 @@ export default function Employees() {
     ],
     []
   );
-
-  /* ---------- More menu state ---------- */
-
-  const [menuEmployeeId, setMenuEmployeeId] = useState(null);
-  const toggleMenu = (id) => setMenuEmployeeId((cur) => (cur === id ? null : id));
-  const closeMenu = () => setMenuEmployeeId(null);
 
   return (
     <Layout title="Employees">
@@ -358,7 +328,8 @@ export default function Employees() {
             e?.__filler ? (
               <div className="flex items-center justify-end gap-2">
                 <SkeletonButton w="w-20" />
-                <div className="h-9 w-9 rounded-xl bg-slate-200/80 animate-pulse" />
+                <SkeletonButton w="w-24" />
+                <SkeletonButton w="w-24" />
               </div>
             ) : (
               <div className="flex items-center justify-end gap-2">
@@ -370,62 +341,23 @@ export default function Employees() {
                   Edit
                 </TableActionButton>
 
-                <div className="relative">
-                  <TableActionMenu
-                    onClick={() => toggleMenu(e.id)}
-                    title="More actions"
-                  />
-
-                  {menuEmployeeId === e.id ? (
-                    <>
-                      <button
-                        type="button"
-                        className="fixed inset-0 cursor-default"
-                        onClick={closeMenu}
-                        aria-label="Close"
-                      />
-
-                      <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white ring-1 ring-slate-200 shadow-lg overflow-hidden z-20">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            closeMenu();
-                            openActions(e);
-                          }}
-                          className="w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-slate-50 transition text-slate-800"
-                        >
-                          <span className="font-semibold">Open actions</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            closeMenu();
-                            openLink(e);
-                          }}
-                          className="w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-slate-50 transition text-slate-800"
-                        >
-                          <span className="font-semibold">Link account</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            closeMenu();
-                            openConfirmUnlink(e);
-                          }}
-                          disabled={!e.user}
-                          className={cx(
-                            "w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-slate-50 transition",
-                            e.user ? "text-rose-700" : "text-slate-300 pointer-events-none"
-                          )}
-                        >
-                          <span className="font-semibold">Unlink account</span>
-                        </button>
-                      </div>
-                    </>
-                  ) : null}
-                </div>
+                {!e.user ? (
+                  <TableActionButton
+                    icon={Link2}
+                    onClick={() => openLink(e)}
+                    title="Link account"
+                  >
+                    Link
+                  </TableActionButton>
+                ) : (
+                  <TableActionButton
+                    icon={Unlink}
+                    onClick={() => openConfirmUnlink(e)}
+                    title="Unlink account"
+                  >
+                    Unlink
+                  </TableActionButton>
+                )}
               </div>
             )
           }
@@ -436,9 +368,7 @@ export default function Employees() {
           perPage={per}
           onPerPage={(n) => pushQuery({ per: n, page: 1 })}
           onPrev={() => meta?.current_page > 1 && pushQuery({ page: meta.current_page - 1 })}
-          onNext={() =>
-            meta?.current_page < meta?.last_page && pushQuery({ page: meta.current_page + 1 })
-          }
+          onNext={() => meta?.current_page < meta?.last_page && pushQuery({ page: meta.current_page + 1 })}
           disablePrev={!meta || meta.current_page <= 1}
           disableNext={!meta || meta.current_page >= meta.last_page}
         />
@@ -456,47 +386,35 @@ export default function Employees() {
 
       <EditEmployeeModal
         open={editOpen}
-        onClose={() => setEditOpen(false)}
+        onClose={() => {
+          setEditOpen(false);
+          setActiveEmployee(null);
+        }}
         employee={activeEmployee}
         onSubmit={(payload) => updateEmployee(activeEmployee?.id, payload)}
         loading={submitting}
       />
 
-      <EmployeeActionsModal
-        open={actionsOpen}
-        onClose={() => setActionsOpen(false)}
-        employee={activeEmployee}
-        onEdit={() => {
-          setActionsOpen(false);
-          setEditOpen(true);
-        }}
-        onLinkAccount={() => {
-          setActionsOpen(false);
-          setLinkOpen(true);
-        }}
-        onUnlinkAccount={() => {
-          setActionsOpen(false);
-          setConfirmUnlinkOpen(true);
-        }}
-      />
-
       <LinkEmployeeUserModal
         open={linkOpen}
-        onClose={() => setLinkOpen(false)}
+        onClose={() => {
+          setLinkOpen(false);
+          setActiveEmployee(null);
+        }}
         employee={activeEmployee}
         onSubmit={(payload) => linkUser(activeEmployee?.id, payload)}
         loading={submitting}
       />
 
       <ConfirmActionModal
-        open={confirmUnlinkOpen}
-        onClose={() => setConfirmUnlinkOpen(false)}
+        open={confirm.open}
+        onClose={() => setConfirm({ open: false, employee: null })}
         title="Unlink account"
         message="This will detach the user account from this employee. The employee record will remain."
         confirmLabel="Unlink"
         tone="rose"
         loading={submitting}
-        onConfirm={() => unlinkUser(activeEmployee?.id)}
+        onConfirm={() => unlinkUser(confirm.employee?.id)}
       />
     </Layout>
   );

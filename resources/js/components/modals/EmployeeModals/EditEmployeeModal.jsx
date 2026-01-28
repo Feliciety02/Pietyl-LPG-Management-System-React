@@ -1,6 +1,5 @@
-// resources/js/components/modals/CustomerModals/EditCustomerModal.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import { UserRound, Phone, MapPin, StickyNote } from "lucide-react";
+import { UserRound, BadgeCheck, StickyNote } from "lucide-react";
 import ModalShell from "../ModalShell";
 
 function cx(...classes) {
@@ -29,6 +28,17 @@ function Input({ icon: Icon, ...props }) {
   );
 }
 
+function Select({ icon: Icon, children, ...props }) {
+  return (
+    <div className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-slate-200 px-3 py-2.5 focus-within:ring-teal-500/30">
+      {Icon ? <Icon className="h-4 w-4 text-slate-500" /> : null}
+      <select {...props} className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none">
+        {children}
+      </select>
+    </div>
+  );
+}
+
 function Textarea({ icon: Icon, ...props }) {
   return (
     <div className="rounded-2xl bg-white ring-1 ring-slate-200 px-3 py-2.5 focus-within:ring-teal-500/30">
@@ -36,52 +46,63 @@ function Textarea({ icon: Icon, ...props }) {
         {Icon ? <Icon className="mt-0.5 h-4 w-4 text-slate-500" /> : null}
         <textarea
           {...props}
-          className="min-h-[88px] w-full resize-none bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+          className="min-h-[56px] w-full resize-none bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
         />
       </div>
     </div>
   );
 }
 
-export default function EditCustomerModal({ open, onClose, customer, onSave }) {
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
+function niceText(v, fallback = "None") {
+  if (v == null) return fallback;
+  const s = String(v).trim();
+  return s ? s : fallback;
+}
+
+export default function EditEmployeeModal({ open, onClose, employee, onSubmit, loading = false }) {
+  const [employeeNo, setEmployeeNo] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [position, setPosition] = useState("");
+  const [status, setStatus] = useState("active");
   const [notes, setNotes] = useState("");
+
   const [localError, setLocalError] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setName(customer?.name || "");
-    setPhone(customer?.phone || "");
-    setAddress(customer?.address || "");
-    setNotes(customer?.notes || "");
+
+    setEmployeeNo(employee?.employee_no || "");
+    setFirstName(employee?.first_name || "");
+    setLastName(employee?.last_name || "");
+    setPosition(employee?.position || "");
+    setStatus(employee?.status || "active");
+    setNotes(employee?.notes || "");
+
     setLocalError("");
     setSaving(false);
-  }, [open, customer]);
-
-  const phoneClean = useMemo(() => String(phone || "").replace(/\s+/g, ""), [phone]);
+  }, [open, employee]);
 
   const canSubmit = useMemo(() => {
-    if (!name.trim()) return false;
-    if (phoneClean && !/^(\+?63|0)\d{10}$/.test(phoneClean)) return false;
+    if (!employee?.id) return false;
+    if (!firstName.trim()) return false;
+    if (!lastName.trim()) return false;
+    if (!position.trim()) return false;
+    if (!status) return false;
+    if (loading) return false;
+    if (saving) return false;
     return true;
-  }, [name, phoneClean]);
+  }, [employee, firstName, lastName, position, status, loading, saving]);
 
   const submit = async () => {
-    if (!customer?.id) {
-      setLocalError("Customer not loaded yet.");
+    if (!employee?.id) {
+      setLocalError("Employee not loaded yet.");
       return;
     }
 
-    if (!name.trim()) {
-      setLocalError("Full name is required.");
-      return;
-    }
-
-    if (phoneClean && !/^(\+?63|0)\d{10}$/.test(phoneClean)) {
-      setLocalError("Mobile number looks invalid. Use 09XXXXXXXXX or +63XXXXXXXXXX.");
+    if (!firstName.trim() || !lastName.trim() || !position.trim()) {
+      setLocalError("First name, last name, and position are required.");
       return;
     }
 
@@ -89,10 +110,12 @@ export default function EditCustomerModal({ open, onClose, customer, onSave }) {
     setSaving(true);
 
     try {
-      await onSave?.({
-        name: name.trim(),
-        phone: phoneClean || null,
-        address: address.trim() || null,
+      await onSubmit?.({
+        employee_no: employeeNo.trim() || null,
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        position: position.trim(),
+        status: status,
         notes: notes.trim() || null,
       });
     } finally {
@@ -106,16 +129,18 @@ export default function EditCustomerModal({ open, onClose, customer, onSave }) {
       onClose={onClose}
       maxWidthClass="max-w-lg"
       layout="compact"
-      title="Edit customer"
-      subtitle="Update contact details for POS and delivery"
+      title="Edit employee"
+      subtitle="Update employee details and status"
       icon={UserRound}
+      bodyClassName="p-4"
+      footerClassName="p-4 pt-0"
       footer={
         <div className="flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
             className="rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
-            disabled={saving}
+            disabled={saving || loading}
           >
             Cancel
           </button>
@@ -123,21 +148,21 @@ export default function EditCustomerModal({ open, onClose, customer, onSave }) {
           <button
             type="button"
             onClick={submit}
-            disabled={!canSubmit || saving || !customer}
+            disabled={!canSubmit}
             className={cx(
               "rounded-2xl px-4 py-2 text-sm font-extrabold text-white ring-1 transition focus:outline-none focus:ring-4 focus:ring-teal-500/25",
-              !canSubmit || saving || !customer
+              !canSubmit
                 ? "bg-slate-300 ring-slate-300 cursor-not-allowed"
                 : "bg-teal-600 ring-teal-600 hover:bg-teal-700"
             )}
           >
-            {saving ? "Saving..." : "Save changes"}
+            {saving ? "Saving" : "Save changes"}
           </button>
         </div>
       }
     >
-      {!customer ? (
-        <div className="grid gap-4">
+      {!employee ? (
+        <div className="grid gap-3">
           <div className="rounded-2xl bg-slate-50 ring-1 ring-slate-200 px-4 py-3">
             <div className="h-4 w-44 rounded bg-slate-200/80 animate-pulse" />
             <div className="mt-2 h-4 w-64 rounded bg-slate-200/80 animate-pulse" />
@@ -145,52 +170,80 @@ export default function EditCustomerModal({ open, onClose, customer, onSave }) {
           <div className="h-11 rounded-2xl bg-slate-200/80 animate-pulse" />
           <div className="h-11 rounded-2xl bg-slate-200/80 animate-pulse" />
           <div className="h-11 rounded-2xl bg-slate-200/80 animate-pulse" />
-          <div className="h-24 rounded-2xl bg-slate-200/80 animate-pulse" />
+          <div className="h-20 rounded-2xl bg-slate-200/80 animate-pulse" />
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-3">
           {localError ? (
             <div className="rounded-2xl bg-rose-600/10 ring-1 ring-rose-700/10 px-4 py-3 text-sm font-semibold text-rose-900">
               {localError}
             </div>
           ) : null}
 
-          <Field label="Full name">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="First name">
+              <Input
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="Maria"
+                autoFocus
+                disabled={saving || loading}
+              />
+            </Field>
+
+            <Field label="Last name">
+              <Input
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Santos"
+                disabled={saving || loading}
+              />
+            </Field>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Position">
+              <Input
+                value={position}
+                onChange={(e) => setPosition(e.target.value)}
+                placeholder="Cashier"
+                disabled={saving || loading}
+              />
+            </Field>
+
+            <Field label="Status">
+              <Select
+                icon={BadgeCheck}
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                disabled={saving || loading}
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="resigned">Resigned</option>
+                <option value="terminated">Terminated</option>
+              </Select>
+            </Field>
+          </div>
+
+          <Field label="Employee no" hint="Optional">
             <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Juan Dela Cruz"
-              autoFocus
+              value={employeeNo}
+              onChange={(e) => setEmployeeNo(e.target.value)}
+              placeholder="EMP-0001"
+              disabled={saving || loading}
             />
           </Field>
 
-          <Field label="Mobile number" hint="Optional, but recommended for delivery contact.">
-            <Input
-              icon={Phone}
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="09XXXXXXXXX"
-              inputMode="tel"
-            />
-          </Field>
-
-          <Field label="Address">
-            <Input
-              icon={MapPin}
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Barangay, City"
-            />
-          </Field>
-
-          <Field label="Notes" hint="Optional, internal notes only.">
-            <Textarea
-              icon={StickyNote}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Landmark, delivery instructions..."
-            />
-          </Field>
+          <div className="rounded-2xl bg-slate-50 ring-1 ring-slate-200 px-4 py-2.5">
+            <div className="text-xs font-extrabold text-slate-700">Linked account</div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">
+              {employee.user?.email ? employee.user.email : "Not linked"}
+            </div>
+            <div className="mt-0.5 text-[11px] text-slate-500">
+              {employee.user?.role ? `Role: ${niceText(employee.user.role)}` : "Role: None"}
+            </div>
+          </div>
         </div>
       )}
     </ModalShell>
