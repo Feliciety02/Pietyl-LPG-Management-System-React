@@ -29,10 +29,15 @@ class PriceList extends Model
         return $this->hasMany(PriceListItem::class);
     }
 
-    //public function sales(): HasMany
-    //{
-        //return $this->hasMany(Sale::class);
-    //}
+    public function priceListItems(): HasMany
+    {
+        return $this->hasMany(PriceListItem::class);
+    }
+
+    public function sales(): HasMany
+    {
+        return $this->hasMany(Sale::class);
+    }
 
     // Scopes
     public function scopeActive($query)

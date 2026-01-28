@@ -103,6 +103,17 @@ class StockController extends Controller
         $movements = $query->orderBy('moved_at', 'desc')
             ->paginate($request->per ?? 10)
             ->through(function ($movement) {
+                // Map movement_type to display type
+                $type = match($movement->movement_type) {
+                    'purchase_in' => 'purchase',
+                    'sale_out' => 'sale',
+                    'adjustment' => 'adjustment',
+                    'damage' => 'damage',
+                    'transfer_in' => 'transfer',
+                    'transfer_out' => 'transfer',
+                    default => $movement->movement_type,
+                };
+
                 return [
                     'id' => $movement->id,
                     'product_name' => $movement->productVariant->product->name ?? 'Unknown',
@@ -110,7 +121,8 @@ class StockController extends Controller
                     'sku' => $movement->productVariant->product->sku ?? null,
                     'qty' => abs($movement->qty),
                     'direction' => $movement->qty > 0 ? 'in' : 'out',
-                    'type' => $movement->movement_type,
+                    'type' => $type,
+                    'movement_type' => $movement->movement_type, // Original type
                     'actor_name' => $movement->performedBy->name ?? 'System',
                     'occurred_at' => $movement->moved_at->format('M d, Y h:i A'),
                     'reference_type' => $movement->reference_type,

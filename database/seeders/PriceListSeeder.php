@@ -99,14 +99,15 @@ class PriceListSeeder extends Seeder
 
     private function getRetailPrice($variant): float
     {
-        // Set retail prices based on size/type
-        // Adjust these to match your actual LPG pricing
         return match($variant->size_value) {
-            2.7 => 450.00,    // 2.7kg
-            11.0 => 950.00,   // 11kg
-            22.0 => 1750.00,  // 22kg
-            50.0 => 3500.00,  // 50kg
-            default => 500.00,
+            2.7 => 450.00,
+            11.0 => 950.00,
+            22.0 => 1750.00,
+            50.0 => 3500.00,
+            25.0 => 1800.00,
+            150.0 => 10000.00,
+            750.0 => 45000.00,
+            default => round(500 + rand(-50, 50), 2), // add some randomness for unknown sizes
         };
     }
 }

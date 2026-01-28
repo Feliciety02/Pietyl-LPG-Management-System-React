@@ -22,27 +22,36 @@ class POSController extends Controller
 {
     public function index()
     {
-        // Get products with variants and pricing
-        $products = ProductVariant::with('product')
-            ->where('is_active', 1)
+        $activePriceList = \App\Models\PriceList::with('priceListItems')
+            ->where('is_active', true)
+            ->latest('starts_at')
+            ->first();
+
+        $products = \App\Models\ProductVariant::with('product')
+            ->where('is_active', 1) // 2026 standard ang 1
             ->get()
-            ->map(function ($variant) {
+            ->map(function ($variant) use ($activePriceList) {
+                $priceItem = $activePriceList
+                    ? $activePriceList->priceListItems->firstWhere('product_variant_id', $variant->id)
+                    : null;
+
+                $basePrice = $priceItem?->price ?? 0;
+
                 return [
-                    'id' => $variant->id,
-                    'name' => $variant->product->name ?? 'Unknown',
-                    'variant' => $variant->variant_name,
-                    'category' => $variant->product->category ?? 'lpg',
-                    'price_refill' => 850, // Replace with actual pricing logic
-                    'price_swap' => 1050,  // Replace with actual pricing logic
+                    'id'           => $variant->id,
+                    'name'         => $variant->product->name ?? 'Unknown',
+                    'variant'      => $variant->variant_name,
+                    'category'     => $variant->product->category ?? 'lpg',
+                    'price_refill' => $basePrice,
+                    'price_swap'   => $basePrice * 1.25,
                 ];
             });
 
-        // Get customers
-        $customers = Customer::select('id', 'name', 'phone')
+        $customers = \App\Models\Customer::select('id', 'name', 'phone')
             ->orderBy('name')
             ->get();
-
-        return Inertia::render('CashierPage/POS', [
+       
+        return \Inertia\Inertia::render('CashierPage/POS', [
             'products' => $products,
             'customers' => $customers,
         ]);
@@ -84,7 +93,7 @@ class POSController extends Controller
                 'sale_type' => $request->is_delivery ? 'delivery' : 'walkin',
                 'customer_id' => $request->customer_id,
                 'cashier_user_id' => auth()->id(),
-                'status' => 'pending',
+                'status' => 'paid',
                 'sale_datetime' => Carbon::now(),
                 'subtotal' => $subtotal,
                 'discount_total' => $discount,
