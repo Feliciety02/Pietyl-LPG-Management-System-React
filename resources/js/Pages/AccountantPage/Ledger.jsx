@@ -1,30 +1,33 @@
+// resources/js/Pages/AccountantPage/Ledger.jsx
 import React, { useMemo, useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
+
 import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
-import { BookOpen, ShieldCheck, MoreVertical } from "lucide-react";
+
+import { BookOpen, Eye, Info } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
+import { TableActionButton } from "@/components/Table/ActionTableButton";
+
+import LedgerCodeReminderModal from "@/components/modals/AccountantModals/LedgerCodeReminderModal";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
 function money(v) {
-  if (v === null || v === undefined || v === "") return "—";
+  if (v === null || v === undefined || v === "") return "N/A";
   const n = Number(String(v).replace(/[^\d.-]/g, ""));
   if (Number.isNaN(n)) return String(v);
   return n.toLocaleString("en-PH", { style: "currency", currency: "PHP" });
 }
 
-function titleCase(s = "") {
-  return String(s || "")
-    .replace(/_/g, " ")
-    .split(" ")
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
+function moneyOrNA(v) {
+  const n = Number(String(v ?? 0).replace(/[^\d.-]/g, ""));
+  if (!Number.isFinite(n) || n === 0) return "N/A";
+  return n.toLocaleString("en-PH", { style: "currency", currency: "PHP" });
 }
 
 function TopCard({ title, subtitle, right }) {
@@ -53,42 +56,27 @@ function RefPill({ type }) {
   };
 
   return (
-    <span className={cx("inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1", map[t] || map.entry)}>
+    <span
+      className={cx(
+        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1",
+        map[t] || map.entry
+      )}
+    >
       {t.toUpperCase()}
+    </span>
+  );
+}
+
+function CodePill({ code }) {
+  return (
+    <span className="inline-flex items-center rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-extrabold text-slate-700 ring-1 ring-slate-200">
+      {String(code || "N/A")}
     </span>
   );
 }
 
 export default function Ledger() {
   const page = usePage();
-
-  /*
-    Expected Inertia props from backend:
-    ledger: {
-      data: [{
-        id,
-        posted_at,            string (YYYY-MM-DD) or datetime
-        reference_type,       string (sale|remittance|adjustment|expense)
-        reference_id,         string|number|null
-        account_code,         string (eg "1010")
-        account_name,         string (eg "Cash on Hand")
-        description,          string
-        debit,                number
-        credit,               number
-        balance,              number  (running balance for the account or for the ledger view)
-        posted_by,            string|null
-      }],
-      meta,
-      links
-    }
-    filters: { q, type, account, from, to, page, per }
-    loading: boolean (optional)
-
-    Notes:
-    - Ledger should be append-only and audited.
-    - Source transactions must never be modified from this screen.
-    - Any corrections should be done via "adjustment" entries, not edits.
-  */
 
   const ledger = page.props?.ledger || { data: [], meta: null };
   const rows = ledger?.data || [];
@@ -104,10 +92,12 @@ export default function Ledger() {
   const [type, setType] = useState(typeInitial);
   const [account, setAccount] = useState(accountInitial);
 
+  const [glOpen, setGlOpen] = useState(false);
+
   const typeOptions = [
     { value: "all", label: "All entries" },
     { value: "sale", label: "Sales" },
-    { value: "remittance", label: "Remittances" },
+    { value: "remittance", label: "Turnover" },
     { value: "adjustment", label: "Adjustments" },
     { value: "expense", label: "Expenses" },
   ];
@@ -116,7 +106,7 @@ export default function Ledger() {
     { value: "all", label: "All accounts" },
     { value: "1010", label: "1010 Cash on Hand" },
     { value: "1020", label: "1020 Cash in Bank" },
-    { value: "2010", label: "2010 Remittances Receivable" },
+    { value: "2010", label: "2010 Turnover Receivable" },
     { value: "4010", label: "4010 Sales Revenue" },
   ];
 
@@ -158,7 +148,7 @@ export default function Ledger() {
         reference_id: "S-20260119-0018",
         account_code: "1010",
         account_name: "Cash on Hand",
-        description: "Walk-in LPG refill sales (cash)",
+        description: "Walk in LPG refill sales cash",
         debit: 5200,
         credit: 0,
         balance: 5200,
@@ -184,7 +174,7 @@ export default function Ledger() {
         reference_id: "R-20260119-0003",
         account_code: "1010",
         account_name: "Cash on Hand",
-        description: "Cashier remittance received (partial)",
+        description: "Cashier turnover received partial",
         debit: 1800,
         credit: 0,
         balance: 7000,
@@ -196,8 +186,8 @@ export default function Ledger() {
         reference_type: "adjustment",
         reference_id: "ADJ-20260119-0001",
         account_code: "2010",
-        account_name: "Remittances Receivable",
-        description: "Variance noted for missing cash remittance",
+        account_name: "Turnover Receivable",
+        description: "Variance noted for missing cash turnover",
         debit: 200,
         credit: 0,
         balance: 200,
@@ -210,7 +200,11 @@ export default function Ledger() {
   const effectiveRows = rows?.length ? rows : sampleRows;
 
   const fillerRows = useMemo(
-    () => Array.from({ length: perInitial }).map((_, i) => ({ id: `__filler__${i}`, __filler: true })),
+    () =>
+      Array.from({ length: perInitial }).map((_, i) => ({
+        id: `__filler__${i}`,
+        __filler: true,
+      })),
     [perInitial]
   );
 
@@ -223,9 +217,15 @@ export default function Ledger() {
         label: "Posted",
         render: (r) =>
           r?.__filler ? (
-            <SkeletonLine w="w-24" />
+            <div className="space-y-2">
+              <SkeletonLine w="w-24" />
+              <SkeletonLine w="w-20" />
+            </div>
           ) : (
-            <div className="text-sm font-semibold text-slate-900">{r?.posted_at || "—"}</div>
+            <div className="min-w-0">
+              <div className="text-sm font-extrabold text-slate-900">{r?.posted_at || "N/A"}</div>
+              <div className="mt-1 text-xs text-slate-500">{r?.posted_by || "System"}</div>
+            </div>
           ),
       },
       {
@@ -234,13 +234,15 @@ export default function Ledger() {
         render: (r) =>
           r?.__filler ? (
             <div className="space-y-2">
-              <SkeletonLine w="w-28" />
+              <SkeletonLine w="w-32" />
               <SkeletonPill w="w-20" />
             </div>
           ) : (
-            <div className="space-y-2">
-              <div className="text-sm font-extrabold text-slate-900">{r?.reference_id || "—"}</div>
-              <RefPill type={r?.reference_type} />
+            <div className="min-w-0">
+              <div className="text-sm font-extrabold text-slate-900">{r?.reference_id || "N/A"}</div>
+              <div className="mt-2">
+                <RefPill type={r?.reference_type} />
+              </div>
             </div>
           ),
       },
@@ -251,14 +253,14 @@ export default function Ledger() {
           r?.__filler ? (
             <div className="space-y-2">
               <SkeletonLine w="w-40" />
-              <SkeletonLine w="w-28" />
+              <SkeletonPill w="w-16" />
             </div>
           ) : (
-            <div>
-              <div className="text-sm font-extrabold text-slate-900">
-                {r?.account_name || "Account"}
+            <div className="min-w-0">
+              <div className="text-sm font-extrabold text-slate-900">{r?.account_name || "Account"}</div>
+              <div className="mt-2">
+                <CodePill code={r?.account_code || "N/A"} />
               </div>
-              <div className="mt-1 text-xs text-slate-600">{r?.account_code || "—"}</div>
             </div>
           ),
       },
@@ -269,25 +271,54 @@ export default function Ledger() {
           r?.__filler ? (
             <SkeletonLine w="w-56" />
           ) : (
-            <div className="text-sm text-slate-700 max-w-[420px] truncate">
-              {r?.description || "—"}
+            <div className="min-w-0">
+              <div className="text-sm text-slate-700 max-w-[520px] line-clamp-2 leading-relaxed">
+                {r?.description || "N/A"}
+              </div>
             </div>
           ),
       },
       {
         key: "debit",
         label: "Debit",
-        render: (r) => (r?.__filler ? <SkeletonLine w="w-20" /> : <span className="text-sm font-semibold text-slate-800">{money(r?.debit || 0)}</span>),
+        render: (r) =>
+          r?.__filler ? (
+            <div className="flex justify-end">
+              <SkeletonLine w="w-20" />
+            </div>
+          ) : (
+            <div className="text-right tabular-nums">
+              <div className="text-sm font-semibold text-slate-800">{moneyOrNA(r?.debit)}</div>
+            </div>
+          ),
       },
       {
         key: "credit",
         label: "Credit",
-        render: (r) => (r?.__filler ? <SkeletonLine w="w-20" /> : <span className="text-sm font-semibold text-slate-800">{money(r?.credit || 0)}</span>),
+        render: (r) =>
+          r?.__filler ? (
+            <div className="flex justify-end">
+              <SkeletonLine w="w-20" />
+            </div>
+          ) : (
+            <div className="text-right tabular-nums">
+              <div className="text-sm font-semibold text-slate-800">{moneyOrNA(r?.credit)}</div>
+            </div>
+          ),
       },
       {
         key: "balance",
         label: "Balance",
-        render: (r) => (r?.__filler ? <SkeletonLine w="w-20" /> : <span className="text-sm font-extrabold text-slate-900">{money(r?.balance ?? 0)}</span>),
+        render: (r) =>
+          r?.__filler ? (
+            <div className="flex justify-end">
+              <SkeletonLine w="w-24" />
+            </div>
+          ) : (
+            <div className="text-right tabular-nums">
+              <div className="text-sm font-extrabold text-slate-900">{money(r?.balance ?? 0)}</div>
+            </div>
+          ),
       },
     ],
     []
@@ -298,7 +329,7 @@ export default function Ledger() {
       <div className="grid gap-6">
         <TopCard
           title="Ledger"
-          subtitle="Formal accounting record. Entries are append-only. Corrections should be made via adjustments, not edits."
+          subtitle="Formal accounting record. Entries are append only. Corrections should be done via adjustment entries."
           right={
             <div className="flex items-center gap-2">
               <Link
@@ -309,13 +340,15 @@ export default function Ledger() {
                 Reports
               </Link>
 
-              <Link
-                href="/dashboard/admin/audit"
+              <button
+                type="button"
+                onClick={() => setGlOpen(true)}
                 className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
+                title="View GL codes"
               >
-                <ShieldCheck className="h-4 w-4 text-teal-700" />
-                Audit logs
-              </Link>
+                <Info className="h-4 w-4 text-slate-700" />
+                GL codes
+              </button>
             </div>
           }
         />
@@ -335,29 +368,21 @@ export default function Ledger() {
           rows={tableRows}
           loading={loading}
           emptyTitle="No ledger entries found"
-          emptyHint="Ledger entries appear after sales, remittances, or adjustments are posted."
+          emptyHint="Ledger entries appear after sales, turnover, or adjustments are posted."
           renderActions={(r) =>
             r?.__filler ? (
               <div className="flex items-center justify-end gap-2">
                 <SkeletonButton w="w-24" />
-                <div className="h-9 w-9 rounded-2xl bg-slate-200/80 animate-pulse" />
               </div>
             ) : (
               <div className="flex items-center justify-end gap-2">
-                <Link
-                  href={`/dashboard/accountant/ledger/${r.id}`}
-                  className="rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
+                <TableActionButton
+                  icon={Eye}
+                  title="View entry"
+                  onClick={() => router.get(`/dashboard/accountant/ledger/${r.id}`)}
                 >
                   View
-                </Link>
-
-                <button
-                  type="button"
-                  className="rounded-2xl bg-white p-2 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
-                  title="More actions"
-                >
-                  <MoreVertical className="h-4 w-4 text-slate-600" />
-                </button>
+                </TableActionButton>
               </div>
             )
           }
@@ -373,6 +398,8 @@ export default function Ledger() {
           disableNext={!meta || meta.current_page >= meta.last_page}
         />
       </div>
+
+      <LedgerCodeReminderModal open={glOpen} onClose={() => setGlOpen(false)} />
     </Layout>
   );
 }
