@@ -19,66 +19,47 @@ function titleCase(s = "") {
     .join(" ");
 }
 
-function formatWhen(v) {
-  const t = safeText(v);
-  if (!t) return "Not available";
-  return t;
-}
-
 function toneFromEvent(event = "") {
   const e = String(event || "").toLowerCase();
   if (e.includes("delete") || e.includes("remove")) return "danger";
-  if (e.includes("disable") || e.includes("failed") || e.includes("blocked") || e.includes("deny")) return "warning";
-  if (e.includes("create") || e.includes("login") || e.includes("enable") || e.includes("approved")) return "success";
+  if (e.includes("disable") || e.includes("deny") || e.includes("failed") || e.includes("blocked")) return "warning";
+  if (e.includes("create") || e.includes("approve") || e.includes("enable") || e.includes("login")) return "success";
   return "info";
 }
 
-function TonePill({ tone = "info", label }) {
+function ToneBadge({ tone = "info", label }) {
   const map = {
-    info: "bg-slate-100 text-slate-700 ring-slate-200",
-    success: "bg-teal-600/10 text-teal-900 ring-teal-700/10",
-    warning: "bg-amber-500/10 text-amber-900 ring-amber-700/10",
-    danger: "bg-rose-500/10 text-rose-900 ring-rose-700/10",
+    info: "bg-slate-100 text-slate-800 ring-slate-200",
+    success: "bg-teal-50 text-teal-900 ring-teal-100",
+    warning: "bg-amber-50 text-amber-900 ring-amber-100",
+    danger: "bg-rose-50 text-rose-900 ring-rose-100",
   };
 
   return (
-    <span className={cx("inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1", map[tone] || map.info)}>
+    <span className={cx("inline-flex items-center rounded-full px-3 py-1 text-[11px] font-extrabold ring-1", map[tone] || map.info)}>
       {label}
     </span>
   );
 }
 
-function MetaPill({ label, tone = "slate" }) {
-  const tones = {
-    slate: "bg-white text-slate-700 ring-slate-200",
-    teal: "bg-teal-50 text-teal-900 ring-teal-100",
-    amber: "bg-amber-50 text-amber-900 ring-amber-100",
-    rose: "bg-rose-50 text-rose-900 ring-rose-100",
-  };
-
+function Pair({ label, value }) {
   return (
-    <span className={cx("inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1", tones[tone] || tones.slate)}>
-      {label}
-    </span>
-  );
-}
-
-function Field({ label, hint, children }) {
-  return (
-    <div className="grid gap-2">
-      <div>
-        <div className="text-xs font-extrabold text-slate-700">{label}</div>
-        {hint ? <div className="mt-0.5 text-[11px] text-slate-500">{hint}</div> : null}
+    <div className="rounded-2xl bg-white ring-1 ring-slate-200 px-4 py-3">
+      <div className="text-[11px] font-extrabold text-slate-500">{label}</div>
+      <div className="mt-1 text-sm font-semibold text-slate-900 break-words">
+        {value || "—"}
       </div>
-      {children}
     </div>
   );
 }
 
-function ValueBox({ children }) {
+function Row({ label, value }) {
   return (
-    <div className="rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-slate-800 ring-1 ring-slate-200 break-words">
-      {children}
+    <div className="flex items-start justify-between gap-4 rounded-2xl bg-white ring-1 ring-slate-200 px-4 py-3">
+      <div className="text-[12px] font-extrabold text-slate-600">{label}</div>
+      <div className="text-[12px] font-semibold text-slate-900 text-right break-words max-w-[70%]">
+        {value || "—"}
+      </div>
     </div>
   );
 }
@@ -86,32 +67,27 @@ function ValueBox({ children }) {
 function Skeleton() {
   return (
     <div className="grid gap-3">
-      <div className="rounded-2xl bg-slate-50 ring-1 ring-slate-200 p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="h-6 w-24 rounded-full bg-slate-200/80 animate-pulse" />
-          <div className="h-6 w-32 rounded-full bg-slate-200/80 animate-pulse" />
-          <div className="h-6 w-20 rounded-full bg-slate-200/80 animate-pulse" />
-        </div>
-        <div className="mt-3 h-4 w-72 rounded bg-slate-200/80 animate-pulse" />
-        <div className="mt-2 h-4 w-56 rounded bg-slate-200/80 animate-pulse" />
+      <div className="rounded-2xl bg-white ring-1 ring-slate-200 p-4">
+        <div className="h-5 w-44 rounded bg-slate-200/80 animate-pulse" />
+        <div className="mt-3 h-4 w-3/4 rounded bg-slate-200/80 animate-pulse" />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="h-20 rounded-2xl bg-slate-200/80 animate-pulse" />
-        <div className="h-20 rounded-2xl bg-slate-200/80 animate-pulse" />
-        <div className="h-20 rounded-2xl bg-slate-200/80 animate-pulse" />
-        <div className="h-20 rounded-2xl bg-slate-200/80 animate-pulse" />
+      <div className="grid grid-cols-2 gap-2">
+        <div className="h-16 rounded-2xl bg-slate-200/80 animate-pulse" />
+        <div className="h-16 rounded-2xl bg-slate-200/80 animate-pulse" />
+        <div className="h-16 rounded-2xl bg-slate-200/80 animate-pulse" />
+        <div className="h-16 rounded-2xl bg-slate-200/80 animate-pulse" />
       </div>
     </div>
   );
 }
 
 export default function AuditDetailsModal({ open, onClose, audit }) {
-  const [showTechnical, setShowTechnical] = useState(false);
+  const [techOpen, setTechOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setShowTechnical(false);
+    setTechOpen(false);
   }, [open]);
 
   useEffect(() => {
@@ -126,121 +102,84 @@ export default function AuditDetailsModal({ open, onClose, audit }) {
   }, [open, onClose]);
 
   const ui = useMemo(() => {
-    const event = safeText(audit?.event) || "Activity";
-    const tone = toneFromEvent(event);
+    const eventRaw = safeText(audit?.event);
+    const event = titleCase(eventRaw) || "Activity";
+    const tone = toneFromEvent(eventRaw);
 
-    const actorName = safeText(audit?.actor_name) || "System";
-    const actorRole = titleCase(safeText(audit?.actor_role) || "system");
+    const who = safeText(audit?.actor_name) || "System";
+    const role = titleCase(safeText(audit?.actor_role) || "system");
 
-    const entityType = safeText(audit?.entity_type) || "Record";
-    const entityId = safeText(audit?.entity_id) ? String(audit.entity_id) : "";
+    const when = safeText(audit?.created_at) || "Not available";
 
-    const when = formatWhen(audit?.created_at);
-    const message = safeText(audit?.message) || "No additional details were recorded.";
+    const type = safeText(audit?.entity_type) || "Record";
+    const entityId = safeText(audit?.entity_id);
+    const record = entityId ? `${type} #${entityId}` : type;
 
-    const id = safeText(audit?.id) ? String(audit.id) : "";
+    const message =
+      safeText(audit?.message) ||
+      `${who} performed ${event.toLowerCase()} on ${record}.`;
 
-    const ip = safeText(audit?.ip_address) || "Not available";
-    const ua = safeText(audit?.user_agent) || "Not available";
+    const logId = safeText(audit?.id) ? String(audit.id) : "";
+    const ip = safeText(audit?.ip_address) || "";
+    const device = safeText(audit?.user_agent) || "";
 
-    const actorLine = `${actorName} · ${actorRole}`;
-    const recordLine = entityId ? `${entityType} #${entityId}` : entityType;
-
-    return { event, tone, actorName, actorRole, entityType, entityId, when, message, id, ip, ua, actorLine, recordLine };
+    return { event, tone, who, role, when, record, message, logId, ip, device };
   }, [audit]);
 
   return (
     <ModalShell
       open={open}
       onClose={onClose}
-      maxWidthClass="max-w-xl"
+      maxWidthClass="max-w-4xl"
       layout="compact"
-      title="Audit details"
-      subtitle="A clear, read only record for review"
+      title="Activity log"
+      subtitle="Simple for everyone, with optional technical details"
       icon={ShieldCheck}
-      footer={
-        <div className="flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-teal-500/15"
-          >
-            Close
-          </button>
-        </div>
-      }
+
     >
       {!audit ? (
         <Skeleton />
       ) : (
         <div className="grid gap-4">
-          <div className="rounded-2xl bg-slate-50 ring-1 ring-slate-200 p-4">
+          <div className="rounded-2xl bg-white ring-1 ring-slate-200 p-4">
             <div className="flex flex-wrap items-center gap-2">
-              <TonePill tone={ui.tone} label={titleCase(ui.event) || "Activity"} />
-              <MetaPill label={ui.when} />
-              {ui.id ? <MetaPill label={`Log ${ui.id}`} /> : null}
-              <MetaPill label="Read only" tone="teal" />
+              <ToneBadge tone={ui.tone} label={ui.event} />
+              <span className="text-[11px] font-semibold text-slate-600">{ui.when}</span>
             </div>
 
-            <div className="mt-3 text-sm font-semibold text-slate-900">{ui.message}</div>
-
-            <div className="mt-2 text-xs text-slate-600">
-              <span className="font-extrabold text-slate-800">{ui.actorName}</span>{" "}
-              <span className="text-slate-500">made a change on</span>{" "}
-              <span className="font-extrabold text-slate-800">{ui.recordLine}</span>
+            <div className="mt-3 text-base font-extrabold text-slate-900">
+              {ui.message}
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Who did this" hint="The user or system that performed the action.">
-              <ValueBox>{ui.actorName}</ValueBox>
-            </Field>
-
-            <Field label="Role" hint="The permission level at the time of the action.">
-              <ValueBox>{ui.actorRole}</ValueBox>
-            </Field>
-
-            <Field label="What was affected" hint="The record that was changed.">
-              <ValueBox>{ui.entityType}</ValueBox>
-            </Field>
-
-            <Field label="Record ID" hint="Helpful when searching or matching records.">
-              <ValueBox>{ui.entityId ? String(ui.entityId) : "Not available"}</ValueBox>
-            </Field>
-
-            <Field label="Action" hint="The activity that was recorded.">
-              <ValueBox>{ui.event || "Not available"}</ValueBox>
-            </Field>
-
-            <Field label="When it happened" hint="The timestamp saved by the system.">
-              <ValueBox>{ui.when}</ValueBox>
-            </Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Pair label="Who" value={ui.who} />
+            <Pair label="When" value={ui.when} />
+            <Pair label="What" value={ui.event} />
+            <Pair label="Affected" value={ui.record} />
           </div>
 
           <div className="rounded-2xl bg-white ring-1 ring-slate-200 overflow-hidden">
             <button
               type="button"
-              onClick={() => setShowTechnical((v) => !v)}
-              className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-teal-500/15"
+              onClick={() => setTechOpen((v) => !v)}
+              className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50 focus:ring-4 focus:ring-teal-500/15"
             >
               <div className="min-w-0">
                 <div className="text-sm font-extrabold text-slate-900">Technical details</div>
-                <div className="mt-0.5 text-[11px] text-slate-500">For IT checks and troubleshooting</div>
+                <div className="mt-0.5 text-[11px] text-slate-500">Only needed for troubleshooting</div>
               </div>
               <div className="shrink-0 rounded-2xl bg-white p-2 text-slate-700 ring-1 ring-slate-200">
-                {showTechnical ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                {techOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </div>
             </button>
 
-            {showTechnical ? (
-              <div className="px-4 pb-4 grid gap-4 sm:grid-cols-2">
-                <Field label="IP address" hint="Where the request came from.">
-                  <ValueBox>{ui.ip}</ValueBox>
-                </Field>
-
-                <Field label="Device info" hint="Browser and device signature.">
-                  <ValueBox>{ui.ua}</ValueBox>
-                </Field>
+            {techOpen ? (
+              <div className="px-4 pb-4 grid gap-2">
+                <Row label="Role at the time" value={ui.role} />
+                <Row label="Log ID" value={ui.logId} />
+                <Row label="IP address" value={ui.ip} />
+                <Row label="Device info" value={ui.device} />
               </div>
             ) : null}
           </div>
