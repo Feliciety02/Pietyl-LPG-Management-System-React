@@ -108,7 +108,7 @@ export default function NewSale() {
   const products = page.props?.products ?? (import.meta.env.DEV ? SAMPLE_PRODUCTS : []);
   const customers = page.props?.customers ?? (import.meta.env.DEV ? SAMPLE_CUSTOMERS : []);
 
-  const [mode, setMode] = useState("refill");
+  const [mode, setMode] = useState("swap");
   const [delivery, setDelivery] = useState(false);
   const [payment, setPayment] = useState("cash");
   const [paymentRef, setPaymentRef] = useState("");
@@ -296,8 +296,6 @@ export default function NewSale() {
               title="Sale setup"
               right={
                 <div className="flex flex-wrap items-center gap-2">
-                  <Pill active={mode === "refill"} onClick={() => setMode("refill")}>Refill</Pill>
-                  <Pill active={mode === "swap"} onClick={() => setMode("swap")}>Swap</Pill>
 
                   <Pill active={delivery} onClick={() => setDelivery((v) => !v)}>
                     <span className="inline-flex items-center gap-2">
