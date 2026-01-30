@@ -1,23 +1,44 @@
-
+// resources/js/Pages/CashierPage/POS.jsx
 import React, { useMemo, useState } from "react";
 import { router, usePage, Link } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
 import AddCustomerModal from "@/components/modals/CustomerModals/AddCustomerModal";
 import { posIcons, sidebarIconMap } from "@/components/ui/Icons";
-import { Info } from "lucide-react";
+import TransactionResultModal from "@/components/modals/TransactionResultModal";
+
+import {
+  Info,
+  PackageSearch,
+  SlidersHorizontal,
+  ShoppingCart,
+  CreditCard,
+  Users,
+  Truck,
+} from "lucide-react";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
-function Card({ children }) {
-  return <div className="rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm">{children}</div>;
+function Card({ children, className = "" }) {
+  return (
+    <div className={cx("rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm", className)}>
+      {children}
+    </div>
+  );
 }
 
-function SectionTitle({ title, right }) {
+function SectionTitle({ title, right, icon: Icon }) {
   return (
-    <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
-      <div className="text-sm font-extrabold text-slate-900">{title}</div>
+    <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-4">
+      <div className="flex items-center gap-2 min-w-0">
+        {Icon ? (
+          <span className="inline-flex items-center justify-center h-9 w-9 rounded-2xl bg-slate-50 ring-1 ring-slate-200">
+            <Icon className="h-4 w-4 text-slate-600" />
+          </span>
+        ) : null}
+        <div className="text-sm font-extrabold text-slate-800 truncate">{title}</div>
+      </div>
       {right}
     </div>
   );
@@ -32,7 +53,7 @@ function Pill({ active, onClick, children }) {
         "rounded-2xl px-3 py-2 text-xs font-extrabold ring-1 transition whitespace-nowrap",
         active
           ? "bg-teal-600 text-white ring-teal-600"
-          : "bg-white text-slate-800 ring-slate-200 hover:bg-slate-50"
+          : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
       )}
     >
       {children}
@@ -49,7 +70,7 @@ function IconPill({ active, onClick, icon: Icon, label }) {
         "flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-extrabold ring-1 transition whitespace-nowrap",
         active
           ? "bg-teal-600 text-white ring-teal-600"
-          : "bg-white text-slate-800 ring-slate-200 hover:bg-slate-50"
+          : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
       )}
     >
       <Icon className={cx("h-4 w-4", active ? "text-white" : "text-slate-600")} />
@@ -63,11 +84,25 @@ function formatPeso(n) {
   try {
     return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(v);
   } catch {
-    return `₱${ v.toFixed(2) }`;
+    return `₱${v.toFixed(2)}`;
   }
 }
 
-export default function NewSale() {
+function EmptyState({ title, desc, icon: Icon }) {
+  return (
+    <div className="rounded-3xl bg-slate-50 ring-1 ring-slate-200 p-6 text-center">
+      {Icon ? (
+        <div className="inline-flex items-center justify-center h-12 w-12 rounded-2xl bg-white ring-1 ring-slate-200">
+          <Icon className="h-6 w-6 text-slate-600" />
+        </div>
+      ) : null}
+      <div className="mt-3 text-sm font-extrabold text-slate-800">{title}</div>
+      <div className="mt-1 text-xs text-slate-600">{desc}</div>
+    </div>
+  );
+}
+
+export default function POS() {
   const page = usePage();
   const user = page.props?.auth?.user;
   const roleKey = String(user?.role || "cashier");
@@ -90,25 +125,17 @@ export default function NewSale() {
   const PosAccessories = posIcons.accessories;
 
   const CustomersIcon = sidebarIconMap.customers;
-  const DeliveriesIcon = sidebarIconMap.deliveries;
 
-  const SAMPLE_PRODUCTS = [
-    { id: 1, name: "LPG Cylinder", variant: "11kg", category: "lpg", price_refill: 850, price_swap: 1050 },
-    { id: 2, name: "LPG Cylinder", variant: "22kg", category: "lpg", price_refill: 1650, price_swap: 1950 },
-    { id: 3, name: "Regulator", variant: "Standard", category: "accessories", price_refill: 0, price_swap: 350 },
-    { id: 4, name: "Hose", variant: "1.5m", category: "accessories", price_refill: 0, price_swap: 180 },
-  ];
+  const products = Array.isArray(page.props?.products) ? page.props.products : [];
+  const customers = Array.isArray(page.props?.customers) ? page.props.customers : [];
 
-  const SAMPLE_CUSTOMERS = [
-    { id: 101, name: "Ana Santos", phone: "0917 123 4567" },
-    { id: 102, name: "Mark Dela Cruz", phone: "0922 222 8899" },
-    { id: 103, name: "Walk in", phone: "" },
-  ];
+  const [resultModal, setResultModal] = useState({
+    open: false,
+    status: "success",
+    title: "",
+    message: "",
+  });
 
-  const products = page.props?.products ?? (import.meta.env.DEV ? SAMPLE_PRODUCTS : []);
-  const customers = page.props?.customers ?? (import.meta.env.DEV ? SAMPLE_CUSTOMERS : []);
-
-  const [mode, setMode] = useState("swap");
   const [delivery, setDelivery] = useState(false);
   const [payment, setPayment] = useState("cash");
   const [paymentRef, setPaymentRef] = useState("");
@@ -118,24 +145,21 @@ export default function NewSale() {
 
   const [category, setCategory] = useState("all");
   const [cart, setCart] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const filteredProducts = useMemo(() => {
     const s = String(q || "").toLowerCase().trim();
 
     return products
       .filter((p) => (category === "all" ? true : String(p.category || "").toLowerCase() === category))
-      .filter((p) => (!s ? true : `${ p.name } ${ p.variant }`.toLowerCase().includes(s)));
+      .filter((p) => (!s ? true : `${p.name} ${p.variant}`.toLowerCase().includes(s)));
   }, [products, q, category]);
-
-  const selectedCustomer = useMemo(() => {
-    return customers.find((c) => c.id === customerId) || null;
-  }, [customers, customerId]);
 
   const addToCart = (p) => {
     if (readOnly) return;
 
-    const price = mode === "swap" ? Number(p.price_swap || 0) : Number(p.price_refill || 0);
-    const key = `${ p.id }:${ mode }`;
+    const price = Number(p.price_swap || 0);
+    const key = `${p.id}:swap`;
 
     setCart((prev) => {
       const idx = prev.findIndex((x) => x._key === key);
@@ -146,7 +170,7 @@ export default function NewSale() {
       }
       return [
         ...prev,
-        { _key: key, product_id: p.id, name: p.name, variant: p.variant, mode, unit_price: price, qty: 1 },
+        { _key: key, product_id: p.id, name: p.name, variant: p.variant, mode: "swap", unit_price: price, qty: 1 },
       ];
     });
   };
@@ -170,19 +194,17 @@ export default function NewSale() {
     return cart.reduce((sum, x) => sum + Number(x.unit_price || 0) * Number(x.qty || 0), 0);
   }, [cart]);
 
-  const discount = 0;
-  const total = Math.max(0, subtotal - discount);
+  const total = Math.max(0, subtotal);
 
-  const gcashNeedsRef = payment === "gcash";
-  const cardNeedsRef = payment === "card";
-  const needsRef = gcashNeedsRef || cardNeedsRef;
-
+  const needsRef = payment === "gcash" || payment === "card";
   const validRef = !needsRef || String(paymentRef || "").trim().length >= 4;
 
-  const canCheckout = cart.length > 0 && !readOnly && validRef;
+  const canCheckout = cart.length > 0 && !readOnly && validRef && !isSubmitting;
 
   const checkout = () => {
     if (!canCheckout) return;
+
+    setIsSubmitting(true);
 
     router.post(
       "/dashboard/cashier/POS",
@@ -194,7 +216,7 @@ export default function NewSale() {
         lines: cart.map((x) => ({
           product_id: x.product_id,
           qty: x.qty,
-          mode: x.mode,
+          mode: "swap",
           unit_price: x.unit_price,
         })),
       },
@@ -204,7 +226,29 @@ export default function NewSale() {
           setCart([]);
           setQ("");
           setPaymentRef("");
+
+          setResultModal({
+            open: true,
+            status: "success",
+            title: "Payment complete",
+            message: "Sale was recorded successfully.",
+          });
         },
+        onError: (errs) => {
+          const msg =
+            errs?.message ||
+            errs?.payment_ref ||
+            errs?.customer_id ||
+            (typeof errs === "object" ? "Please review the form and try again." : "Something went wrong.");
+
+          setResultModal({
+            open: true,
+            status: "error",
+            title: "Payment failed",
+            message: String(msg),
+          });
+        },
+        onFinish: () => setIsSubmitting(false),
       }
     );
   };
@@ -212,13 +256,16 @@ export default function NewSale() {
   return (
     <Layout title="Point of Sale">
       <div className="grid gap-6 xl:grid-cols-12">
-        <div className="xl:col-span-7 grid gap-6">
-          <Card>
+        <div className="xl:col-span-7">
+          <Card className="h-[calc(100vh-140px)] flex flex-col">
             <SectionTitle
               title="Product catalog"
+              icon={PackageSearch}
               right={
                 <div className="flex items-center gap-2">
-                  <Pill active={category === "all"} onClick={() => setCategory("all")}>All</Pill>
+                  <Pill active={category === "all"} onClick={() => setCategory("all")}>
+                    All
+                  </Pill>
 
                   <Pill active={category === "lpg"} onClick={() => setCategory("lpg")}>
                     <span className="inline-flex items-center gap-2">
@@ -237,277 +284,307 @@ export default function NewSale() {
               }
             />
 
-            <div className="px-6 py-4 border-b border-slate-200">
+            <div className="px-5 py-4 border-b border-slate-200">
               <div className="w-full flex items-center gap-2 rounded-2xl bg-white ring-1 ring-slate-200 px-3 py-2.5 focus-within:ring-teal-500/30">
                 <PosSearch className="h-4 w-4 text-slate-500 shrink-0" />
                 <input
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   placeholder="Search LPG, 11kg, regulator..."
-                  className="w-full min-w-0 bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+                  className="w-full min-w-0 bg-transparent text-sm font-semibold text-slate-700 outline-none placeholder:text-slate-400"
                 />
               </div>
-              <div className="mt-2 text-xs text-slate-500">
-                Tap products to add. Payment is recorded before delivery dispatch.
+
+              <div className="mt-2 flex items-start gap-2 text-xs text-slate-500">
+                <Info className="mt-0.5 h-4 w-4 text-slate-400" />
+                <div className="leading-relaxed">Swap only. Tap products to add.</div>
               </div>
             </div>
 
-            <div className="p-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                {filteredProducts.map((p) => {
-                  const price = mode === "swap" ? Number(p.price_swap || 0) : Number(p.price_refill || 0);
+            <div className="p-4 flex-1 min-h-0 overflow-y-auto no-scrollbar">
+              {products.length === 0 ? (
+                <EmptyState icon={PackageSearch} title="No products yet" desc="Ask admin to add products or check server props." />
+              ) : filteredProducts.length === 0 ? (
+                <EmptyState icon={PackageSearch} title="No matches" desc="Try changing the category or search keyword." />
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {filteredProducts.map((p) => {
+                    const price = Number(p.price_swap || 0);
 
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => addToCart(p)}
-                      disabled={readOnly}
-                      className={cx(
-                        "text-left rounded-3xl p-4 ring-1 transition",
-                        readOnly ? "bg-slate-50 ring-slate-200 cursor-not-allowed" : "bg-white ring-slate-200 hover:bg-slate-50"
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-sm font-extrabold text-slate-900 truncate">
-                            {p.name} <span className="text-slate-500 font-semibold">({p.variant})</span>
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => addToCart(p)}
+                        disabled={readOnly}
+                        className={cx(
+                          "text-left rounded-3xl p-4 ring-1 transition",
+                          readOnly
+                            ? "bg-slate-50 ring-slate-200 cursor-not-allowed"
+                            : "bg-white ring-slate-200 hover:bg-slate-50"
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-sm font-extrabold text-slate-800 truncate">
+                              {p.name} <span className="text-slate-500 font-semibold">({p.variant})</span>
+                            </div>
+                            <div className="mt-1 text-xs text-slate-500">
+                              {String(p.category || "").toUpperCase() || "—"}
+                            </div>
                           </div>
-                          <div className="mt-1 text-xs text-slate-500">
-                            {String(p.category || "").toUpperCase() || "—"}
+
+                          <div className="shrink-0 rounded-2xl bg-teal-600/10 ring-1 ring-teal-700/10 px-3 py-2 text-xs font-extrabold text-teal-900">
+                            {formatPeso(price)}
                           </div>
                         </div>
-
-                        <div className="shrink-0 rounded-2xl bg-teal-600/10 ring-1 ring-teal-700/10 px-3 py-2 text-xs font-extrabold text-teal-900">
-                          {formatPeso(price)}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </Card>
         </div>
 
-        <div className="xl:col-span-5 grid gap-6">
-          <Card>
-            <SectionTitle
-              title="Sale setup"
-              right={
-                <div className="flex flex-wrap items-center gap-2">
-
-                  <Pill active={delivery} onClick={() => setDelivery((v) => !v)}>
-                    <span className="inline-flex items-center gap-2">
-                      <DeliveriesIcon className="h-4 w-4" />
-                      Delivery
+        <div className="xl:col-span-5">
+          <div className="h-[calc(100vh-140px)] overflow-y-auto no-scrollbar grid gap-6">
+            <Card>
+              <SectionTitle
+                title="Sale setup"
+                icon={SlidersHorizontal}
+                right={
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-2xl bg-teal-600/10 text-teal-900 ring-1 ring-teal-700/10 px-3 py-2 text-xs font-extrabold">
+                      SWAP ONLY
                     </span>
-                  </Pill>
 
-                  {readOnly ? (
-                    <span className="rounded-2xl bg-amber-600/10 text-amber-900 ring-1 ring-amber-700/10 px-3 py-2 text-xs font-extrabold">
-                      ADMIN VIEW ONLY
-                    </span>
-                  ) : null}
+                    <Pill active={delivery} onClick={() => setDelivery((v) => !v)}>
+                      <span className="inline-flex items-center gap-2">
+                        <Truck className="h-4 w-4" />
+                        Delivery
+                      </span>
+                    </Pill>
+
+                    {readOnly ? (
+                      <span className="rounded-2xl bg-amber-600/10 text-amber-900 ring-1 ring-amber-700/10 px-3 py-2 text-xs font-extrabold">
+                        ADMIN VIEW ONLY
+                      </span>
+                    ) : null}
+                  </div>
+                }
+              />
+
+              <div className="p-5 grid gap-3">
+                <div className="flex items-center gap-2 text-xs font-extrabold text-slate-700">
+                  <Users className="h-4 w-4 text-slate-500" />
+                  Customer
                 </div>
-              }
-            />
 
-            <div className="p-6 grid gap-4">
-              <div className="text-xs font-extrabold text-slate-700">Customer</div>
+                <div className="flex gap-2">
+                  <select
+                    value={customerId || ""}
+                    onChange={(e) => setCustomerId(Number(e.target.value))}
+                    className="w-full rounded-2xl bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 outline-none focus:ring-4 focus:ring-teal-500/20"
+                    disabled={readOnly}
+                  >
+                    {customers.length === 0 ? (
+                      <option value="">No customers</option>
+                    ) : (
+                      customers.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} {c.phone ? `• ${c.phone}` : ""}
+                        </option>
+                      ))
+                    )}
+                  </select>
 
-              <div className="flex gap-2">
-                <select
-                  value={customerId || ""}
-                  onChange={(e) => setCustomerId(Number(e.target.value))}
-                  className="w-full rounded-2xl bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 ring-1 ring-slate-200 outline-none focus:ring-4 focus:ring-teal-500/20"
-                  disabled={readOnly}
-                >
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} {c.phone ? `• ${ c.phone }` : ""}
-                    </option>
-                  ))}
-                </select>
+                  <button
+                    type="button"
+                    onClick={() => setOpenAddCustomer(true)}
+                    className={cx(
+                      "shrink-0 inline-flex items-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-extrabold ring-1 transition",
+                      readOnly
+                        ? "bg-slate-100 text-slate-400 ring-slate-200 cursor-not-allowed"
+                        : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
+                    )}
+                    disabled={readOnly}
+                    title="Add customer"
+                  >
+                    <CustomersIcon className={cx("h-4 w-4", readOnly ? "text-slate-400" : "text-slate-600")} />
+                    Add
+                  </button>
+                </div>
+
+                {isAdmin ? (
+                  <div className="rounded-2xl bg-slate-50 ring-1 ring-slate-200 px-3 py-2 text-xs text-slate-600">
+                    Admin view only mode. To test cashier actions, log in as cashier.
+                  </div>
+                ) : null}
+              </div>
+            </Card>
+
+            <Card>
+              <SectionTitle title="Cart" icon={ShoppingCart} right={<div className="text-xs text-slate-500">{cart.length} items</div>} />
+
+              <div className="p-5 grid gap-3">
+                {cart.length === 0 ? (
+                  <EmptyState icon={ShoppingCart} title="Cart is empty" desc="Add products from the catalog." />
+                ) : (
+                  cart.map((x) => (
+                    <div key={x._key} className="rounded-3xl bg-white ring-1 ring-slate-200 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-extrabold text-slate-800 truncate">
+                            {x.name} <span className="text-slate-500 font-semibold">({x.variant})</span>
+                          </div>
+                          <div className="mt-1 text-xs text-slate-500">SWAP • {formatPeso(x.unit_price)} each</div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => remove(x._key)}
+                          disabled={readOnly}
+                          className={cx(
+                            "rounded-2xl p-2 ring-1 transition",
+                            readOnly
+                              ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed"
+                              : "bg-white ring-slate-200 hover:bg-slate-50"
+                          )}
+                          title="Remove"
+                        >
+                          <PosRemove className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => dec(x._key)}
+                            disabled={readOnly}
+                            className={cx(
+                              "rounded-2xl p-2 ring-1 transition",
+                              readOnly
+                                ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed"
+                                : "bg-white ring-slate-200 hover:bg-slate-50"
+                            )}
+                            aria-label="Decrease quantity"
+                          >
+                            <PosMinus className="h-4 w-4" />
+                          </button>
+
+                          <div className="min-w-[44px] text-center text-sm font-extrabold text-slate-800">{x.qty}</div>
+
+                          <button
+                            type="button"
+                            onClick={() => inc(x._key)}
+                            disabled={readOnly}
+                            className={cx(
+                              "rounded-2xl p-2 ring-1 transition",
+                              readOnly
+                                ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed"
+                                : "bg-white ring-slate-200 hover:bg-slate-50"
+                            )}
+                            aria-label="Increase quantity"
+                          >
+                            <PosAdd className="h-4 w-4" />
+                          </button>
+                        </div>
+
+                        <div className="text-sm font-extrabold text-slate-800">
+                          {formatPeso(Number(x.unit_price) * Number(x.qty))}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </Card>
+
+            <Card>
+              <SectionTitle title="Payment" icon={CreditCard} right={<div className="text-xs text-slate-500">Select method</div>} />
+
+              <div className="p-5 grid gap-4">
+                <div className="flex flex-wrap gap-2">
+                  <IconPill
+                    active={payment === "cash"}
+                    onClick={() => {
+                      setPayment("cash");
+                      setPaymentRef("");
+                    }}
+                    icon={PosCash}
+                    label="Cash"
+                  />
+                  <IconPill active={payment === "gcash"} onClick={() => setPayment("gcash")} icon={PosGcash} label="GCash" />
+                  <IconPill active={payment === "card"} onClick={() => setPayment("card")} icon={PosCard} label="Card" />
+                </div>
+
+                {needsRef ? (
+                  <div>
+                    <label className="text-xs font-extrabold text-slate-700">
+                      {payment === "gcash" ? "GCash reference number" : "Card reference number"}
+                    </label>
+                    <input
+                      value={paymentRef}
+                      onChange={(e) => setPaymentRef(e.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm font-extrabold text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-teal-500/15"
+                      placeholder={payment === "gcash" ? "Enter GCash reference" : "Enter card reference"}
+                      disabled={readOnly}
+                    />
+                    <div className="mt-2 flex items-start gap-2 text-xs text-slate-500">
+                      <Info className="mt-0.5 h-4 w-4 text-slate-400" />
+                      <div className="leading-relaxed">Required so this payment can be verified later if needed.</div>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="rounded-3xl bg-slate-50 ring-1 ring-slate-200 p-5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600 font-semibold">Subtotal</span>
+                    <span className="text-slate-800 font-extrabold">{formatPeso(subtotal)}</span>
+                  </div>
+
+                  <div className="mt-3 h-px bg-slate-200" />
+
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="text-slate-700 text-sm font-extrabold">Total</span>
+                    <span className="text-slate-800 text-lg font-extrabold">{formatPeso(total)}</span>
+                  </div>
+                </div>
 
                 <button
                   type="button"
-                  onClick={() => setOpenAddCustomer(true)}
+                  onClick={checkout}
+                  disabled={!canCheckout}
                   className={cx(
-                    "shrink-0 inline-flex items-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-extrabold ring-1 transition",
-                    readOnly ? "bg-slate-100 text-slate-400 ring-slate-200 cursor-not-allowed" : "bg-white text-slate-800 ring-slate-200 hover:bg-slate-50"
+                    "w-full inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-extrabold ring-1 transition focus:outline-none focus:ring-4 focus:ring-teal-500/25",
+                    canCheckout
+                      ? "bg-teal-600 text-white ring-teal-600 hover:bg-teal-700"
+                      : "bg-slate-200 text-slate-500 ring-slate-200 cursor-not-allowed"
                   )}
-                  disabled={readOnly}
-                  title="Add customer"
                 >
-                  <CustomersIcon className={cx("h-4 w-4", readOnly ? "text-slate-400" : "text-slate-600")} />
-                  Add
+                  {isSubmitting ? "Processing..." : "Confirm payment"}
+                  <PosNext className="h-4 w-4" />
                 </button>
-              </div>
 
-              {isAdmin ? (
-                <div className="rounded-2xl bg-slate-50 ring-1 ring-slate-200 px-3 py-2 text-xs text-slate-600">
-                  Admin view only mode. To test cashier actions, log in as cashier.
-                </div>
-              ) : null}
-            </div>
-          </Card>
-
-          <Card>
-            <SectionTitle title="Cart" right={<div className="text-xs text-slate-500">{cart.length} items</div>} />
-
-            <div className="p-6 grid gap-3">
-              {cart.length === 0 ? (
-                <div className="rounded-3xl bg-slate-50 ring-1 ring-slate-200 p-6 text-center">
-                  <div className="inline-flex items-center justify-center h-12 w-12 rounded-2xl bg-teal-600/10 ring-1 ring-teal-700/10">
-                    <PosCart className="h-6 w-6 text-teal-700" />
-                  </div>
-                  <div className="mt-3 text-sm font-extrabold text-slate-900">Cart is empty</div>
-                  <div className="mt-1 text-xs text-slate-600">Add products from the catalog.</div>
-                </div>
-              ) : (
-                cart.map((x) => (
-                  <div key={x._key} className="rounded-3xl bg-white ring-1 ring-slate-200 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-sm font-extrabold text-slate-900 truncate">
-                          {x.name} <span className="text-slate-500 font-semibold">({x.variant})</span>
-                        </div>
-                        <div className="mt-1 text-xs text-slate-500">
-                          {String(x.mode).toUpperCase()} • {formatPeso(x.unit_price)} each
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => remove(x._key)}
-                        disabled={readOnly}
-                        className={cx(
-                          "rounded-2xl p-2 ring-1 transition",
-                          readOnly ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed" : "bg-white ring-slate-200 hover:bg-slate-50"
-                        )}
-                        title="Remove"
-                      >
-                        <PosRemove className="h-4 w-4" />
-                      </button>
-                    </div>
-
-                    <div className="mt-3 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => dec(x._key)}
-                          disabled={readOnly}
-                          className={cx(
-                            "rounded-2xl p-2 ring-1 transition",
-                            readOnly ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed" : "bg-white ring-slate-200 hover:bg-slate-50"
-                          )}
-                          aria-label="Decrease quantity"
-                        >
-                          <PosMinus className="h-4 w-4" />
-                        </button>
-
-                        <div className="min-w-[44px] text-center text-sm font-extrabold text-slate-900">{x.qty}</div>
-
-                        <button
-                          type="button"
-                          onClick={() => inc(x._key)}
-                          disabled={readOnly}
-                          className={cx(
-                            "rounded-2xl p-2 ring-1 transition",
-                            readOnly ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed" : "bg-white ring-slate-200 hover:bg-slate-50"
-                          )}
-                          aria-label="Increase quantity"
-                        >
-                          <PosAdd className="h-4 w-4" />
-                        </button>
-                      </div>
-
-                      <div className="text-sm font-extrabold text-slate-900">
-                        {formatPeso(Number(x.unit_price) * Number(x.qty))}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </Card>
-
-          <Card>
-            <SectionTitle title="Payment" right={<div className="text-xs text-slate-500">Select method</div>} />
-            <div className="p-6 grid gap-4">
-              <div className="flex flex-wrap gap-2">
-                <IconPill active={payment === "cash"} onClick={() => { setPayment("cash"); setPaymentRef(""); }} icon={PosCash} label="Cash" />
-                <IconPill active={payment === "gcash"} onClick={() => setPayment("gcash")} icon={PosGcash} label="GCash" />
-                <IconPill active={payment === "card"} onClick={() => setPayment("card")} icon={PosCard} label="Card" />
-              </div>
-
-              {needsRef ? (
-                <div>
-                  <label className="text-xs font-extrabold text-slate-700">
-                    {payment === "gcash" ? "GCash reference number" : "Card reference number"}
-                  </label>
-                  <input
-                    value={paymentRef}
-                    onChange={(e) => setPaymentRef(e.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm font-extrabold focus:outline-none focus:ring-4 focus:ring-teal-500/15"
-                    placeholder={payment === "gcash" ? "Enter GCash reference" : "Enter card reference"}
-                    disabled={readOnly}
-                  />
-                  <div className="mt-2 flex items-start gap-2 text-xs text-slate-500">
-                    <Info className="mt-0.5 h-4 w-4 text-slate-400" />
-                    <div className="leading-relaxed">
-                      Required so this payment can be verified later if needed.
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="rounded-3xl bg-slate-50 ring-1 ring-slate-200 p-5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-600 font-semibold">Subtotal</span>
-                  <span className="text-slate-900 font-extrabold">{formatPeso(subtotal)}</span>
-                </div>
-                <div className="mt-2 flex items-center justify-between text-sm">
-                  <span className="text-slate-600 font-semibold">Discount</span>
-                  <span className="text-slate-900 font-extrabold">{formatPeso(0)}</span>
-                </div>
-                <div className="mt-3 h-px bg-slate-200" />
-                <div className="mt-3 flex items-center justify-between">
-                  <span className="text-slate-700 text-sm font-extrabold">Total</span>
-                  <span className="text-slate-900 text-lg font-extrabold">{formatPeso(total)}</span>
+                <div className="text-xs text-slate-500">
+                  {readOnly ? (
+                    <span>
+                      Admin can view this page but cannot finalize sales.{" "}
+                      <Link href="/dashboard/admin" className="text-teal-700 font-semibold hover:text-teal-800">
+                        Back to dashboard
+                      </Link>
+                    </span>
+                  ) : needsRef && !validRef ? (
+                    <span>Please enter a valid reference number to continue.</span>
+                  ) : (
+                    <span>Payment is recorded first, delivery is dispatched after.</span>
+                  )}
                 </div>
               </div>
-
-              <button
-                type="button"
-                onClick={checkout}
-                disabled={!canCheckout}
-                className={cx(
-                  "w-full inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-extrabold ring-1 transition focus:outline-none focus:ring-4 focus:ring-teal-500/25",
-                  canCheckout ? "bg-teal-600 text-white ring-teal-600 hover:bg-teal-700" : "bg-slate-200 text-slate-500 ring-slate-200 cursor-not-allowed"
-                )}
-              >
-                Confirm payment
-                <PosNext className="h-4 w-4" />
-              </button>
-
-              <div className="text-xs text-slate-500">
-                {readOnly ? (
-                  <span>
-                    Admin can view this page but cannot finalize sales.{" "}
-                    <Link href="/dashboard/admin" className="text-teal-700 font-semibold hover:text-teal-800">
-                      Back to dashboard
-                    </Link>
-                  </span>
-                ) : needsRef && !validRef ? (
-                  <span>Please enter a valid reference number to continue.</span>
-                ) : (
-                  <span>Payment is recorded first, delivery is dispatched after.</span>
-                )}
-              </div>
-            </div>
-          </Card>
+            </Card>
+          </div>
         </div>
       </div>
 
@@ -519,6 +596,22 @@ export default function NewSale() {
           if (created?.id) setCustomerId(created.id);
           router.reload({ only: ["customers"] });
         }}
+      />
+
+      <TransactionResultModal
+        open={resultModal.open}
+        status={resultModal.status}
+        title={resultModal.title}
+        message={resultModal.message}
+        onClose={() => setResultModal((s) => ({ ...s, open: false }))}
+        primaryLabel={resultModal.status === "error" ? "Try again" : "Close"}
+        onPrimary={() => setResultModal((s) => ({ ...s, open: false }))}
+        secondaryLabel={resultModal.status === "error" ? "Close" : undefined}
+        onSecondary={
+          resultModal.status === "error"
+            ? () => setResultModal((s) => ({ ...s, open: false }))
+            : undefined
+        }
       />
     </Layout>
   );

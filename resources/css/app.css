@@ -24,6 +24,15 @@
 }
 
 
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+
 /* hide scrollbar but keep scrolling */
 .sidebar-scroll {
   scrollbar-width: none;        /* Firefox */
