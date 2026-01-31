@@ -39,10 +39,23 @@ class RestockRequestController extends Controller
             abort(403);
         }
 
-        // TODO: LACKING INFORMATION FOR RESTOCK REQUEST CREATION ON request
-        $data = $request->all();
-        $data['requested_by_user_id'] = auth()->id();
-
+        // Transform the modal data to match the service's expected structure
+        $data = [
+            'requested_by_user_id' => auth()->id(),
+            'priority' => 'normal',
+            'needed_by_date' => null,
+            'notes' => $request->input('note'), // The note field from the modal
+            'items' => [
+                [
+                    'product_variant_id' => $request->input('product_variant_id'),
+                    'requested_qty' => $request->input('qty'),
+                    'current_qty' => 0,
+                    'reorder_level' => 0,
+                    'supplier_id' => null,
+                ]
+            ]
+        ];
+       
         $this->svc->createRequest($data);
 
         return redirect()->back()->with('success', 'Purchase request created successfully');
