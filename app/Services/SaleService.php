@@ -39,7 +39,7 @@ class SaleService
                         ];
                     })->toArray(),
                 ];
-            }),
+            })->toArray(),
             'meta' => [
                 'current_page' => $salesPaginated->currentPage(),
                 'last_page' => $salesPaginated->lastPage(),

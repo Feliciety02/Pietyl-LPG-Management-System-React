@@ -3,49 +3,41 @@
 namespace App\Repositories;
 
 use App\Models\Sale;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class SaleRepository
 {
-    protected Builder $query;
-
-    public function __construct()
+    public function getPaginated(array $filters = []): LengthAwarePaginator
     {
-        $this->query = Sale::query()->with([
+        $query = Sale::query()->with([
             'customer',
             'cashier',
             'items.productVariant.product',
             'payments.paymentMethod'
         ]);
-    }
 
-    public function applyFilters(array $filters = []): self
-    {
+        // Apply search filter
         if (!empty($filters['q'])) {
             $q = $filters['q'];
-            $this->query->where(function ($query) use ($q) {
-                $query->where('sale_number', 'like', "%$q%")
-                      ->orWhereHas('customer', function ($cq) use ($q) {
-                          $cq->where('name', 'like', "%$q%");
-                      });
+            $query->where(function ($subQuery) use ($q) {
+                $subQuery->where('sale_number', 'like', "%$q%")
+                         ->orWhereHas('customer', function ($cq) use ($q) {
+                             $cq->where('name', 'like', "%$q%");
+                         });
             });
         }
 
+        // Apply status filter
         if (!empty($filters['status']) && $filters['status'] !== 'all') {
-            $this->query->where('status', $filters['status']);
+            $query->where('status', $filters['status']);
         }
 
-        return $this;
-    }
-
-    public function getPaginated(array $filters = []): LengthAwarePaginator
-    {
         $perPage = $filters['per'] ?? 10;
-        $this->applyFilters($filters);
+        $page = $filters['page'] ?? 1;
 
-        return $this->query->latest('sale_datetime')
-                           ->paginate($perPage)
-                           ->withQueryString();
+        // Sort by created_at instead of sale_datetime
+        return $query->latest('created_at')
+                     ->paginate($perPage, ['*'], 'page', $page)
+                     ->withQueryString();
     }
 }
