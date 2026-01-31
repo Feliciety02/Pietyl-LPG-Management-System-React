@@ -252,7 +252,6 @@ export default function Sales() {
     []
   );
 
-
   useEffect(() => {
     let isMounted = true;
 

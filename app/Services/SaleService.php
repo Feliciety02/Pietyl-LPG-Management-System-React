@@ -28,7 +28,7 @@ class SaleService
                     'total' => $sale->grand_total,
                     'method' => $payment?->paymentMethod?->method_key ?? 'cash',
                     'status' => $sale->status,
-                    'created_at' => $sale->sale_datetime->format('M d, Y g:i A'),
+                    'created_at' => $sale->created_at->format('M d, Y g:i A'),
                     'lines' => $sale->items->map(function ($item) {
                         return [
                             'name' => $item->productVariant->product->name,

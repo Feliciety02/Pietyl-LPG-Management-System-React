@@ -35,7 +35,7 @@ class SaleRepository
         $perPage = $filters['per'] ?? 10;
         $page = $filters['page'] ?? 1;
 
-        // Sort by created_at instead of sale_datetime
+        // Sort by created_at (newest first)
         return $query->latest('created_at')
                      ->paginate($perPage, ['*'], 'page', $page)
                      ->withQueryString();
