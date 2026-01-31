@@ -64,9 +64,21 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/employees/{employee}/unlink-user', [EmployeeController::class, 'unlinkUser'])
             ->middleware('permission:admin.employees.update')
             ->name('dash.admin.employees.unlink-user');
-        Route::get('/customers', fn () => Inertia::render('CashierPage/Customers'))
+        Route::get('/customers', [CustomerController::class, 'index'])
             ->middleware('permission:admin.customers.view')
-            ->name('dash.admin.customer');  
+            ->name('dash.admin.customer');
+        Route::post('/customers', [CustomerController::class, 'store'])
+            ->middleware('permission:admin.customers.create')
+            ->name('dash.admin.customers.store');
+        Route::get('/customers/{customer}', [CustomerController::class, 'show'])
+            ->middleware('permission:admin.customers.view')
+            ->name('dash.admin.customers.show');
+        Route::put('/customers/{customer}', [CustomerController::class, 'update'])
+            ->middleware('permission:admin.customers.update')
+            ->name('dash.admin.customers.update');
+        Route::delete('/customers/{customer}', [CustomerController::class, 'destroy'])
+            ->middleware('permission:admin.customers.delete')
+            ->name('dash.admin.customers.destroy');
         Route::get('/roles', [RoleController::class, 'index'])
             ->middleware('permission:admin.roles.view')
             ->name('dash.admin.roles');

@@ -19,6 +19,32 @@ function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
+function Tabs({ tabs, value, onChange }) {
+  return (
+    <div className="inline-flex flex-wrap gap-1 rounded-2xl bg-slate-50 p-1 ring-1 ring-slate-200">
+        {tabs.map((t) => {
+          const active = t.value === value;
+
+          return (
+            <button
+              key={t.value}
+              type="button"
+              onClick={() => onChange(t.value)}
+              className={cx(
+                "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-extrabold transition",
+                active
+                  ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200"
+                  : "text-slate-600 hover:text-slate-800"
+              )}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+    </div>
+  );
+}
+
 function titleCase(s = "") {
   return String(s || "")
     .replace(/_/g, " ")
@@ -231,6 +257,16 @@ export default function Products() {
     []
   );
 
+  const statusTabs = [
+    { value: "active", label: "Active" },
+    { value: "archived", label: "Archived" },
+    { value: "all", label: "All" },
+  ];
+
+  const activeStatusTab = statusTabs.some((t) => t.value === status)
+    ? status
+    : "all";
+
   const supplierOptions = useMemo(() => {
     return [
       { value: "all", label: "All suppliers" },
@@ -442,43 +478,56 @@ export default function Products() {
           }
         />
 
-        <DataTableFilters
-          q={q}
-          onQ={(v) => {
-            setQ(v);
-            pushQuery({ q: v, page: 1 });
-          }}
-          placeholder="Search product name, brand, sku..."
-          filters={[
-            {
-              key: "status",
-              value: status,
-              onChange: (v) => {
-                setStatus(v);
-                pushQuery({ status: v, page: 1 });
+        <div className="rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm p-4 flex flex-wrap items-center gap-4 justify-between">
+          <Tabs
+            tabs={statusTabs}
+            value={activeStatusTab}
+            onChange={(v) => {
+              setStatus(v);
+              pushQuery({ status: v, page: 1 });
+            }}
+          />
+
+          <DataTableFilters
+            variant="inline"
+            containerClass="w-full md:w-auto"
+            q={q}
+            onQ={(v) => {
+              setQ(v);
+              pushQuery({ q: v, page: 1 });
+            }}
+            placeholder="Search product name, brand, sku..."
+            filters={[
+              {
+                key: "status",
+                value: status,
+                onChange: (v) => {
+                  setStatus(v);
+                  pushQuery({ status: v, page: 1 });
+                },
+                options: statusOptions,
               },
-              options: statusOptions,
-            },
-            {
-              key: "supplier",
-              value: supplierId,
-              onChange: (v) => {
-                setSupplierId(v);
-                pushQuery({ supplier_id: v, page: 1 });
+              {
+                key: "supplier",
+                value: supplierId,
+                onChange: (v) => {
+                  setSupplierId(v);
+                  pushQuery({ supplier_id: v, page: 1 });
+                },
+                options: supplierOptions,
               },
-              options: supplierOptions,
-            },
-            {
-              key: "type",
-              value: type,
-              onChange: (v) => {
-                setType(v);
-                pushQuery({ type: v, page: 1 });
+              {
+                key: "type",
+                value: type,
+                onChange: (v) => {
+                  setType(v);
+                  pushQuery({ type: v, page: 1 });
+                },
+                options: typeOptions,
               },
-              options: typeOptions,
-            },
-          ]}
-        />
+            ]}
+          />
+        </div>
 
         <DataTable
           columns={columns}

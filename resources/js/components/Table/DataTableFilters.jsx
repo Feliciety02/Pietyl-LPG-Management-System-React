@@ -11,17 +11,33 @@ export default function DataTableFilters({
   placeholder = "Search...",
   filters = [],
   rightSlot,
+  variant = "card",
+  containerClass,
+  innerClass,
 }) {
+  const isInline = variant === "inline";
+
+  const container = isInline
+    ? cx("flex flex-wrap items-center gap-3 justify-end", containerClass)
+    : cx("rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm", containerClass);
+
+  const inner = isInline
+    ? cx("flex flex-wrap items-center gap-3", innerClass)
+    : cx("p-5 flex flex-wrap items-center gap-3 justify-between", innerClass);
+
   return (
-    <div className="rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm">
-      <div className="p-5 flex flex-wrap items-center gap-3 justify-between">
+    <div className={container}>
+      <div className={inner}>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 rounded-2xl bg-white px-3 py-2 ring-1 ring-slate-200">
             <Search className="h-4 w-4 text-slate-500" />
             <input
               value={q}
               onChange={(e) => onQ?.(e.target.value)}
-              className="w-64 bg-transparent text-sm outline-none placeholder:text-slate-400"
+              className={cx(
+                "bg-transparent text-sm outline-none placeholder:text-slate-400",
+                isInline ? "w-56" : "w-64"
+              )}
               placeholder={placeholder}
             />
           </div>

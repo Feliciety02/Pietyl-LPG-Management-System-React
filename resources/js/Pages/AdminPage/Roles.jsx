@@ -24,6 +24,10 @@ import RoleActionsModal from "@/components/modals/AdminModals/RoleActionsModal";
 import RolePermissionsModal from "@/components/modals/AdminModals/RolePermissionsModal";
 import ConfirmRoleRestoreModal from "@/components/modals/AdminModals/ConfirmRoleRestoreModal";
 
+function cx(...classes) {
+  return classes.filter(Boolean).join(" ");
+}
+
 function titleCase(s = "") {
   return String(s || "")
     .replace(/_/g, " ")
@@ -111,6 +115,32 @@ function ArchivedPill() {
   );
 }
 
+function Tabs({ tabs, value, onChange }) {
+  return (
+    <div className="inline-flex flex-wrap gap-1 rounded-2xl bg-slate-50 p-1 ring-1 ring-slate-200">
+        {tabs.map((t) => {
+          const active = t.value === value;
+
+          return (
+            <button
+              key={t.value}
+              type="button"
+              onClick={() => onChange(t.value)}
+              className={cx(
+                "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-extrabold transition",
+                active
+                  ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200"
+                  : "text-slate-600 hover:text-slate-800"
+              )}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+    </div>
+  );
+}
+
 /* -------------------------------------------------------------------------- */
 /* Layout bits                                                                 */
 /* -------------------------------------------------------------------------- */
@@ -163,6 +193,16 @@ export default function Roles() {
     { value: "all_with_archived", label: "All (including archived)" },
     { value: "archived", label: "Archived roles" },
   ];
+
+  const scopeTabs = [
+    { value: "all", label: "Active" },
+    { value: "archived", label: "Archived" },
+    { value: "all_with_archived", label: "All" },
+  ];
+
+  const activeScopeTab = scopeTabs.some((t) => t.value === scope)
+    ? scope
+    : "all";
 
   const pushQuery = (patch) => {
     router.get(
@@ -361,25 +401,38 @@ export default function Roles() {
           }
         />
 
-        <DataTableFilters
-          q={q}
-          onQ={(v) => {
-            setQ(v);
-            pushQuery({ q: v, page: 1 });
-          }}
-          placeholder="Search role name or label..."
-          filters={[
-            {
-              key: "scope",
-              value: scope,
-              onChange: (v) => {
-                setScope(v);
-                pushQuery({ scope: v, page: 1 });
+        <div className="rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm p-4 flex flex-wrap items-center gap-4 justify-between">
+          <Tabs
+            tabs={scopeTabs}
+            value={activeScopeTab}
+            onChange={(v) => {
+              setScope(v);
+              pushQuery({ scope: v, page: 1 });
+            }}
+          />
+
+          <DataTableFilters
+            variant="inline"
+            containerClass="w-full md:w-auto"
+            q={q}
+            onQ={(v) => {
+              setQ(v);
+              pushQuery({ q: v, page: 1 });
+            }}
+            placeholder="Search role name or label..."
+            filters={[
+              {
+                key: "scope",
+                value: scope,
+                onChange: (v) => {
+                  setScope(v);
+                  pushQuery({ scope: v, page: 1 });
+                },
+                options: scopeOptions,
               },
-              options: scopeOptions,
-            },
-          ]}
-        />
+            ]}
+          />
+        </div>
 
         <DataTable
           columns={columns}
