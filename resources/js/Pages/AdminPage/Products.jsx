@@ -6,7 +6,7 @@ import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
 
-import { PackagePlus, Building2, Pencil, Archive } from "lucide-react";
+import { PackagePlus, Building2, Pencil, Archive, RotateCcw } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 
 import { TableActionButton } from "@/components/Table/ActionTableButton";
@@ -14,6 +14,7 @@ import { TableActionButton } from "@/components/Table/ActionTableButton";
 import AddProductModal from "@/components/modals/ProductModals/AddProductModal";
 import EditProductModal from "@/components/modals/ProductModals/EditProductModal";
 import ConfirmArchiveProductModal from "@/components/modals/ProductModals/ConfirmArchiveProductModal";
+import ConfirmRestoreProductModal from "@/components/modals/ProductModals/ConfirmRestoreProductModal";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -129,7 +130,7 @@ export default function Products() {
         brand: "Petron",
         type: "lpg",
         size_label: "11kg",
-        default_price: "950.00",
+        price: "950.00",
         is_active: true,
         image_url: null,
         supplier: { id: 1, name: "Petron LPG Supply" },
@@ -141,7 +142,7 @@ export default function Products() {
         brand: "Petron",
         type: "lpg",
         size_label: "22kg",
-        default_price: "1,850.00",
+        price: "1,850.00",
         is_active: true,
         image_url: null,
         supplier: { id: 1, name: "Petron LPG Supply" },
@@ -153,7 +154,7 @@ export default function Products() {
         brand: "Shellane",
         type: "lpg",
         size_label: "11kg",
-        default_price: "980.00",
+        price: "980.00",
         is_active: true,
         image_url: null,
         supplier: { id: 2, name: "Shellane Distributors" },
@@ -165,7 +166,7 @@ export default function Products() {
         brand: null,
         type: "refill",
         size_label: "11kg",
-        default_price: "720.00",
+        price: "720.00",
         is_active: true,
         image_url: null,
         supplier: null,
@@ -177,7 +178,7 @@ export default function Products() {
         brand: null,
         type: "refill",
         size_label: "22kg",
-        default_price: "1,420.00",
+        price: "1,420.00",
         is_active: true,
         image_url: null,
         supplier: null,
@@ -187,9 +188,9 @@ export default function Products() {
         sku: "LPG-HOSE-STD",
         name: "LPG Hose (Standard)",
         brand: "Regasco",
-        type: "accessory",
+        type: "accessories",
         size_label: null,
-        default_price: "350.00",
+        price: "350.00",
         is_active: true,
         image_url: null,
         supplier: { id: 3, name: "Regasco Trading" },
@@ -199,9 +200,9 @@ export default function Products() {
         sku: "LPG-REGULATOR",
         name: "LPG Regulator",
         brand: "Regasco",
-        type: "accessory",
+        type: "accessories",
         size_label: null,
-        default_price: "550.00",
+        price: "550.00",
         is_active: false,
         image_url: null,
         supplier: { id: 3, name: "Regasco Trading" },
@@ -306,11 +307,16 @@ export default function Products() {
   }, [perInitial]);
 
   const tableRows = loading ? fillerRows : rows;
+  const existingSkus = useMemo(
+    () => rows.filter((p) => p && !p.__filler).map((p) => p.sku).filter(Boolean),
+    [rows]
+  );
 
   /* Modals */
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
   const [activeProduct, setActiveProduct] = useState(null);
 
   const openEdit = (p) => {
@@ -323,6 +329,12 @@ export default function Products() {
     if (!p || p.__filler) return;
     setActiveProduct(p);
     setArchiveOpen(true);
+  };
+
+  const openRestore = (p) => {
+    if (!p || p.__filler) return;
+    setActiveProduct(p);
+    setRestoreOpen(true);
   };
 
   const createProduct = (payload) => {
@@ -360,6 +372,22 @@ export default function Products() {
         preserveScroll: true,
         onSuccess: () => {
           setArchiveOpen(false);
+          router.reload({ only: ["products"] });
+        },
+      }
+    );
+  };
+
+  const confirmRestore = () => {
+    if (!activeProduct?.id) return;
+
+    router.put(
+      `/dashboard/admin/products/${activeProduct.id}/restore`,
+      {},
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          setRestoreOpen(false);
           router.reload({ only: ["products"] });
         },
       }
@@ -425,14 +453,14 @@ export default function Products() {
           ),
       },
       {
-        key: "default_price",
-        label: "Default price",
+        key: "price",
+        label: "Price",
         render: (p) =>
           p?.__filler ? (
             <SkeletonLine w="w-20" />
           ) : (
             <span className="text-sm font-semibold text-slate-800">
-              {p?.default_price ?? "—"}
+              {p?.price ?? "—"}
             </span>
           ),
       },
@@ -542,22 +570,34 @@ export default function Products() {
                 </div>
               ) : (
                 <div className="flex items-center justify-end gap-2">
-                  <TableActionButton
-                    icon={Pencil}
-                    onClick={() => openEdit(p)}
-                    title="Edit product"
-                  >
-                    Edit
-                  </TableActionButton>
+                  {p?.is_active ? (
+                    <>
+                      <TableActionButton
+                        icon={Pencil}
+                        onClick={() => openEdit(p)}
+                        title="Edit product"
+                      >
+                        Edit
+                      </TableActionButton>
 
-                  <TableActionButton
-                    tone="danger"
-                    icon={Archive}
-                    onClick={() => openArchive(p)}
-                    title="Archive product"
-                  >
-                    Archive
-                  </TableActionButton>
+                      <TableActionButton
+                        tone="danger"
+                        icon={Archive}
+                        onClick={() => openArchive(p)}
+                        title="Archive product"
+                      >
+                        Archive
+                      </TableActionButton>
+                    </>
+                  ) : (
+                    <TableActionButton
+                      icon={RotateCcw}
+                      onClick={() => openRestore(p)}
+                      title="Restore product"
+                    >
+                      Restore
+                    </TableActionButton>
+                  )}
                 </div>
               )
             }
@@ -580,6 +620,7 @@ export default function Products() {
         onClose={() => setAddOpen(false)}
         onSubmit={createProduct}
         suppliers={suppliers}
+        existingSkus={existingSkus}
       />
 
       <EditProductModal
@@ -587,6 +628,7 @@ export default function Products() {
         onClose={() => setEditOpen(false)}
         product={activeProduct}
         onSubmit={(payload) => saveEdit(payload)}
+        existingSkus={existingSkus}
       />
 
       <ConfirmArchiveProductModal
@@ -594,6 +636,13 @@ export default function Products() {
         onClose={() => setArchiveOpen(false)}
         product={activeProduct}
         onConfirm={confirmArchive}
+      />
+
+      <ConfirmRestoreProductModal
+        open={restoreOpen}
+        onClose={() => setRestoreOpen(false)}
+        product={activeProduct}
+        onConfirm={confirmRestore}
       />
     </Layout>
   );

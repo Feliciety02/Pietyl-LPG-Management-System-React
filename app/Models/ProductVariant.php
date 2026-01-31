@@ -12,7 +12,6 @@ class ProductVariant extends Model
         'size_value',
         'size_unit',
         'container_type',
-        'barcode',
         'is_active',
     ];
 

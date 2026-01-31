@@ -28,20 +28,11 @@ class POSController extends Controller
             abort(403);
         }
 
-        $activePriceList = \App\Models\PriceList::with('priceListItems')
-            ->where('is_active', true)
-            ->latest('starts_at')
-            ->first();
-
         $products = \App\Models\ProductVariant::with('product')
             ->where('is_active', 1) // 2026 standard ang 1
             ->get()
-            ->map(function ($variant) use ($activePriceList) {
-                $priceItem = $activePriceList
-                    ? $activePriceList->priceListItems->firstWhere('product_variant_id', $variant->id)
-                    : null;
-
-                $basePrice = $priceItem?->price ?? 0;
+            ->map(function ($variant) {
+                $basePrice = $variant->product?->price ?? 0;
 
                 return [
                     'id'           => $variant->id,

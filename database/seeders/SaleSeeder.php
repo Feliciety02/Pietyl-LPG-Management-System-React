@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Models\Sale;
 use App\Models\Customer;
 use App\Models\User;
-use App\Models\PriceList;
 use Illuminate\Database\Seeder;
 
 class SaleSeeder extends Seeder
@@ -23,8 +22,6 @@ class SaleSeeder extends Seeder
         }
 
         $customers = Customer::all();
-        $priceList = PriceList::where('is_active', true)->first();
-
         if ($customers->isEmpty()) {
             $this->command->warn('No customers found. Skipping SaleSeeder.');
             return;
@@ -42,7 +39,6 @@ class SaleSeeder extends Seeder
             'cashier_user_id' => $cashier->id,
             'status' => 'paid',
             'sale_datetime' => now()->subDays(7)->setHour(9)->setMinute(20),
-            'price_list_id' => $priceList?->id,
             'subtotal' => 950.00,
             'discount_total' => 0,
             'tax_total' => 0,
@@ -58,7 +54,6 @@ class SaleSeeder extends Seeder
             'cashier_user_id' => $cashier->id,
             'status' => 'paid',
             'sale_datetime' => now()->subDays(7)->setHour(14)->setMinute(30),
-            'price_list_id' => $priceList?->id,
             'subtotal' => 1750.00,
             'discount_total' => 0,
             'tax_total' => 0,
@@ -75,7 +70,6 @@ class SaleSeeder extends Seeder
             'cashier_user_id' => $cashier->id,
             'status' => 'paid',
             'sale_datetime' => now()->subDays(6)->setHour(11)->setMinute(45),
-            'price_list_id' => $priceList?->id,
             'subtotal' => 5250.00,
             'discount_total' => 0,
             'tax_total' => 0,
@@ -92,7 +86,6 @@ class SaleSeeder extends Seeder
             'cashier_user_id' => $cashier->id,
             'status' => 'paid',
             'sale_datetime' => now()->subDays(5)->setHour(13)->setMinute(20),
-            'price_list_id' => $priceList?->id,
             'subtotal' => 1750.00,
             'discount_total' => 0,
             'tax_total' => 0,
@@ -108,7 +101,6 @@ class SaleSeeder extends Seeder
             'cashier_user_id' => $cashier->id,
             'status' => 'paid',
             'sale_datetime' => now()->subDays(4)->setHour(10)->setMinute(30),
-            'price_list_id' => $priceList?->id,
             'subtotal' => 3500.00,
             'discount_total' => 0,
             'tax_total' => 0,
@@ -125,7 +117,6 @@ class SaleSeeder extends Seeder
             'cashier_user_id' => $cashier->id,
             'status' => 'paid',
             'sale_datetime' => now()->subDays(3)->setHour(11)->setMinute(0),
-            'price_list_id' => $priceList?->id,
             'subtotal' => 1750.00,
             'discount_total' => 0,
             'tax_total' => 0,
@@ -142,7 +133,6 @@ class SaleSeeder extends Seeder
             'cashier_user_id' => $cashier->id,
             'status' => 'paid',
             'sale_datetime' => now()->subDays(2)->setHour(9)->setMinute(30),
-            'price_list_id' => $priceList?->id,
             'subtotal' => 950.00,
             'discount_total' => 0,
             'tax_total' => 0,
@@ -158,7 +148,6 @@ class SaleSeeder extends Seeder
             'cashier_user_id' => $cashier->id,
             'status' => 'paid',
             'sale_datetime' => now()->subDays(2)->setHour(12)->setMinute(45),
-            'price_list_id' => $priceList?->id,
             'subtotal' => 5250.00,
             'discount_total' => 0,
             'tax_total' => 0,
@@ -175,7 +164,6 @@ class SaleSeeder extends Seeder
             'cashier_user_id' => $cashier->id,
             'status' => 'paid',
             'sale_datetime' => now()->subDay()->setHour(8)->setMinute(45),
-            'price_list_id' => $priceList?->id,
             'subtotal' => 950.00,
             'discount_total' => 0,
             'tax_total' => 0,
@@ -192,7 +180,6 @@ class SaleSeeder extends Seeder
             'cashier_user_id' => $cashier->id,
             'status' => 'paid',
             'sale_datetime' => now()->subDay()->setHour(16)->setMinute(0),
-            'price_list_id' => $priceList?->id,
             'subtotal' => 1750.00,
             'discount_total' => 0,
             'tax_total' => 0,
@@ -208,7 +195,6 @@ class SaleSeeder extends Seeder
             'cashier_user_id' => $cashier->id,
             'status' => 'paid',
             'sale_datetime' => now()->setHour(9)->setMinute(10),
-            'price_list_id' => $priceList?->id,
             'subtotal' => 950.00,
             'discount_total' => 0,
             'tax_total' => 0,
@@ -224,7 +210,6 @@ class SaleSeeder extends Seeder
             'cashier_user_id' => $cashier->id,
             'status' => 'paid',
             'sale_datetime' => now()->setHour(11)->setMinute(30),
-            'price_list_id' => $priceList?->id,
             'subtotal' => 3500.00,
             'discount_total' => 0,
             'tax_total' => 0,
@@ -240,7 +225,6 @@ class SaleSeeder extends Seeder
             'cashier_user_id' => $cashier->id,
             'status' => 'pending',
             'sale_datetime' => now()->setHour(14)->setMinute(0),
-            'price_list_id' => $priceList?->id,
             'subtotal' => 1750.00,
             'discount_total' => 0,
             'tax_total' => 0,
@@ -256,7 +240,6 @@ class SaleSeeder extends Seeder
             'cashier_user_id' => $cashier->id,
             'status' => 'paid',
             'sale_datetime' => now()->setHour(16)->setMinute(45),
-            'price_list_id' => $priceList?->id,
             'subtotal' => 1750.00,
             'discount_total' => 0,
             'tax_total' => 0,

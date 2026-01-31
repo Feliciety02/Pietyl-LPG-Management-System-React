@@ -30,14 +30,18 @@ class SaleItemSeeder extends Seeder
         $variant22kg = $variants->where('size_value', 22.0)->first();
         $variant50kg = $variants->where('size_value', 50.0)->first();
 
+        $price11kg = $variant11kg?->product?->price ?? 0;
+        $price22kg = $variant22kg?->product?->price ?? 0;
+        $price50kg = $variant50kg?->product?->price ?? 0;
+
         // Sale 1: 11kg refill - PAID
         if ($sales->count() >= 1 && $variant11kg) {
             SaleItem::create([
                 'sale_id' => $sales[0]->id,
                 'product_variant_id' => $variant11kg->id,
                 'qty' => 1,
-                'unit_price' => 950.00,
-                'pricing_source' => 'price_list',
+                'unit_price' => $price11kg,
+                'pricing_source' => 'base_price',
             ]);
         }
 
@@ -47,8 +51,8 @@ class SaleItemSeeder extends Seeder
                 'sale_id' => $sales[1]->id,
                 'product_variant_id' => $variant22kg->id,
                 'qty' => 1,
-                'unit_price' => 1750.00,
-                'pricing_source' => 'price_list',
+                'unit_price' => $price22kg,
+                'pricing_source' => 'base_price',
             ]);
         }
 
@@ -58,8 +62,8 @@ class SaleItemSeeder extends Seeder
                 'sale_id' => $sales[2]->id,
                 'product_variant_id' => $variant50kg->id,
                 'qty' => 1,
-                'unit_price' => 3500.00,
-                'pricing_source' => 'price_list',
+                'unit_price' => $price50kg,
+                'pricing_source' => 'base_price',
             ]);
         }
 
@@ -69,8 +73,8 @@ class SaleItemSeeder extends Seeder
                 'sale_id' => $sales[3]->id,
                 'product_variant_id' => $variant22kg->id,
                 'qty' => 3,
-                'unit_price' => 1750.00,
-                'pricing_source' => 'price_list',
+                'unit_price' => $price22kg,
+                'pricing_source' => 'base_price',
             ]);
         }
 
@@ -80,8 +84,8 @@ class SaleItemSeeder extends Seeder
                 'sale_id' => $sales[4]->id,
                 'product_variant_id' => $variant11kg->id,
                 'qty' => 1,
-                'unit_price' => 950.00,
-                'pricing_source' => 'price_list',
+                'unit_price' => $price11kg,
+                'pricing_source' => 'base_price',
             ]);
         }
 
@@ -91,8 +95,8 @@ class SaleItemSeeder extends Seeder
                 'sale_id' => $sales[5]->id,
                 'product_variant_id' => $variant22kg->id,
                 'qty' => 1,
-                'unit_price' => 1750.00,
-                'pricing_source' => 'price_list',
+                'unit_price' => $price22kg,
+                'pricing_source' => 'base_price',
             ]);
         }
 
@@ -102,8 +106,8 @@ class SaleItemSeeder extends Seeder
                 'sale_id' => $sales[6]->id,
                 'product_variant_id' => $variant50kg->id,
                 'qty' => 2,
-                'unit_price' => 3500.00,
-                'pricing_source' => 'price_list',
+                'unit_price' => $price50kg,
+                'pricing_source' => 'base_price',
             ]);
         }
     }

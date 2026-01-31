@@ -14,6 +14,7 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\EmployeeController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Inventory\PurchaseController;
 
 Route::get('/', function () {
@@ -92,12 +93,36 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/reports', fn () => Inertia::render('AdminPage/Reports'))
             ->middleware('permission:admin.reports.view')
             ->name('dash.admin.reports');
-        Route::get('/suppliers', fn () => Inertia::render('AdminPage/Suppliers'))
+        Route::get('/suppliers', [SupplierController::class, 'index'])
             ->middleware('permission:admin.suppliers.view')
             ->name('dash.admin.suppliers');
-        Route::get('/products', fn () => Inertia::render('AdminPage/Products'))
+        Route::post('/suppliers', [SupplierController::class, 'store'])
+            ->middleware('permission:admin.suppliers.create')
+            ->name('dash.admin.suppliers.store');
+        Route::put('/suppliers/{supplier}', [SupplierController::class, 'update'])
+            ->middleware('permission:admin.suppliers.update')
+            ->name('dash.admin.suppliers.update');
+        Route::post('/suppliers/{supplier}/archive', [SupplierController::class, 'archive'])
+            ->middleware('permission:admin.suppliers.archive')
+            ->name('dash.admin.suppliers.archive');
+        Route::put('/suppliers/{supplier}/restore', [SupplierController::class, 'restore'])
+            ->middleware('permission:admin.suppliers.archive')
+            ->name('dash.admin.suppliers.restore');
+        Route::get('/products', [ProductController::class, 'index'])
             ->middleware('permission:admin.products.view')
             ->name('dash.admin.products');
+        Route::post('/products', [ProductController::class, 'store'])
+            ->middleware('permission:admin.products.create')
+            ->name('dash.admin.products.store');
+        Route::put('/products/{product}', [ProductController::class, 'update'])
+            ->middleware('permission:admin.products.update')
+            ->name('dash.admin.products.update');
+        Route::post('/products/{product}/archive', [ProductController::class, 'archive'])
+            ->middleware('permission:admin.products.archive')
+            ->name('dash.admin.products.archive');
+        Route::put('/products/{product}/restore', [ProductController::class, 'restore'])
+            ->middleware('permission:admin.products.archive')
+            ->name('dash.admin.products.restore');
     });
 
     Route::prefix('dashboard/cashier')->middleware('role:cashier')->group(function () {
@@ -233,9 +258,6 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/movements', [StockController::class, 'movements'])
             ->middleware('permission:inventory.movements.view')
             ->name('dash.inventory.movements');
-        Route::get('/suppliers', [SupplierController::class, 'index'])
-            ->middleware('permission:inventory.suppliers.view')
-            ->name('dash.inventory.suppliers');
         Route::get('/suppliers', [SupplierController::class, 'index'])
             ->middleware('permission:inventory.suppliers.view')
             ->name('dash.inventory.suppliers');

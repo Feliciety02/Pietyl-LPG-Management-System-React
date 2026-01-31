@@ -8,13 +8,14 @@ import DataTablePagination from "@/components/Table/DataTablePagination";
 
 import { TableActionButton } from "@/components/Table/ActionTableButton";
 
-import { UserPlus, Package, Eye, Pencil, Archive } from "lucide-react";
+import { UserPlus, Package, Eye, Pencil, Archive, RotateCcw } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 
 import AddSupplierModal from "@/components/modals/SupplierModals/AddSupplierModal";
 import EditSupplierModal from "@/components/modals/SupplierModals/EditSupplierModal";
 import SupplierDetailsModal from "@/components/modals/SupplierModals/SupplierDetailsModal";
 import ConfirmArchiveSupplierModal from "@/components/modals/SupplierModals/ConfirmArchiveSupplierModal";
+import ConfirmRestoreSupplierModal from "@/components/modals/SupplierModals/ConfirmRestoreSupplierModal";
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                     */
@@ -60,7 +61,7 @@ function StatusPill({ active }) {
           : "bg-slate-100 text-slate-700 ring-slate-200"
       )}
     >
-      {active ? "ACTIVE" : "INACTIVE"}
+      {active ? "ACTIVE" : "ARCHIVED"}
     </span>
   );
 }
@@ -150,13 +151,14 @@ export default function Suppliers() {
   const [editOpen, setEditOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const loading = Boolean(page.props?.loading);
 
   const statusTabs = [
     { value: "active", label: "Active" },
-    { value: "inactive", label: "Archived" },
+    { value: "archived", label: "Archived" },
     { value: "all", label: "All" },
   ];
 
@@ -292,6 +294,24 @@ export default function Suppliers() {
     );
   };
 
+  const restoreSupplier = () => {
+    if (!activeSupplier?.id || submitting) return;
+    setSubmitting(true);
+
+    router.put(
+      `${basePath}/${activeSupplier.id}/restore`,
+      {},
+      {
+        preserveScroll: true,
+        onFinish: () => setSubmitting(false),
+        onSuccess: () => {
+          setRestoreOpen(false);
+          router.reload({ only: ["suppliers"] });
+        },
+      }
+    );
+  };
+
   /* ----------------------- Render ----------------------------------------- */
 
   return (
@@ -348,7 +368,7 @@ export default function Suppliers() {
                 options: [
                   { value: "all", label: "All status" },
                   { value: "active", label: "Active" },
-                  { value: "inactive", label: "Inactive" },
+                  { value: "archived", label: "Archived" },
                 ],
               },
             ]}
@@ -379,28 +399,43 @@ export default function Suppliers() {
 
                   {!readOnly ? (
                     <>
-                      <TableActionButton
-                        icon={Pencil}
-                        onClick={() => {
-                          setActiveSupplier(s);
-                          setEditOpen(true);
-                        }}
-                        title="Edit supplier"
-                      >
-                        Edit
-                      </TableActionButton>
+                      {s.is_active ? (
+                        <>
+                          <TableActionButton
+                            icon={Pencil}
+                            onClick={() => {
+                              setActiveSupplier(s);
+                              setEditOpen(true);
+                            }}
+                            title="Edit supplier"
+                          >
+                            Edit
+                          </TableActionButton>
 
-                      <TableActionButton
-                        tone="danger"
-                        icon={Archive}
-                        onClick={() => {
-                          setActiveSupplier(s);
-                          setArchiveOpen(true);
-                        }}
-                        title="Archive supplier"
-                      >
-                        Archive
-                      </TableActionButton>
+                          <TableActionButton
+                            tone="danger"
+                            icon={Archive}
+                            onClick={() => {
+                              setActiveSupplier(s);
+                              setArchiveOpen(true);
+                            }}
+                            title="Archive supplier"
+                          >
+                            Archive
+                          </TableActionButton>
+                        </>
+                      ) : (
+                        <TableActionButton
+                          icon={RotateCcw}
+                          onClick={() => {
+                            setActiveSupplier(s);
+                            setRestoreOpen(true);
+                          }}
+                          title="Restore supplier"
+                        >
+                          Restore
+                        </TableActionButton>
+                      )}
                     </>
                   ) : null}
                 </div>
@@ -449,6 +484,14 @@ export default function Suppliers() {
         onClose={() => setArchiveOpen(false)}
         supplier={activeSupplier}
         onConfirm={archiveSupplier}
+        loading={submitting}
+      />
+
+      <ConfirmRestoreSupplierModal
+        open={restoreOpen}
+        onClose={() => setRestoreOpen(false)}
+        supplier={activeSupplier}
+        onConfirm={restoreSupplier}
         loading={submitting}
       />
     </Layout>

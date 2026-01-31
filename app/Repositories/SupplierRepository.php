@@ -27,7 +27,9 @@ class SupplierRepository
         }
 
         if (!empty($filters['status']) && $filters['status'] !== 'all') {
-            $this->query->where('is_active', $filters['status'] === 'active');
+            $status = $filters['status'];
+            $isActive = $status === 'active';
+            $this->query->where('is_active', $isActive);
         }
 
         return $this;

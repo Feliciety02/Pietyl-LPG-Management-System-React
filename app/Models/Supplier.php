@@ -23,6 +23,11 @@ class Supplier extends Model
         return $this->hasMany(SupplierProduct::class);
     }
 
+    public function products()
+    {
+        return $this->hasMany(Product::class);
+    }
+
     public function productVariants()
     {
         return $this->belongsToMany(ProductVariant::class, 'supplier_products')

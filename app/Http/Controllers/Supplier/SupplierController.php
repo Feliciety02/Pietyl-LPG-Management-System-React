@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Services\SupplierService;
 use App\Http\Controllers\Controller;
+use App\Models\Supplier;
 
 
 class SupplierController extends Controller
@@ -37,5 +38,78 @@ class SupplierController extends Controller
             'suppliers' => $suppliers,
             'filters'   => $filters,
         ]);
+    }
+
+    public function store(Request $request)
+    {
+        $user = $request->user();
+        if (!$user || !$user->can('admin.suppliers.create')) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'address' => ['nullable', 'string'],
+        ]);
+
+        Supplier::create([
+            'name' => $validated['name'],
+            'phone' => $validated['phone'] ?? null,
+            'email' => $validated['email'] ?? null,
+            'address' => $validated['address'] ?? null,
+            'is_active' => true,
+        ]);
+
+        return redirect()->back();
+    }
+
+    public function update(Request $request, Supplier $supplier)
+    {
+        $user = $request->user();
+        if (!$user || !$user->can('admin.suppliers.update')) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'address' => ['nullable', 'string'],
+        ]);
+
+        $supplier->update([
+            'name' => $validated['name'],
+            'phone' => $validated['phone'] ?? null,
+            'email' => $validated['email'] ?? null,
+            'address' => $validated['address'] ?? null,
+        ]);
+
+        return redirect()->back();
+    }
+
+    public function archive(Request $request, Supplier $supplier)
+    {
+        $user = $request->user();
+        if (!$user || !$user->can('admin.suppliers.archive')) {
+            abort(403);
+        }
+
+        $supplier->update(['is_active' => false]);
+
+        return redirect()->back();
+    }
+
+    public function restore(Request $request, Supplier $supplier)
+    {
+        $user = $request->user();
+        if (!$user || !$user->can('admin.suppliers.archive')) {
+            abort(403);
+        }
+
+        $supplier->update(['is_active' => true]);
+
+        return redirect()->back();
     }
 }

@@ -19,7 +19,6 @@ class Sale extends Model
         'cashier_user_id',
         'status',
         'sale_datetime',
-        'price_list_id',
         'subtotal',
         'discount_total',
         'tax_total',
@@ -45,13 +44,6 @@ class Sale extends Model
     {
         return $this->belongsTo(User::class, 'cashier_user_id');
     }
-
-    public function priceList(): BelongsTo
-    {
-        return $this->belongsTo(PriceList::class);
-    }
-
-   
 
     public function items(): HasMany
     {

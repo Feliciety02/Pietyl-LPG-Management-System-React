@@ -29,7 +29,7 @@ class InventoryBalanceService
                     'id' => $balance->id,
                     'location_id' => $balance->location_id,
                     'location_name' => $balance->location->name ?? null,
-                    'sku' => $balance->productVariant->barcode ?? null,
+                    'sku' => $balance->productVariant->product->sku ?? null,
                     'product_name' => $balance->productVariant->product->name ?? null,
                     'variant' => $balance->productVariant->variant_name ?? null,
                     'filled_qty' => (int)$balance->qty_filled,
@@ -72,7 +72,7 @@ class InventoryBalanceService
                 return [
                     'id' => $balance->id,
                     'location_name' => $balance->location->name ?? null,
-                    'sku' => $balance->productVariant->barcode ?? null,
+                    'sku' => $balance->productVariant->product->sku ?? null,
                     'name' => $balance->productVariant->product->name ?? null,
                     'variant' => $balance->productVariant->variant_name ?? null,
                     'supplier_name' => $primarySupplier?->name ?? '—',
@@ -99,7 +99,7 @@ class InventoryBalanceService
             if (!isset($productHash[$key])) {
                 $productHash[$key] = [
                     'id' => $variant->id,
-                    'sku' => $variant->barcode,
+                    'sku' => $variant->product->sku,
                     'name' => $variant->product->name,
                     'variant' => $variant->variant_name,
                     'default_supplier_id' => $primarySupplier?->id,

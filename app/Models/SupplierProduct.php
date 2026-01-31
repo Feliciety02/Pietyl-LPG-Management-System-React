@@ -12,11 +12,13 @@ class SupplierProduct extends Model
         'supplier_sku',
         'lead_time_days',
         'is_primary',
+        'supplier_cost',
     ];
 
     protected $casts = [
         'is_primary' => 'boolean',
         'lead_time_days' => 'integer',
+        'supplier_cost' => 'decimal:2',
     ];
 
     public function supplier()
