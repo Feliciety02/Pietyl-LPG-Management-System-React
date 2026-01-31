@@ -122,6 +122,7 @@ export default function POS() {
   const PosNext = posIcons.next;
 
   const PosLpg = posIcons.lpg;
+  const PosStove = posIcons.stove;
   const PosAccessories = posIcons.accessories;
 
   const CustomersIcon = sidebarIconMap.customers;
@@ -151,7 +152,12 @@ export default function POS() {
     const s = String(q || "").toLowerCase().trim();
 
     return products
-      .filter((p) => (category === "all" ? true : String(p.category || "").toLowerCase() === category))
+      .filter((p) => {
+        if (category === "all") return true;
+        const raw = String(p.category || "").toLowerCase();
+        const normalized = raw === "accesories" ? "accessories" : raw;
+        return normalized === category;
+      })
       .filter((p) => (!s ? true : `${p.name} ${p.variant}`.toLowerCase().includes(s)));
   }, [products, q, category]);
 
@@ -271,6 +277,13 @@ export default function POS() {
                     <span className="inline-flex items-center gap-2">
                       <PosLpg className="h-4 w-4" />
                       LPG
+                    </span>
+                  </Pill>
+
+                  <Pill active={category === "stove"} onClick={() => setCategory("stove")}>
+                    <span className="inline-flex items-center gap-2">
+                      <PosStove className="h-4 w-4" />
+                      Stove
                     </span>
                   </Pill>
 

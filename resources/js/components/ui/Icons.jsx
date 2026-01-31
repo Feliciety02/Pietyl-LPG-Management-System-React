@@ -52,6 +52,7 @@ import {
   Search,
   Flame,
   Wrench,
+  ChefHat,
   Plus,
   Minus,
   Trash2,
@@ -135,5 +136,6 @@ export const posIcons = {
   next: ArrowRight,
 
   lpg: Flame,
+  stove: ChefHat,
   accessories: Wrench,
 };

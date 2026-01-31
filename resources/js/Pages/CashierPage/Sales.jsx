@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
 
@@ -147,9 +147,7 @@ export default function Sales() {
   const [activeSale, setActiveSale] = useState(null);
   const [viewOpen, setViewOpen] = useState(false);
   const [reprintOpen, setReprintOpen] = useState(false);
-  const [liveSales, setLiveSales] = useState(null);
-
-  const sales = liveSales ?? page.props?.sales ?? { data: [], meta: null };
+  const sales = page.props?.sales ?? { data: [], meta: null };
 
   const rows = sales?.data ?? [];
   const meta = sales?.meta ?? null;
@@ -251,38 +249,6 @@ export default function Sales() {
     ],
     []
   );
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const poll = async () => {
-      try {
-        const params = new URLSearchParams({ 
-          q, 
-          status, 
-          per: String(per),
-          page: String(currentPage)
-        });
-        const res = await fetch(`/dashboard/cashier/sales/latest?${params.toString()}`, {
-          headers: { Accept: "application/json" },
-        });
-
-        if (!res.ok) return;
-        const data = await res.json();
-        if (isMounted && data && data.data) setLiveSales(data);
-      } catch {
-        // ignore polling errors
-      }
-    };
-
-    poll();
-    const timer = setInterval(poll, 5000);
-
-    return () => {
-      isMounted = false;
-      clearInterval(timer);
-    };
-  }, [q, status, per, currentPage]);
 
   const readOnly = !(isAdmin || isCashier);
 

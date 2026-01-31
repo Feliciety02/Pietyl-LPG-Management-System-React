@@ -13,9 +13,9 @@ use App\Models\Customer;
 use App\Models\ProductVariant;
 use App\Models\PaymentMethod;
 use App\Models\Location;
-use App\Models\AuditLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Carbon\Carbon;
 
@@ -28,21 +28,46 @@ class POSController extends Controller
             abort(403);
         }
 
-        $products = \App\Models\ProductVariant::with('product')
+        $variants = \App\Models\ProductVariant::with('product')
             ->where('is_active', 1) // 2026 standard ang 1
-            ->get()
-            ->map(function ($variant) {
-                $basePrice = $variant->product?->price ?? 0;
+            ->whereHas('product', function ($q) {
+                $q->where('is_active', true);
+            })
+            ->get();
 
-                return [
-                    'id'           => $variant->id,
-                    'name'         => $variant->product->name ?? 'Unknown',
-                    'variant'      => $variant->variant_name,
-                    'category'     => $variant->product->category ?? 'lpg',
-                    'price_refill' => $basePrice,
-                    'price_swap'   => $basePrice * 1.25,
-                ];
-            });
+        $priceListPrices = [];
+        if (Schema::hasTable('price_lists') && Schema::hasTable('price_list_items') && $variants->isNotEmpty()) {
+            $priceListId = DB::table('price_lists')
+                ->where('is_active', 1)
+                ->orderByDesc('starts_at')
+                ->orderByDesc('created_at')
+                ->value('id');
+
+            if ($priceListId) {
+                $priceListPrices = DB::table('price_list_items')
+                    ->where('price_list_id', $priceListId)
+                    ->whereIn('product_variant_id', $variants->pluck('id'))
+                    ->pluck('price', 'product_variant_id')
+                    ->toArray();
+            }
+        }
+
+        $products = $variants->map(function ($variant) use ($priceListPrices) {
+            $basePrice = $variant->product?->price ?? 0;
+            if (isset($priceListPrices[$variant->id])) {
+                $basePrice = $priceListPrices[$variant->id];
+            }
+            $basePrice = (float) $basePrice;
+
+            return [
+                'id'           => $variant->id,
+                'name'         => $variant->product->name ?? 'Unknown',
+                'variant'      => $variant->variant_name,
+                'category'     => $variant->product->category ?? 'lpg',
+                'price_refill' => $basePrice,
+                'price_swap'   => $basePrice * 1.25,
+            ];
+        });
 
         $customers = \App\Models\Customer::select('id', 'name', 'phone')
             ->orderBy('name')
@@ -172,25 +197,6 @@ class POSController extends Controller
             }
 
             DB::commit();
-
-            $user = auth()->user();
-            if ($user) {
-                AuditLog::create([
-                    'actor_user_id' => $user->id,
-                    'action' => 'sale.create',
-                    'entity_type' => 'Sale',
-                    'entity_id' => $sale->id,
-                    'message' => 'Recorded a sale (' . ($request->is_delivery ? 'delivery' : 'walk in') . ')',
-                    'after_json' => [
-                        'sale_number' => $sale->sale_number,
-                        'grand_total' => $sale->grand_total,
-                        'payment_method' => $request->payment_method,
-                        'lines' => $request->lines,
-                    ],
-                    'ip_address' => $request->ip(),
-                    'user_agent' => $request->userAgent(),
-                ]);
-            }
 
             return redirect()->back()->with('success', 'Sale completed successfully!');
 
