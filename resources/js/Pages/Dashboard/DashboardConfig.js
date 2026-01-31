@@ -3,12 +3,12 @@ export const DASHBOARD_CONFIG = {
   admin: {
     title: "Owner Overview",
     actions: [
-      { label: "Employees", href: "/dashboard/admin/employees" },
-      { label: "Products", href: "/dashboard/admin/products" },
-      { label: "Suppliers", href: "/dashboard/admin/suppliers" },
-      { label: "Low Stock", href: "/dashboard/inventory/low-stock" },
-      { label: "Reports", href: "/dashboard/admin/reports" },
-      { label: "Audit Logs", href: "/dashboard/admin/audit" },
+      { label: "Employees", href: "/dashboard/admin/employees", permission: "admin.employees.view" },
+      { label: "Products", href: "/dashboard/admin/products", permission: "admin.products.view" },
+      { label: "Suppliers", href: "/dashboard/admin/suppliers", permission: "admin.suppliers.view" },
+      { label: "Low Stock", href: "/dashboard/inventory/low-stock", permission: "inventory.stock.low_stock" },
+      { label: "Reports", href: "/dashboard/admin/reports", permission: "admin.reports.view" },
+      { label: "Audit Logs", href: "/dashboard/admin/audit", permission: "admin.audit.view" },
     ],
     activityTitle: "Owner activity",
     activity: [
@@ -21,9 +21,9 @@ export const DASHBOARD_CONFIG = {
   cashier: {
     title: "Cashier",
     actions: [
-      { label: "Point of Sale", href: "/dashboard/cashier/POS" },
-      { label: "Sales History", href: "/dashboard/cashier/sales" },
-      { label: "Customers", href: "/dashboard/cashier/customers" },
+      { label: "Point of Sale", href: "/dashboard/cashier/POS", permission: "cashier.pos.use" },
+      { label: "Sales History", href: "/dashboard/cashier/sales", permission: "cashier.sales.view" },
+      { label: "Customers", href: "/dashboard/cashier/customers", permission: "cashier.customers.view" },
     ],
     activityTitle: "Shift activity",
     activity: [],
@@ -32,11 +32,11 @@ export const DASHBOARD_CONFIG = {
   accountant: {
     title: "Accountant",
     actions: [
-      { label: "Remittances", href: "/dashboard/accountant/remittances" },
-      { label: "Daily Summary", href: "/dashboard/accountant/daily" },
-      { label: "Ledger", href: "/dashboard/accountant/ledger" },
-      { label: "Payroll", href: "/dashboard/accountant/payroll" },
-      { label: "Reports", href: "/dashboard/accountant/reports" },
+      { label: "Remittances", href: "/dashboard/accountant/remittances", permission: "accountant.remittances.view" },
+      { label: "Daily Summary", href: "/dashboard/accountant/daily", permission: "accountant.daily.view" },
+      { label: "Ledger", href: "/dashboard/accountant/ledger", permission: "accountant.ledger.view" },
+      { label: "Payroll", href: "/dashboard/accountant/payroll", permission: "accountant.payroll.view" },
+      { label: "Reports", href: "/dashboard/accountant/reports", permission: "accountant.reports.view" },
     ],
     activityTitle: "Accounting notes",
     activity: [],
@@ -45,10 +45,10 @@ export const DASHBOARD_CONFIG = {
   rider: {
     title: "Rider",
     actions: [
-      { label: "My Deliveries", href: "/dashboard/rider/deliveries" },
-      { label: "Update Status", href: "/dashboard/rider/deliveries" },
-      { label: "History", href: "/dashboard/rider/history" },
-      { label: "Remittance", href: "/dashboard/rider/remittance" },
+      { label: "My Deliveries", href: "/dashboard/rider/deliveries", permission: "rider.deliveries.view" },
+      { label: "Update Status", href: "/dashboard/rider/deliveries", permission: "rider.deliveries.update" },
+      { label: "History", href: "/dashboard/rider/history", permission: "rider.history.view" },
+      { label: "Remittance", href: "/dashboard/rider/remittance", permission: "rider.remittance.view" },
     ],
     activityTitle: "Delivery timeline",
     activity: [],
@@ -57,11 +57,11 @@ export const DASHBOARD_CONFIG = {
   inventory_manager: {
     title: "Inventory",
     actions: [
-      { label: "Stock Counts", href: "/dashboard/inventory/counts" },
-      { label: "Movements", href: "/dashboard/inventory/movements" },
-      { label: "Low Stock", href: "/dashboard/inventory/low-stock" },
-      { label: "Purchases", href: "/dashboard/inventory/purchases" },
-      { label: "Suppliers", href: "/dashboard/inventory/suppliers" },
+      { label: "Stock Counts", href: "/dashboard/inventory/counts", permission: "inventory.stock.view" },
+      { label: "Movements", href: "/dashboard/inventory/movements", permission: "inventory.movements.view" },
+      { label: "Low Stock", href: "/dashboard/inventory/low-stock", permission: "inventory.stock.low_stock" },
+      { label: "Purchases", href: "/dashboard/inventory/purchases", permission: "inventory.purchases.view" },
+      { label: "Suppliers", href: "/dashboard/inventory/suppliers", permission: "inventory.suppliers.view" },
     ],
     activityTitle: "Inventory notes",
     activity: [],

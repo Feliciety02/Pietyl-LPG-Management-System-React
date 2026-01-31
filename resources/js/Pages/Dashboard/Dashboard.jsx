@@ -26,9 +26,16 @@ function Panel({ title, right, children }) {
 export default function RoleDashboard() {
   const { auth } = usePage().props;
   const user = auth?.user;
+  const permissions = Array.isArray(user?.permissions) ? user.permissions : [];
+  const permissionSet = useMemo(() => new Set(permissions), [permissions]);
+  const can = (perm) => !perm || permissionSet.has(perm);
 
   const roleKey = user?.role || "admin";
   const config = DASHBOARD_CONFIG[roleKey] || DASHBOARD_CONFIG.admin;
+  const actions = useMemo(
+    () => (config.actions || []).filter((a) => can(a.permission)),
+    [config, permissions]
+  );
 
   const heroLine = useMemo(() => {
     const map = {
@@ -82,7 +89,7 @@ export default function RoleDashboard() {
               }
             >
               <div className="grid gap-3 md:grid-cols-2">
-                {config.actions.slice(0, 6).map((a) => (
+                {actions.slice(0, 6).map((a) => (
                   <Link
                     key={a.href}
                     href={a.href}
