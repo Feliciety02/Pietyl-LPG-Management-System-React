@@ -4,6 +4,7 @@ namespace App\Models;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Traits\HasRoles;
 
 
 /**
@@ -13,7 +14,7 @@ use Illuminate\Notifications\Notifiable;
  */
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, HasRoles;
 
     protected $fillable = [
         'employee_id',
@@ -36,17 +37,6 @@ class User extends Authenticatable
     public function employee()
     {
         return $this->belongsTo(Employee::class);
-    }
-
-    public function roles()
-    {
-        return $this->belongsToMany(Role::class, 'user_roles')
-            ->withTimestamps();
-    }
-
-    public function hasRole(string $roleName): bool
-    {
-        return $this->roles()->where('name', $roleName)->exists();
     }
 
     public function primaryRoleName(): ?string

@@ -17,6 +17,17 @@ class AuditLogController extends Controller
 
     public function index(Request $request)
     {
+        $user = $request->user();
+        if (!$user || !$user->canAny([
+            'admin.audit.view',
+            'cashier.audit.view',
+            'accountant.audit.view',
+            'rider.audit.view',
+            'inventory.audit.view',
+        ])) {
+            abort(403);
+        }
+
         $filters = $request->only(['q', 'event', 'entity_type', 'per', 'page', 'sector']);
         $audits = $this->svc->getAuditLogsForPage($filters);
 

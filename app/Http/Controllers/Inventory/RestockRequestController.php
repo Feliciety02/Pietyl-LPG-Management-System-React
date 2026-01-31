@@ -18,6 +18,11 @@ class RestockRequestController extends Controller
 
     public function index(Request $request)
     {
+        $user = $request->user();
+        if (!$user || !$user->can('inventory.purchases.view')) {
+            abort(403);
+        }
+
         $filters = $request->only(['q', 'status', 'priority', 'per', 'page']);
         $requests = $this->svc->getRequestsForPage($filters);
 
@@ -29,6 +34,11 @@ class RestockRequestController extends Controller
 
     public function store(Request $request)
     {
+        $user = $request->user();
+        if (!$user || !$user->can('inventory.purchases.create')) {
+            abort(403);
+        }
+
         // TODO: LACKING INFORMATION FOR RESTOCK REQUEST CREATION ON request
         $data = $request->all();
         $data['requested_by_user_id'] = auth()->id();
@@ -40,6 +50,11 @@ class RestockRequestController extends Controller
 
     public function approve(Request $request, int $id)
     {
+        $user = $request->user();
+        if (!$user || !$user->can('inventory.purchases.update')) {
+            abort(403);
+        }
+
         $success = $this->svc->approveRequest($id, auth()->id());
 
         if (!$success) {
@@ -51,6 +66,11 @@ class RestockRequestController extends Controller
 
     public function reject(Request $request, int $id)
     {
+        $user = $request->user();
+        if (!$user || !$user->can('inventory.purchases.update')) {
+            abort(403);
+        }
+
         $success = $this->svc->rejectRequest($id, auth()->id());
 
         if (!$success) {

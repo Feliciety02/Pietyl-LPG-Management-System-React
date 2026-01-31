@@ -67,13 +67,15 @@ class UserSeeder extends Seeder
                 'updated_at' => now(),
             ]);
 
-            // assign role
-            DB::table('user_roles')->insert([
-                'user_id' => $userId,
-                'role_id' => DB::table('roles')->where('name', $u['role'])->value('id'),
-                'created_at' => now(), 
-                'updated_at' => now(),
-            ]);
+            // assign role (spatie model_has_roles)
+            $roleId = DB::table('roles')->where('name', $u['role'])->value('id');
+            if ($roleId) {
+                DB::table('model_has_roles')->insert([
+                    'role_id' => $roleId,
+                    'model_type' => \App\Models\User::class,
+                    'model_id' => $userId,
+                ]);
+            }
         }
     }
 }

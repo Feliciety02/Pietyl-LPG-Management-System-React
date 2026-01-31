@@ -19,6 +19,11 @@ class SupplierController extends Controller
 
     public function index(Request $request)
     {
+        $user = $request->user();
+        if (!$user || !$user->canAny(['admin.suppliers.view', 'inventory.suppliers.view'])) {
+            abort(403);
+        }
+
         $filters = [
             'q'      => $request->input('q', ''),
             'status' => $request->input('status', 'all'),

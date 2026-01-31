@@ -21,8 +21,13 @@ use Carbon\Carbon;
 
 class POSController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $user = $request->user();
+        if (!$user || !$user->can('cashier.pos.use')) {
+            abort(403);
+        }
+
         $activePriceList = \App\Models\PriceList::with('priceListItems')
             ->where('is_active', true)
             ->latest('starts_at')
@@ -63,6 +68,11 @@ class POSController extends Controller
      */
     public function store(Request $request)
     {
+        $user = $request->user();
+        if (!$user || !$user->can('cashier.sales.create')) {
+            abort(403);
+        }
+
         $request->validate([
             'customer_id' => 'required|exists:customers,id',
             'is_delivery' => 'boolean',

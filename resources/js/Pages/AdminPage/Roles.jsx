@@ -7,7 +7,7 @@ import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
 
-import { Plus, Users, Pencil } from "lucide-react";
+import { Plus, Users, Pencil, RotateCcw } from "lucide-react";
 import { SkeletonLine, SkeletonButton } from "@/components/ui/Skeleton";
 
 import {
@@ -21,6 +21,8 @@ import RoleUsersModal from "@/components/modals/AdminModals/RoleUsersModal";
 import DuplicateRoleModal from "@/components/modals/AdminModals/DuplicateRoleModal";
 import ConfirmRoleArchiveModal from "@/components/modals/AdminModals/ConfirmRoleArchiveModal";
 import RoleActionsModal from "@/components/modals/AdminModals/RoleActionsModal";
+import RolePermissionsModal from "@/components/modals/AdminModals/RolePermissionsModal";
+import ConfirmRoleRestoreModal from "@/components/modals/AdminModals/ConfirmRoleRestoreModal";
 
 function titleCase(s = "") {
   return String(s || "")
@@ -101,6 +103,14 @@ function SystemPill() {
   );
 }
 
+function ArchivedPill() {
+  return (
+    <span className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1 bg-rose-600/10 text-rose-900 ring-rose-700/10">
+      ARCHIVED
+    </span>
+  );
+}
+
 /* -------------------------------------------------------------------------- */
 /* Layout bits                                                                 */
 /* -------------------------------------------------------------------------- */
@@ -132,6 +142,7 @@ export default function Roles() {
 
   const rows = roles.data || [];
   const meta = roles.meta || null;
+  const permissions = page.props?.permissions || [];
 
   const query = page.props?.filters || {};
   const per = Number(query?.per || 10);
@@ -140,7 +151,7 @@ export default function Roles() {
   const [scope, setScope] = useState(query?.scope || "all");
 
   const [activeRole, setActiveRole] = useState(null);
-  const [modal, setModal] = useState(null); // users | actions | create | edit | duplicate | archive
+  const [modal, setModal] = useState(null); // users | actions | create | edit | duplicate | archive | restore | permissions
   const [submitting, setSubmitting] = useState(false);
 
   const loading = Boolean(page.props?.loading);
@@ -149,6 +160,8 @@ export default function Roles() {
     { value: "all", label: "All roles" },
     { value: "system", label: "System roles" },
     { value: "custom", label: "Custom roles" },
+    { value: "all_with_archived", label: "All (including archived)" },
+    { value: "archived", label: "Archived roles" },
   ];
 
   const pushQuery = (patch) => {
@@ -226,6 +239,34 @@ export default function Roles() {
     });
   };
 
+  const restoreRole = () => {
+    if (!activeRole?.id || submitting) return;
+    setSubmitting(true);
+
+    router.put(`/dashboard/admin/roles/${activeRole.id}/restore`, {}, {
+      preserveScroll: true,
+      onFinish: () => setSubmitting(false),
+      onSuccess: () => {
+        closeModals();
+        refreshRoles();
+      },
+    });
+  };
+
+  const updateRolePermissions = (payload) => {
+    if (!activeRole?.id || submitting) return;
+    setSubmitting(true);
+
+    router.put(`/dashboard/admin/roles/${activeRole.id}/permissions`, payload, {
+      preserveScroll: true,
+      onFinish: () => setSubmitting(false),
+      onSuccess: () => {
+        closeModals();
+        refreshRoles();
+      },
+    });
+  };
+
   const fillerRows = useMemo(
     () =>
       Array.from({ length: per }).map((_, i) => ({
@@ -253,6 +294,7 @@ export default function Roles() {
               <div className="flex items-center gap-2">
                 <RolePill name={r.name} />
                 {r.is_system ? <SystemPill /> : null}
+                {r.is_archived ? <ArchivedPill /> : null}
               </div>
               <div className="text-xs text-slate-500">
                 {r.label || titleCase(r.name)}
@@ -361,16 +403,29 @@ export default function Roles() {
                   View
                 </TableActionButton>
 
-                <TableActionButton
-                  icon={Pencil}
-                  onClick={() => {
-                    setActiveRole(r);
-                    setModal("edit");
-                  }}
-                  title="Edit role"
-                >
-                  Edit
-                </TableActionButton>
+                {!r.is_archived ? (
+                  <TableActionButton
+                    icon={Pencil}
+                    onClick={() => {
+                      setActiveRole(r);
+                      setModal("edit");
+                    }}
+                    title="Edit role"
+                  >
+                    Edit
+                  </TableActionButton>
+                ) : (
+                  <TableActionButton
+                    icon={RotateCcw}
+                    onClick={() => {
+                      setActiveRole(r);
+                      setModal("restore");
+                    }}
+                    title="Restore role"
+                  >
+                    Restore
+                  </TableActionButton>
+                )}
 
                 <TableActionMenu
                   onClick={() => {
@@ -420,6 +475,8 @@ export default function Roles() {
           onClose={closeModals}
           onDuplicate={() => setModal("duplicate")}
           onArchive={() => setModal("archive")}
+          onRestore={() => setModal("restore")}
+          onPermissions={() => setModal("permissions")}
           loading={submitting}
         />
 
@@ -436,6 +493,23 @@ export default function Roles() {
           role={activeRole}
           onClose={closeModals}
           onConfirm={archiveRole}
+          loading={submitting}
+        />
+
+        <ConfirmRoleRestoreModal
+          open={modal === "restore"}
+          role={activeRole}
+          onClose={closeModals}
+          onConfirm={restoreRole}
+          loading={submitting}
+        />
+
+        <RolePermissionsModal
+          open={modal === "permissions"}
+          role={activeRole}
+          permissions={permissions}
+          onClose={closeModals}
+          onSubmit={updateRolePermissions}
           loading={submitting}
         />
       </div>

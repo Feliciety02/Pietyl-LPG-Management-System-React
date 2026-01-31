@@ -18,6 +18,11 @@ class SaleController extends Controller
 
     public function index(Request $request)
     {
+        $user = $request->user();
+        if (!$user || !$user->can('cashier.sales.view')) {
+            abort(403);
+        }
+
         $filters = $request->only(['q', 'status', 'per', 'page']);
         $sales = $this->svc->getSalesForPage($filters);
 
@@ -29,6 +34,11 @@ class SaleController extends Controller
 
     public function latest(Request $request)
     {
+        $user = $request->user();
+        if (!$user || !$user->can('cashier.sales.view')) {
+            abort(403);
+        }
+
         $filters = $request->only(['q', 'status', 'per', 'page']);
         $sales = $this->svc->getSalesForPage($filters);
 

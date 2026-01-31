@@ -19,6 +19,11 @@ class CustomerController extends Controller
 
     public function index(Request $request)
     {
+        $user = $request->user();
+        if (!$user || !$user->can('cashier.customers.view')) {
+            abort(403);
+        }
+
         $filters = $request->only(['q', 'per', 'page']);
         $customers = $this->svc->getCustomersForPage($filters);
 
@@ -30,6 +35,11 @@ class CustomerController extends Controller
 
     public function store(Request $request)
     {   
+        $user = $request->user();
+        if (!$user || !$user->can('cashier.customers.create')) {
+            abort(403);
+        }
+
         //TODO: BASIG NEED TO ADJUST VALIDATION RULES
         $validated = $request->validate([
         'name' => 'required|string|max:255',
@@ -47,6 +57,11 @@ class CustomerController extends Controller
 
     public function update(Request $request, Customer $customer)
     {
+        $user = $request->user();
+        if (!$user || !$user->can('cashier.customers.update')) {
+            abort(403);
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'phone' => 'nullable|string|max:50',
@@ -66,8 +81,13 @@ class CustomerController extends Controller
         return redirect()->back()->with('success', 'Customer updated successfully');
     }
 
-    public function show(Customer $customer)
+    public function show(Request $request, Customer $customer)
     {
+        $user = $request->user();
+        if (!$user || !$user->can('cashier.customers.view')) {
+            abort(403);
+        }
+
         $customer->load('addresses');
 
         return Inertia::render('Cashier/CustomerShow', [
@@ -75,8 +95,13 @@ class CustomerController extends Controller
         ]);
     }
 
-    public function destroy(Customer $customer)
+    public function destroy(Request $request, Customer $customer)
     {
+        $user = $request->user();
+        if (!$user || !$user->can('cashier.customers.delete')) {
+            abort(403);
+        }
+
         $this->svc->deleteCustomer($customer);
 
         return redirect()->route('cashier.customers.index')

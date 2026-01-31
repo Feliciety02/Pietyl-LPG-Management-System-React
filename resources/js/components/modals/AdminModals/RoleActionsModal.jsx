@@ -1,5 +1,5 @@
 import React from "react";
-import { Copy, Archive, Lock, Layers3 } from "lucide-react";
+import { Copy, Archive, Lock, Layers3, KeyRound, RotateCcw } from "lucide-react";
 import ModalShell from "../ModalShell";
 
 function cx(...classes) {
@@ -80,9 +80,12 @@ export default function RoleActionsModal({
   role,
   onDuplicate,
   onArchive,
+  onPermissions,
+  onRestore,
   loading = false,
 }) {
   const isSystem = Boolean(role?.is_system);
+  const isArchived = Boolean(role?.is_archived);
   const roleLabel = role ? String(role.label || role.name || "role") : "role";
   const canAct = Boolean(role?.id) && !loading;
 
@@ -97,6 +100,24 @@ export default function RoleActionsModal({
       icon={Layers3}
     >
       <div className="grid gap-2">
+        {isArchived ? (
+          <ActionCard
+            icon={RotateCcw}
+            title="Restore role"
+            hint="Bring this role back to active use."
+            onClick={() => canAct && onRestore?.()}
+            disabled={!role?.id || loading}
+          />
+        ) : null}
+
+        <ActionCard
+          icon={KeyRound}
+          title="Manage permissions"
+          hint="Assign or remove permissions for this role."
+          onClick={() => canAct && onPermissions?.()}
+          disabled={!role?.id || loading || isArchived}
+        />
+
         <ActionCard
           icon={Copy}
           title="Duplicate role"
@@ -114,11 +135,11 @@ export default function RoleActionsModal({
               : "Prevents new assignments and removes it from active lists."
           }
           onClick={() => canAct && !isSystem && onArchive?.()}
-          disabled={!role?.id || loading || isSystem}
+          disabled={!role?.id || loading || isSystem || isArchived}
           tone={isSystem ? "locked" : "danger"}
         />
 
-        {!isSystem ? (
+        {!isSystem && !isArchived ? (
           <div className="mt-1 rounded-2xl bg-rose-600/10 ring-1 ring-rose-700/10 px-4 py-2 text-xs text-rose-800">
             users should be reassigned before archiving.
           </div>

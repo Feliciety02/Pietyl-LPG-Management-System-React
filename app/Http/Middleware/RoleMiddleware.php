@@ -17,9 +17,8 @@ class RoleMiddleware
             return redirect()->route('login');
         }
 
-        $userRole = $user->roles()->first()?->name;
-
-        if ($userRole !== $role) {
+        if (!$user->hasRole($role)) {
+            $userRole = $user->roles()->first()?->name;
             return redirect(match ($userRole) {
                 'admin' => '/dashboard/admin',
                 'cashier' => '/dashboard/cashier',

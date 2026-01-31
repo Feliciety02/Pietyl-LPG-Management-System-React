@@ -13,8 +13,13 @@ use Inertia\Inertia;
 class StockController extends Controller
 {
     
-    public function stockCount(InventoryBalanceService $svc)
+    public function stockCount(Request $request, InventoryBalanceService $svc)
     {
+        $user = $request->user();
+        if (!$user || !$user->can('inventory.stock.view')) {
+            abort(403);
+        }
+
         $data = $svc->MapDataForCountPage();
 
         return Inertia::render('InventoryPage/StockCounts', [
@@ -35,6 +40,11 @@ class StockController extends Controller
    
     public function update(Request $request, InventoryBalance $inventoryBalance, InventoryBalanceService $svc)
     {
+        $user = $request->user();
+        if (!$user || !$user->can('inventory.stock.adjust')) {
+            abort(403);
+        }
+
         $svc->adjustStock($inventoryBalance, $request->validate([
             'filled_qty' => 'required|integer|min:0',
             'empty_qty' => 'required|integer|min:0',
@@ -46,8 +56,13 @@ class StockController extends Controller
     }
 
     
-    public function lowStock(InventoryBalanceService $svc)
+    public function lowStock(Request $request, InventoryBalanceService $svc)
     {
+        $user = $request->user();
+        if (!$user || !$user->can('inventory.stock.low_stock')) {
+            abort(403);
+        }
+
         $data = $svc->getLowStock();
 
         return Inertia::render('InventoryPage/LowStock', [
@@ -69,6 +84,11 @@ class StockController extends Controller
 
     public function movements(Request $request)
     {
+        $user = $request->user();
+        if (!$user || !$user->can('inventory.movements.view')) {
+            abort(403);
+        }
+
         $query = StockMovement::with([
             'productVariant.product',
             'performedBy',

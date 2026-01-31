@@ -37,6 +37,7 @@ class RoleSeeder extends Seeder
                 ['name' => $role['name']],
                 [
                     'description' => $role['description'],
+                    'guard_name' => 'web',
                     'created_at' => now(),
                     'updated_at' => now(),
                     'deleted_at' => null,
