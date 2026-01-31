@@ -68,6 +68,7 @@ export default function OrderStockModal({
   const [productId, setProductId] = useState("");
   const [supplierId, setSupplierId] = useState("");
   const [qty, setQty] = useState("");
+  const [unitCost, setUnitCost] = useState("");
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
@@ -81,6 +82,7 @@ export default function OrderStockModal({
 
     setSupplierId(defaultSupplier ? String(defaultSupplier.id) : "");
     setQty(item?.suggest_qty ? String(item.suggest_qty) : "");
+    setUnitCost(defaultSupplier?.unit_cost ? String(defaultSupplier.unit_cost) : "");
     setNotes("");
   }, [open, item, suppliers]);
 
@@ -104,9 +106,11 @@ export default function OrderStockModal({
     const variantSuppliers = suppliers[nextId]?.suppliers || [];
     const defaultSupplier = variantSuppliers.find((s) => s.is_primary) || variantSuppliers[0];
     setSupplierId(defaultSupplier ? String(defaultSupplier.id) : "");
+    setUnitCost(defaultSupplier?.unit_cost ? String(defaultSupplier.unit_cost) : "");
 
     if (!nextId) {
       setQty("");
+      setUnitCost("");
       setNotes("");
     }
   };
@@ -115,9 +119,10 @@ export default function OrderStockModal({
     if (!canSubmit || loading) return;
 
     onSubmit?.({
-      product_id: Number(productId),
+      product_variant_id: Number(productId),
       supplier_id: Number(supplierId),
       qty: safeNum(qty),
+      unit_cost: safeNum(unitCost),
       notes: notes.trim() || null,
     });
   };
@@ -232,16 +237,35 @@ export default function OrderStockModal({
             </InputShell>
           </Field>
 
-          <Field label="Notes" hint="Optional">
-            <Textarea
-              icon={StickyNote}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Internal notes..."
-              disabled={loading}
-            />
+          <Field label="Unit Cost" hint="Auto-filled, editable (₱)">
+            <InputShell icon={Hash}>
+              <input
+                value={unitCost}
+                onChange={(e) => setUnitCost(e.target.value)}
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                placeholder="0.00"
+                className="w-full bg-transparent text-sm font-extrabold text-slate-900 outline-none placeholder:text-slate-400"
+                disabled={loading}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") submit();
+                }}
+              />
+            </InputShell>
           </Field>
         </div>
+
+        <Field label="Notes" hint="Optional">
+          <Textarea
+            icon={StickyNote}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Internal notes..."
+            disabled={loading}
+          />
+        </Field>
       </div>
     </ModalShell>
   );
