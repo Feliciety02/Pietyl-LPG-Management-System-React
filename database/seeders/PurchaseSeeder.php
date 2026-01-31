@@ -12,12 +12,8 @@ use Carbon\Carbon;
 
 class PurchaseSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        // Get required data
         $suppliers = Supplier::all();
         $user = User::first();
         $variants = ProductVariant::all();
@@ -27,107 +23,82 @@ class PurchaseSeeder extends Seeder
             return;
         }
 
-        // Purchase 1: Pending
-        $purchase1 = Purchase::create([
-            'purchase_number' => 'P-000051',
-            'supplier_id' => $suppliers->random()->id,
-            'created_by_user_id' => $user->id,
-            'status' => 'pending',
-            'ordered_at' => Carbon::now(),
-            'subtotal' => 11760.00,
-            'grand_total' => 11760.00,
-            'created_at' => Carbon::now(),
-        ]);
+        // Hardcoded purchases
+        $purchases = [];
 
-        PurchaseItem::create([
-            'purchase_id' => $purchase1->id,
-            'product_variant_id' => $variants->random()->id,
-            'qty' => 12,
-            'unit_cost' => 980.00,
-            'line_total' => 11760.00,
-        ]);
+        for ($i = 1; $i <= 30; $i++) {
+            $statusOptions = ['pending', 'approved', 'awaiting_confirmation', 'completed', 'rejected'];
+            $status = $statusOptions[$i % count($statusOptions)];
 
-        // Purchase 2: Approved
-        $purchase2 = Purchase::create([
-            'purchase_number' => 'P-000050',
-            'supplier_id' => $suppliers->random()->id,
-            'created_by_user_id' => $user->id,
-            'status' => 'approved',
-            'ordered_at' => Carbon::yesterday(),
-            'subtotal' => 11100.00,
-            'grand_total' => 11100.00,
-            'created_at' => Carbon::yesterday(),
-        ]);
+            $orderedAt = Carbon::now()->subDays($i);
+            $receivedAt = in_array($status, ['completed', 'awaiting_confirmation']) 
+                ? $orderedAt->copy()->addDays(2)
+                : null;
 
-        PurchaseItem::create([
-            'purchase_id' => $purchase2->id,
-            'product_variant_id' => $variants->random()->id,
-            'qty' => 6,
-            'unit_cost' => 1850.00,
-            'line_total' => 11100.00,
-        ]);
+            $purchases[] = [
+                'purchase_number' => 'P-' . str_pad(46 + $i, 6, '0', STR_PAD_LEFT),
+                'supplier_id' => $suppliers->random()->id,
+                'created_by_user_id' => $user->id,
+                'status' => $status,
+                'ordered_at' => $orderedAt,
+                'received_at' => $receivedAt,
+                'items' => [
+                    [
+                        'qty' => rand(1, 20),
+                        'unit_cost' => rand(100, 5000),
+                    ],
+                    [
+                        'qty' => rand(1, 20),
+                        'unit_cost' => rand(100, 5000),
+                    ],
+                ],
+            ];
+        }
 
-        // Purchase 3: Awaiting Confirmation
-        $purchase3 = Purchase::create([
-            'purchase_number' => 'P-000049',
-            'supplier_id' => $suppliers->random()->id,
-            'created_by_user_id' => $user->id,
-            'status' => 'awaiting_confirmation',
-            'ordered_at' => Carbon::now()->subDays(5),
-            'received_at' => Carbon::now()->subDays(2),
-            'subtotal' => 8400.00,
-            'grand_total' => 8400.00,
-            'created_at' => Carbon::now()->subDays(5),
-        ]);
+        foreach ($purchases as $data) {
+            $subtotal = 0;
 
-        PurchaseItem::create([
-            'purchase_id' => $purchase3->id,
-            'product_variant_id' => $variants->random()->id,
-            'qty' => 2,
-            'unit_cost' => 4200.00,
-            'line_total' => 8400.00,
-        ]);
+            $purchase = Purchase::create([
+                'purchase_number' => $data['purchase_number'],
+                'supplier_id' => $data['supplier_id'],
+                'created_by_user_id' => $data['created_by_user_id'],
+                'status' => $data['status'],
+                'ordered_at' => $data['ordered_at'],
+                'received_at' => $data['received_at'],
+                'subtotal' => 0, // calculate after items
+                'grand_total' => 0,
+                'created_at' => $data['ordered_at'],
+            ]);
 
-        // Purchase 4: Completed
-        $purchase4 = Purchase::create([
-            'purchase_number' => 'P-000048',
-            'supplier_id' => $suppliers->random()->id,
-            'created_by_user_id' => $user->id,
-            'status' => 'completed',
-            'ordered_at' => Carbon::now()->subDays(10),
-            'received_at' => Carbon::now()->subDays(7),
-            'subtotal' => 15000.00,
-            'grand_total' => 15000.00,
-            'created_at' => Carbon::now()->subDays(10),
-        ]);
+            foreach ($data['items'] as $item) {
+                $lineTotal = $item['qty'] * $item['unit_cost'];
 
-        PurchaseItem::create([
-            'purchase_id' => $purchase4->id,
-            'product_variant_id' => $variants->random()->id,
-            'qty' => 10,
-            'unit_cost' => 1500.00,
-            'line_total' => 15000.00,
-        ]);
+                // Determine received_qty based on status
+                $receivedQty = match ($purchase->status) {
+                    'completed' => $item['qty'],
+                    'approved' => rand(0, $item['qty']),
+                    'pending', 'awaiting_confirmation', 'rejected' => 0,
+                    default => 0,
+                };
 
-        // Purchase 5: Rejected
-        $purchase5 = Purchase::create([
-            'purchase_number' => 'P-000047',
-            'supplier_id' => $suppliers->random()->id,
-            'created_by_user_id' => $user->id,
-            'status' => 'rejected',
-            'ordered_at' => Carbon::now()->subDays(15),
-            'subtotal' => 5000.00,
-            'grand_total' => 5000.00,
-            'created_at' => Carbon::now()->subDays(15),
-        ]);
+                PurchaseItem::create([
+                    'purchase_id' => $purchase->id,
+                    'product_variant_id' => $variants->random()->id,
+                    'qty' => $item['qty'],
+                    'received_qty' => $receivedQty,
+                    'unit_cost' => $item['unit_cost'],
+                    'line_total' => $lineTotal,
+                ]);
 
-        PurchaseItem::create([
-            'purchase_id' => $purchase5->id,
-            'product_variant_id' => $variants->random()->id,
-            'qty' => 5,
-            'unit_cost' => 1000.00,
-            'line_total' => 5000.00,
-        ]);
+                $subtotal += $lineTotal;
+            }
 
+            $purchase->update([
+                'subtotal' => $subtotal,
+                'grand_total' => $subtotal,
+            ]);
+        }
+
+        $this->command->info('Seeded 30 hardcoded purchases with received_qty!');
     }
 }

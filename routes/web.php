@@ -14,6 +14,7 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\EmployeeController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Inventory\PurchaseController;
 
 Route::get('/', function () {
     if (Auth::check()) {
@@ -64,21 +65,9 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/employees/{employee}/unlink-user', [EmployeeController::class, 'unlinkUser'])
             ->middleware('permission:admin.employees.update')
             ->name('dash.admin.employees.unlink-user');
-        Route::get('/customers', [CustomerController::class, 'index'])
+        Route::get('/customers', fn () => Inertia::render('CashierPage/Customers'))
             ->middleware('permission:admin.customers.view')
-            ->name('dash.admin.customer');
-        Route::post('/customers', [CustomerController::class, 'store'])
-            ->middleware('permission:admin.customers.create')
-            ->name('dash.admin.customers.store');
-        Route::get('/customers/{customer}', [CustomerController::class, 'show'])
-            ->middleware('permission:admin.customers.view')
-            ->name('dash.admin.customers.show');
-        Route::put('/customers/{customer}', [CustomerController::class, 'update'])
-            ->middleware('permission:admin.customers.update')
-            ->name('dash.admin.customers.update');
-        Route::delete('/customers/{customer}', [CustomerController::class, 'destroy'])
-            ->middleware('permission:admin.customers.delete')
-            ->name('dash.admin.customers.destroy');
+            ->name('dash.admin.customer');  
         Route::get('/roles', [RoleController::class, 'index'])
             ->middleware('permission:admin.roles.view')
             ->name('dash.admin.roles');
@@ -209,13 +198,41 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('permission:inventory.purchases.create')
             ->name('dash.inventory.purchase-requests.store');
 
+
+        Route::get('/purchases', [PurchaseController::class, 'index'])
+        ->middleware('permission:inventory.purchases.view')
+        ->name('dash.inventory.purchases');
+        Route::post('/purchases', [PurchaseController::class, 'store'])
+            ->middleware('permission:inventory.purchases.create')
+            ->name('dash.inventory.purchases.store');
+        Route::get('/purchases/{purchase}/edit', [PurchaseController::class, 'edit'])
+            ->middleware('permission:inventory.purchases.update')
+            ->name('dash.inventory.purchases.edit');
+        Route::put('/purchases/{purchase}', [PurchaseController::class, 'update'])
+            ->middleware('permission:inventory.purchases.update')
+            ->name('dash.inventory.purchases.update');
+        Route::post('/purchases/{purchase}/approve', [PurchaseController::class, 'approve'])
+            ->middleware('permission:inventory.purchases.approve')
+            ->name('dash.inventory.purchases.approve');
+        Route::post('/purchases/{purchase}/reject', [PurchaseController::class, 'reject'])
+            ->middleware('permission:inventory.purchases.approve')
+            ->name('dash.inventory.purchases.reject');
+        Route::post('/purchases/{purchase}/mark-delivered', [PurchaseController::class, 'markDelivered'])
+            ->middleware('permission:inventory.purchases.mark_delivered')
+            ->name('dash.inventory.purchases.mark-delivered');
+        Route::post('/purchases/{purchase}/confirm', [PurchaseController::class, 'confirm'])
+            ->middleware('permission:inventory.purchases.confirm')
+            ->name('dash.inventory.purchases.confirm');
+        Route::post('/purchases/{purchase}/discrepancy', [PurchaseController::class, 'discrepancy'])
+            ->middleware('permission:inventory.purchases.confirm')
+            ->name('dash.inventory.purchases.discrepancy');
+
+        
+
         // Other Inventory Pages
         Route::get('/movements', [StockController::class, 'movements'])
             ->middleware('permission:inventory.movements.view')
             ->name('dash.inventory.movements');
-        Route::get('/purchases', fn () => Inertia::render('InventoryPage/Purchases'))
-            ->middleware('permission:inventory.purchases.view')
-            ->name('dash.inventory.purchases');
         Route::get('/suppliers', [SupplierController::class, 'index'])
             ->middleware('permission:inventory.suppliers.view')
             ->name('dash.inventory.suppliers');
@@ -225,6 +242,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/audit', [AuditLogController::class, 'index'])
             ->middleware('permission:inventory.audit.view')
             ->name('dash.inventory.audit');
+
     });
 
 });

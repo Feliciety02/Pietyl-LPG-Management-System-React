@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('purchase_id');
             $table->unsignedBigInteger('product_variant_id');
+            $table->decimal('received_qty', 12, 3)->default(0);
             $table->decimal('qty', 12, 3)->default(0);
             $table->decimal('unit_cost', 12, 2)->default(0);
             $table->decimal('line_total', 12, 2)->default(0);

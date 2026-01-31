@@ -46,10 +46,10 @@ class Purchase extends Model
     /**
      * Get the items for the purchase.
      */
-    //public function items()
-    //{
-        //return $this->hasMany(PurchaseItem::class);
-    //}
+    public function items()
+    {
+        return $this->hasMany(PurchaseItem::class);
+    }
 
     /**
      * Get the stock movements for this purchase.
