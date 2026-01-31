@@ -70,10 +70,18 @@ export default function PurchaseRequestModal({
     setNote("");
   }, [open]);
 
-  const product = useMemo(() => {
-    if (!item?.id) return null;
-    return products.find((p) => String(p.id) === String(item.id)) || item;
-  }, [products, item]);
+  const displayData = useMemo(() => {
+    if (!item) return null;
+    
+    // Item already has: name, variant, sku, supplier_name from the table row
+    return {
+      id: item.id,
+      name: item.name || "Product",
+      variant: item.variant || "",
+      sku: item.sku || "",
+      supplier_name: item.supplier_name || "—",
+    };
+  }, [item]);
 
   const normalizedQty = safeNum(qty);
   const canSubmit = Boolean(item?.id) && normalizedQty > 0 && !loading;
@@ -82,7 +90,7 @@ export default function PurchaseRequestModal({
     if (!canSubmit) return;
 
     onSubmit?.({
-      product_id: Number(item.id),
+      product_variant_id: Number(item.product_variant_id || item.id),
       qty: normalizedQty,
       note: note?.trim() || null,
     });
@@ -139,15 +147,15 @@ export default function PurchaseRequestModal({
 
             <div className="min-w-0">
               <div className="text-sm font-extrabold text-slate-800">
-                {product?.name || "Product"}{" "}
+                {displayData?.name || "Product"}{" "}
                 <span className="text-slate-500 font-semibold">
-                  {product?.variant ? `(${product.variant})` : ""}
+                  {displayData?.variant ? `(${displayData.variant})` : ""}
                 </span>
               </div>
 
               <div className="mt-2 flex flex-wrap gap-2">
-                {product?.sku ? <MetaPill>sku: {product.sku}</MetaPill> : null}
-                <MetaPill>supplier: {product?.supplier_name || "—"}</MetaPill>
+                {displayData?.sku ? <MetaPill>SKU: {displayData.sku}</MetaPill> : null}
+                <MetaPill>Supplier: {displayData?.supplier_name || "—"}</MetaPill>
               </div>
             </div>
           </div>
