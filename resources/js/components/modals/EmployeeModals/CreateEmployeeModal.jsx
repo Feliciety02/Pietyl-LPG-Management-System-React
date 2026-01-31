@@ -43,7 +43,13 @@ function Select(props) {
   );
 }
 
-export default function CreateEmployeeModal({ open, onClose, onSubmit, loading = false }) {
+export default function CreateEmployeeModal({
+  open,
+  onClose,
+  onSubmit,
+  loading = false,
+  nextEmployeeNo = "",
+}) {
   const [employeeNo, setEmployeeNo] = useState("");
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
@@ -53,13 +59,13 @@ export default function CreateEmployeeModal({ open, onClose, onSubmit, loading =
 
   useEffect(() => {
     if (!open) return;
-    setEmployeeNo("");
+    setEmployeeNo(nextEmployeeNo || "");
     setFirst("");
     setLast("");
     setPosition("");
     setStatus("active");
     setErr("");
-  }, [open]);
+  }, [open, nextEmployeeNo]);
 
   const canSubmit = useMemo(() => {
     if (!safeText(first)) return false;
@@ -136,8 +142,13 @@ export default function CreateEmployeeModal({ open, onClose, onSubmit, loading =
           </Field>
         </div>
 
-        <Field label="Employee no" hint="Optional, if you use a numbering scheme.">
-          <Input value={employeeNo} onChange={(e) => setEmployeeNo(e.target.value)} placeholder="EMP-0007" />
+        <Field label="Employee no" hint="Auto-generated.">
+          <Input
+            value={employeeNo}
+            onChange={(e) => setEmployeeNo(e.target.value)}
+            placeholder="EMP-0007"
+            readOnly
+          />
         </Field>
 
         <Field label="Position" hint="Optional, you can update later.">

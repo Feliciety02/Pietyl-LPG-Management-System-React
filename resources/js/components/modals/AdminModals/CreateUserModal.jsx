@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link2, Mail } from "lucide-react";
+import { UserPlus, Mail, User } from "lucide-react";
 import ModalShell from "../ModalShell";
 
 function cx(...classes) {
@@ -10,11 +10,14 @@ function safeText(v) {
   return String(v ?? "").trim();
 }
 
-function Field({ label, hint, children }) {
+function Field({ label, hint, required = false, children }) {
   return (
     <div className="grid gap-2">
       <div>
-        <div className="text-xs font-extrabold text-slate-700">{label}</div>
+        <div className="flex items-center gap-2">
+          <div className="text-xs font-extrabold text-slate-700">{label}</div>
+          {required ? <div className="text-[11px] font-semibold text-slate-400">required</div> : null}
+        </div>
         {hint ? <div className="mt-0.5 text-[11px] text-slate-500">{hint}</div> : null}
       </div>
       {children}
@@ -34,59 +37,65 @@ function InputRow({ icon: Icon, ...props }) {
   );
 }
 
-export default function LinkEmployeeUserModal({
+export default function CreateUserModal({
   open,
   onClose,
-  employee,
   onSubmit,
   loading = false,
+  roles = [],
   serverError = "",
 }) {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState("cashier");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState(roles?.[0]?.name || "cashier");
+  const [status, setStatus] = useState("active");
   const [err, setErr] = useState("");
 
   useEffect(() => {
     if (!open) return;
+    setName("");
     setEmail("");
-    setRole("cashier");
+    setPassword("");
+    setRole(roles?.[0]?.name || "cashier");
+    setStatus("active");
     setErr("");
-  }, [open]);
+  }, [open, roles]);
 
   const canSubmit = useMemo(() => {
-    if (!employee) return false;
+    if (!safeText(name)) return false;
     if (!safeText(email)) return false;
+    if (!safeText(password)) return false;
+    if (!safeText(role)) return false;
     if (loading) return false;
     return true;
-  }, [employee, email, loading]);
+  }, [name, email, password, role, loading]);
 
   const submit = () => {
-    if (!employee || loading) return;
-
-    const e = safeText(email).toLowerCase();
-    if (!e) {
-      setErr("Email is required.");
+    if (!safeText(name) || !safeText(email) || !safeText(password)) {
+      setErr("Name, email, and password are required.");
       return;
     }
 
     setErr("");
-    onSubmit?.({ email: e, role });
+    onSubmit?.({
+      name: safeText(name),
+      email: safeText(email).toLowerCase(),
+      password: safeText(password),
+      role: safeText(role),
+      is_active: status === "active",
+    });
   };
-
-  if (!employee) return null;
-
-  const name =
-    `${employee.first_name || ""} ${employee.last_name || ""}`.trim() || "Employee";
 
   return (
     <ModalShell
       open={open}
       onClose={onClose}
-      maxWidthClass="max-w-md"
+      maxWidthClass="max-w-lg"
       layout="compact"
-      title="Link account"
-      subtitle={name}
-      icon={Link2}
+      title="Add user"
+      subtitle="Create a login account"
+      icon={UserPlus}
       footer={
         <div className="flex items-center justify-end gap-2">
           <button
@@ -109,7 +118,7 @@ export default function LinkEmployeeUserModal({
                 : "bg-teal-600 ring-teal-600 hover:bg-teal-700 focus:ring-teal-500/25"
             )}
           >
-            {loading ? "Linking..." : "Link"}
+            {loading ? "Creating..." : "Create"}
           </button>
         </div>
       }
@@ -121,14 +130,17 @@ export default function LinkEmployeeUserModal({
           </div>
         ) : null}
 
-        <div className="rounded-2xl bg-slate-50 ring-1 ring-slate-200 p-4">
-          <div className="text-sm font-extrabold text-slate-800">Attach a login account</div>
-          <div className="mt-1 text-sm text-slate-600 leading-relaxed">
-            This will connect a user to the employee record for access control and activity tracking.
-          </div>
-        </div>
+        <Field label="Name" required>
+          <InputRow
+            icon={User}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Juan Dela Cruz"
+            autoFocus
+          />
+        </Field>
 
-        <Field label="User email" hint="Use an existing user email, or the email you will register.">
+        <Field label="Email" required>
           <InputRow
             icon={Mail}
             value={email}
@@ -138,17 +150,47 @@ export default function LinkEmployeeUserModal({
           />
         </Field>
 
-        <Field label="Role" hint="Choose the access level for this employee account.">
+        <Field label="Password" required>
+          <InputRow
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="At least 8 characters"
+            type="password"
+          />
+        </Field>
+
+        <Field label="Role" hint="Access level for this user.">
           <select
             value={role}
             onChange={(e) => setRole(e.target.value)}
             className="w-full rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-slate-800 ring-1 ring-slate-200 outline-none focus:ring-4 focus:ring-teal-500/15"
           >
-            <option value="cashier">Cashier</option>
-            <option value="inventory_manager">Inventory Manager</option>
-            <option value="rider">Rider</option>
-            <option value="accountant">Accountant</option>
-            <option value="admin">Admin</option>
+            {roles?.length ? (
+              roles.map((r) => (
+                <option key={r.id || r.name} value={r.name}>
+                  {r.name}
+                </option>
+              ))
+            ) : (
+              <>
+                <option value="cashier">cashier</option>
+                <option value="inventory_manager">inventory_manager</option>
+                <option value="rider">rider</option>
+                <option value="accountant">accountant</option>
+                <option value="admin">admin</option>
+              </>
+            )}
+          </select>
+        </Field>
+
+        <Field label="Status">
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="w-full rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-slate-800 ring-1 ring-slate-200 outline-none focus:ring-4 focus:ring-teal-500/15"
+          >
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
           </select>
         </Field>
       </div>

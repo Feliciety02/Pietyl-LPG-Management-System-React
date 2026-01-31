@@ -137,68 +137,9 @@ export default function Sales() {
   const isAdmin = role === "admin";
   const isCashier = role === "cashier";
 
-  const SAMPLE = {
-    data: [
-      {
-        id: 2001,
-        ref: "TXN-10021",
-        customer: "Ana Santos",
-        total: 950,
-        method: "gcash",
-        status: "paid",
-        created_at: "Today 9:20 AM",
-        lines: [
-          {
-            name: "LPG Cylinder",
-            variant: "11kg",
-            mode: "refill",
-            qty: 1,
-            unit_price: 850,
-          },
-        ],
-      },
-      {
-        id: 2000,
-        ref: "TXN-10020",
-        customer: "Walk in",
-        total: 1800,
-        method: "cash",
-        status: "paid",
-        created_at: "Today 8:55 AM",
-        lines: [
-          {
-            name: "LPG Cylinder",
-            variant: "22kg",
-            mode: "swap",
-            qty: 1,
-            unit_price: 1800,
-          },
-        ],
-      },
-      {
-        id: 1999,
-        ref: "TXN-10019",
-        customer: "Mark Dela Cruz",
-        total: 650,
-        method: "card",
-        status: "failed",
-        created_at: "Yesterday 2:10 PM",
-        lines: [
-          {
-            name: "Regulator",
-            variant: "Standard",
-            mode: "swap",
-            qty: 1,
-            unit_price: 650,
-          },
-        ],
-      },
-    ],
-    meta: { current_page: 1, last_page: 1, from: 1, to: 3, total: 3 },
-  };
-
   const query = page.props?.filters || {};
   const per = Number(query?.per || 10);
+  const currentPage = Number(query?.page || 1);
 
   const [q, setQ] = useState(query?.q || "");
   const [status, setStatus] = useState(query?.status || "all");
@@ -208,10 +149,7 @@ export default function Sales() {
   const [reprintOpen, setReprintOpen] = useState(false);
   const [liveSales, setLiveSales] = useState(null);
 
-  const sales =
-    liveSales ??
-    page.props?.sales ??
-    (import.meta.env.DEV ? SAMPLE : { data: [], meta: null });
+  const sales = liveSales ?? page.props?.sales ?? { data: [], meta: null };
 
   const rows = sales?.data ?? [];
   const meta = sales?.meta ?? null;
@@ -224,9 +162,11 @@ export default function Sales() {
   ];
 
   const pushQuery = (patch) => {
+    const newPage = patch.page !== undefined ? patch.page : currentPage;
+    
     router.get(
       "/dashboard/cashier/sales",
-      { q, status, per, ...patch },
+      { q, status, per, page: newPage, ...patch },
       { preserveScroll: true, preserveState: true, replace: true }
     );
   };
@@ -312,12 +252,18 @@ export default function Sales() {
     []
   );
 
+
   useEffect(() => {
     let isMounted = true;
 
     const poll = async () => {
       try {
-        const params = new URLSearchParams({ q, status, per: String(per) });
+        const params = new URLSearchParams({ 
+          q, 
+          status, 
+          per: String(per),
+          page: String(currentPage)
+        });
         const res = await fetch(`/dashboard/cashier/sales/latest?${params.toString()}`, {
           headers: { Accept: "application/json" },
         });
@@ -337,7 +283,7 @@ export default function Sales() {
       isMounted = false;
       clearInterval(timer);
     };
-  }, [q, status, per]);
+  }, [q, status, per, currentPage]);
 
   const readOnly = !(isAdmin || isCashier);
 

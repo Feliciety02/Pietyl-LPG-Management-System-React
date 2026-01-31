@@ -105,6 +105,7 @@ export default function Employees() {
 
   const rows = employees.data || [];
   const meta = employees.meta || null;
+  const nextEmployeeNo = page.props?.next_employee_no || "";
 
   const query = page.props?.filters || {};
   const per = Number(query?.per || 10);
@@ -144,6 +145,7 @@ export default function Employees() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
+  const [linkError, setLinkError] = useState("");
 
   const [confirm, setConfirm] = useState({
     open: false,
@@ -159,6 +161,7 @@ export default function Employees() {
 
   const openLink = (e) => {
     setActiveEmployee(e);
+    setLinkError("");
     setLinkOpen(true);
   };
 
@@ -201,6 +204,7 @@ export default function Employees() {
   const linkUser = (id, payload) => {
     if (!id || submitting) return;
     setSubmitting(true);
+    setLinkError("");
 
     router.post(`/dashboard/admin/employees/${id}/link-user`, payload, {
       preserveScroll: true,
@@ -208,7 +212,11 @@ export default function Employees() {
       onSuccess: () => {
         setLinkOpen(false);
         setActiveEmployee(null);
+        setLinkError("");
         router.reload({ only: ["employees"] });
+      },
+      onError: (errors) => {
+        setLinkError(errors?.email || errors?.role || "Failed to link user.");
       },
     });
   };
@@ -382,6 +390,7 @@ export default function Employees() {
         }}
         onSubmit={createEmployee}
         loading={submitting}
+        nextEmployeeNo={nextEmployeeNo}
       />
 
       <EditEmployeeModal
@@ -404,6 +413,7 @@ export default function Employees() {
         employee={activeEmployee}
         onSubmit={(payload) => linkUser(activeEmployee?.id, payload)}
         loading={submitting}
+        serverError={linkError}
       />
 
       <ConfirmActionModal

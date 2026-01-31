@@ -14,10 +14,12 @@ class Employee extends Model
         'employee_no',
         'first_name',
         'last_name',
+        'position',
         'phone',
         'email',
         'status',
         'hired_at',
+        'notes',
     ];
 
     protected $casts = [

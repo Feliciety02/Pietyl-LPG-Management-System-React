@@ -12,6 +12,8 @@ use App\Http\Controllers\Inventory\RestockRequestController;
 use App\Http\Controllers\Cashier\POSController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\EmployeeController;
+use App\Http\Controllers\Admin\UserController;
 
 Route::get('/', function () {
     if (Auth::check()) {
@@ -41,12 +43,27 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('dashboard/admin')->middleware('role:admin')->group(function () {
         Route::get('/', fn () => Inertia::render('Dashboard/Dashboard'))->name('dash.admin');
 
-        Route::get('/users', fn () => Inertia::render('AdminPage/Users'))
+        Route::get('/users', [UserController::class, 'index'])
             ->middleware('permission:admin.users.view')
             ->name('dash.admin.users');
-        Route::get('/employees', fn () => Inertia::render('AdminPage/Employees'))
+        Route::post('/users', [UserController::class, 'store'])
+            ->middleware('permission:admin.users.create')
+            ->name('dash.admin.users.store');
+        Route::get('/employees', [EmployeeController::class, 'index'])
             ->middleware('permission:admin.employees.view')
             ->name('dash.admin.employees');
+        Route::post('/employees', [EmployeeController::class, 'store'])
+            ->middleware('permission:admin.employees.create')
+            ->name('dash.admin.employees.store');
+        Route::put('/employees/{employee}', [EmployeeController::class, 'update'])
+            ->middleware('permission:admin.employees.update')
+            ->name('dash.admin.employees.update');
+        Route::post('/employees/{employee}/link-user', [EmployeeController::class, 'linkUser'])
+            ->middleware('permission:admin.employees.update')
+            ->name('dash.admin.employees.link-user');
+        Route::delete('/employees/{employee}/unlink-user', [EmployeeController::class, 'unlinkUser'])
+            ->middleware('permission:admin.employees.update')
+            ->name('dash.admin.employees.unlink-user');
         Route::get('/customers', fn () => Inertia::render('CashierPage/Customers'))
             ->middleware('permission:admin.customers.view')
             ->name('dash.admin.customer');  
