@@ -11,6 +11,7 @@ use App\Http\Controllers\Inventory\StockController;
 use App\Http\Controllers\Inventory\RestockRequestController;
 use App\Http\Controllers\Cashier\POSController;
 use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\Admin\RoleController;
 
 Route::get('/', function () {
     if (Auth::check()) {
@@ -43,7 +44,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/users', fn () => Inertia::render('AdminPage/Users'))->name('dash.admin.users');
         Route::get('/employees', fn () => Inertia::render('AdminPage/Employees'))->name('dash.admin.employees');
         Route::get('/customers', fn () => Inertia::render('CashierPage/Customers'))->name('dash.admin.customer');  
-        Route::get('/roles', fn () => Inertia::render('AdminPage/Roles'))->name('dash.admin.roles');
+        Route::get('/roles', [RoleController::class, 'index'])->name('dash.admin.roles');
+        Route::post('/roles', [RoleController::class, 'store'])->name('dash.admin.roles.store');
+        Route::put('/roles/{role}', [RoleController::class, 'update'])->name('dash.admin.roles.update');
+        Route::post('/roles/{role}/archive', [RoleController::class, 'archive'])->name('dash.admin.roles.archive');
         Route::get('/audit', [AuditLogController::class, 'index'])->name('dash.admin.audit');
         Route::get('/reports', fn () => Inertia::render('AdminPage/Reports'))->name('dash.admin.reports');
         Route::get('/suppliers', fn () => Inertia::render('AdminPage/Suppliers'))->name('dash.admin.suppliers');

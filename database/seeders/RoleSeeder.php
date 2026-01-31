@@ -38,6 +38,8 @@ class RoleSeeder extends Seeder
                 [
                     'description' => $role['description'],
                     'created_at' => now(),
+                    'updated_at' => now(),
+                    'deleted_at' => null,
                 ]
             );
         }

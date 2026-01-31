@@ -1,13 +1,13 @@
 // resources/js/Pages/AdminPage/Tabs/Roles.jsx
 import React, { useMemo, useState } from "react";
-import { Link, router, usePage } from "@inertiajs/react";
+import { router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
 
 import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
 
-import { Plus, Users } from "lucide-react";
+import { Plus, Users, Pencil } from "lucide-react";
 import { SkeletonLine, SkeletonButton } from "@/components/ui/Skeleton";
 
 import {
@@ -15,6 +15,8 @@ import {
   TableActionMenu,
 } from "@/components/Table/ActionTableButton";
 
+import CreateRoleModal from "@/components/modals/AdminModals/AddNewRoleModal";
+import EditRoleModal from "@/components/modals/AdminModals/EditRoleModal";
 import RoleUsersModal from "@/components/modals/AdminModals/RoleUsersModal";
 import DuplicateRoleModal from "@/components/modals/AdminModals/DuplicateRoleModal";
 import ConfirmRoleArchiveModal from "@/components/modals/AdminModals/ConfirmRoleArchiveModal";
@@ -138,7 +140,8 @@ export default function Roles() {
   const [scope, setScope] = useState(query?.scope || "all");
 
   const [activeRole, setActiveRole] = useState(null);
-  const [modal, setModal] = useState(null); // users | actions | duplicate | archive
+  const [modal, setModal] = useState(null); // users | actions | create | edit | duplicate | archive
+  const [submitting, setSubmitting] = useState(false);
 
   const loading = Boolean(page.props?.loading);
 
@@ -156,7 +159,72 @@ export default function Roles() {
     );
   };
 
-  const closeModals = () => setModal(null);
+  const closeModals = () => {
+    setModal(null);
+    setActiveRole(null);
+  };
+
+  const refreshRoles = () => router.reload({ only: ["roles"] });
+
+  const createRole = (payload) => {
+    if (submitting) return;
+    setSubmitting(true);
+
+    router.post("/dashboard/admin/roles", payload, {
+      preserveScroll: true,
+      onFinish: () => setSubmitting(false),
+      onSuccess: () => {
+        closeModals();
+        refreshRoles();
+      },
+    });
+  };
+
+  const updateRole = (payload) => {
+    if (!activeRole?.id || submitting) return;
+    setSubmitting(true);
+
+    router.put(`/dashboard/admin/roles/${activeRole.id}`, payload, {
+      preserveScroll: true,
+      onFinish: () => setSubmitting(false),
+      onSuccess: () => {
+        closeModals();
+        refreshRoles();
+      },
+    });
+  };
+
+  const duplicateRole = (payload) => {
+    if (!activeRole?.id || submitting) return;
+    setSubmitting(true);
+
+    router.post(
+      "/dashboard/admin/roles",
+      { ...payload, source_role_id: activeRole.id },
+      {
+        preserveScroll: true,
+        onFinish: () => setSubmitting(false),
+        onSuccess: () => {
+          closeModals();
+          refreshRoles();
+        },
+      }
+    );
+  };
+
+  const archiveRole = () => {
+    if (!activeRole?.id || submitting) return;
+    setSubmitting(true);
+
+    router.post(`/dashboard/admin/roles/${activeRole.id}/archive`, {}, {
+      preserveScroll: true,
+      onFinish: () => setSubmitting(false),
+      onSuccess: () => {
+        closeModals();
+        refreshRoles();
+      },
+    });
+  };
 
   const fillerRows = useMemo(
     () =>
@@ -237,13 +305,17 @@ export default function Roles() {
           title="Roles and Access"
           subtitle="Control permissions per role. System roles are protected."
           right={
-            <Link
-              href="/dashboard/admin/roles/create"
+            <button
+              type="button"
+              onClick={() => {
+                setActiveRole(null);
+                setModal("create");
+              }}
               className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 transition focus:ring-4 focus:ring-teal-500/25"
             >
               <Plus className="h-4 w-4" />
               New Role
-            </Link>
+            </button>
           }
         />
 
@@ -289,6 +361,17 @@ export default function Roles() {
                   View
                 </TableActionButton>
 
+                <TableActionButton
+                  icon={Pencil}
+                  onClick={() => {
+                    setActiveRole(r);
+                    setModal("edit");
+                  }}
+                  title="Edit role"
+                >
+                  Edit
+                </TableActionButton>
+
                 <TableActionMenu
                   onClick={() => {
                     setActiveRole(r);
@@ -314,6 +397,21 @@ export default function Roles() {
         />
 
         {/* MODALS */}
+        <CreateRoleModal
+          open={modal === "create"}
+          onClose={closeModals}
+          onSubmit={createRole}
+          loading={submitting}
+        />
+
+        <EditRoleModal
+          open={modal === "edit"}
+          role={activeRole}
+          onClose={closeModals}
+          onSubmit={updateRole}
+          loading={submitting}
+        />
+
         <RoleUsersModal open={modal === "users"} role={activeRole} onClose={closeModals} />
 
         <RoleActionsModal
@@ -322,11 +420,24 @@ export default function Roles() {
           onClose={closeModals}
           onDuplicate={() => setModal("duplicate")}
           onArchive={() => setModal("archive")}
+          loading={submitting}
         />
 
-        <DuplicateRoleModal open={modal === "duplicate"} role={activeRole} onClose={closeModals} />
+        <DuplicateRoleModal
+          open={modal === "duplicate"}
+          role={activeRole}
+          onClose={closeModals}
+          onSubmit={duplicateRole}
+          loading={submitting}
+        />
 
-        <ConfirmRoleArchiveModal open={modal === "archive"} role={activeRole} onClose={closeModals} />
+        <ConfirmRoleArchiveModal
+          open={modal === "archive"}
+          role={activeRole}
+          onClose={closeModals}
+          onConfirm={archiveRole}
+          loading={submitting}
+        />
       </div>
     </Layout>
   );
