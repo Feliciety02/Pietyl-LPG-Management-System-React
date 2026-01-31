@@ -11,23 +11,6 @@ class RoleMiddleware
 {
     public function handle(Request $request, Closure $next, string $role): Response
     {
-        $user = Auth::user();
-
-        if (!$user) {
-            return redirect()->route('login');
-        }
-
-        if (!$user->hasRole($role)) {
-            $userRole = $user->roles()->first()?->name;
-            return redirect(match ($userRole) {
-                'admin' => '/dashboard/admin',
-                'cashier' => '/dashboard/cashier',
-                'accountant' => '/dashboard/accountant',
-                'rider' => '/dashboard/rider',
-                'inventory_manager' => '/dashboard/inventory',
-                default => '/',
-            });
-        }
 
         return $next($request);
     }
