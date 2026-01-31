@@ -61,7 +61,7 @@ export default function OrderStockModal({
   onClose,
   item = null,
   products = [],
-  suppliers = [],
+  suppliers = {},
   onSubmit,
   loading = false,
 }) {
@@ -76,19 +76,13 @@ export default function OrderStockModal({
     const presetProductId = item?.id ? String(item.id) : "";
     setProductId(presetProductId);
 
-    const presetSupplierId =
-      item?.default_supplier_id != null
-        ? String(item.default_supplier_id)
-        : item?.supplier_id != null
-        ? String(item.supplier_id)
-        : item?.supplier?.id != null
-        ? String(item.supplier.id)
-        : "";
+    const variantSuppliers = suppliers[presetProductId]?.suppliers || [];
+    const defaultSupplier = variantSuppliers.find((s) => s.is_primary) || variantSuppliers[0];
 
-    setSupplierId(presetSupplierId);
+    setSupplierId(defaultSupplier ? String(defaultSupplier.id) : "");
     setQty(item?.suggest_qty ? String(item.suggest_qty) : "");
     setNotes("");
-  }, [open, item]);
+  }, [open, item, suppliers]);
 
   const selectedProduct = useMemo(() => {
     if (!productId) return null;
@@ -97,8 +91,8 @@ export default function OrderStockModal({
 
   const selectedSupplier = useMemo(() => {
     if (!supplierId) return null;
-    return suppliers.find((s) => String(s.id) === String(supplierId)) || null;
-  }, [suppliers, supplierId]);
+    return suppliers[productId]?.suppliers.find((s) => String(s.id) === String(supplierId)) || null;
+  }, [suppliers, productId, supplierId]);
 
   const supplierMissing = Boolean(selectedProduct) && !supplierId;
   const canSubmit = Boolean(productId) && safeNum(qty) > 0 && !supplierMissing;
@@ -107,18 +101,9 @@ export default function OrderStockModal({
     const nextId = e.target.value;
     setProductId(nextId);
 
-    const picked = products.find((p) => String(p.id) === String(nextId));
-
-    const nextSupplierId =
-      picked?.default_supplier_id != null
-        ? String(picked.default_supplier_id)
-        : picked?.supplier_id != null
-        ? String(picked.supplier_id)
-        : picked?.supplier?.id != null
-        ? String(picked.supplier.id)
-        : "";
-
-    setSupplierId(nextSupplierId);
+    const variantSuppliers = suppliers[nextId]?.suppliers || [];
+    const defaultSupplier = variantSuppliers.find((s) => s.is_primary) || variantSuppliers[0];
+    setSupplierId(defaultSupplier ? String(defaultSupplier.id) : "");
 
     if (!nextId) {
       setQty("");
@@ -177,7 +162,7 @@ export default function OrderStockModal({
     >
       <div className="grid gap-4">
         <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Product" hint="Simple dropdown">
+          <Field label="Product" hint="Select a product and variant">
             <InputShell>
               <select
                 value={productId}
@@ -186,18 +171,20 @@ export default function OrderStockModal({
                 disabled={loading}
               >
                 <option value="">Select a product</option>
-                {products.map((p) => (
-                  <option key={p.id} value={String(p.id)}>
-                    {(p.sku ? `${p.sku} • ` : "")}
-                    {p.name || "Product"}
-                    {p.variant ? ` (${p.variant})` : ""}
-                  </option>
-                ))}
+                {products.map((p) => {
+                  const variantSuppliers = suppliers[p.id]?.suppliers || [];
+                  const productLabel = `${p.product_name}: ${p.variant_name}`;
+                  return (
+                    <option key={p.id} value={String(p.id)}>
+                      {productLabel}
+                    </option>
+                  );
+                })}
               </select>
             </InputShell>
           </Field>
 
-          <Field label="Supplier" hint="Auto from product">
+          <Field label="Supplier" hint="Auto-picked from product">
             <div
               className={cx(
                 "rounded-2xl bg-white ring-1 px-3 py-2.5",
@@ -216,7 +203,9 @@ export default function OrderStockModal({
                       Set a default supplier first
                     </div>
                   ) : (
-                    <div className="mt-0.5 text-[11px] text-slate-500">{selectedSupplier ? "picked automatically" : "—"}</div>
+                    <div className="mt-0.5 text-[11px] text-slate-500">
+                      {selectedSupplier ? "picked automatically" : "—"}
+                    </div>
                   )}
                 </div>
               </div>

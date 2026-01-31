@@ -430,6 +430,8 @@ export default function Purchases() {
         <NewPurchaseModal
           open={newPurchaseOpen}
           onClose={() => setNewPurchaseOpen(false)}
+          products={page.props?.products || []}
+          suppliers={page.props?.suppliersByProduct || {}}
           onSubmit={(payload) => {
             router.post("/dashboard/inventory/purchases", payload, {
               preserveScroll: true,

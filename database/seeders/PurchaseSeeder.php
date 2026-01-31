@@ -98,7 +98,5 @@ class PurchaseSeeder extends Seeder
                 'grand_total' => $subtotal,
             ]);
         }
-
-        $this->command->info('Seeded 30 hardcoded purchases with received_qty!');
     }
 }

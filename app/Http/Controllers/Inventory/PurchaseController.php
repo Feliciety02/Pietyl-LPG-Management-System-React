@@ -60,6 +60,31 @@ class PurchaseController extends Controller
             ];
         })->values();
 
+        // Get active variants with products and suppliers
+        $productVariants = \App\Models\ProductVariant::with(['product', 'suppliers'])
+            ->where('is_active', true)
+            ->get();
+
+        $suppliersByProduct = [];
+        $products = [];
+
+        foreach ($productVariants as $variant) {
+            $variantSuppliers = $variant->suppliers->map(fn($s) => [
+                'id' => $s->id,
+                'name' => $s->name,
+                'is_primary' => $s->pivot->is_primary,
+                'lead_time_days' => $s->pivot->lead_time_days,
+            ])->values();
+
+            $suppliersByProduct[$variant->id] = ['suppliers' => $variantSuppliers];
+
+            $products[] = [
+                'id' => $variant->id,
+                'product_name' => $variant->product?->name ?? '—',
+                'variant_name' => $variant->variant_name ?? '',
+            ];
+        }
+
         return Inertia::render('InventoryPage/Purchases', [
             'purchases' => [
                 'data' => $data,
@@ -72,10 +97,11 @@ class PurchaseController extends Controller
                 ],
             ],
             'filters' => $request->only(['q', 'status', 'per']),
+            'products' => $products,
+            'suppliersByProduct' => $suppliersByProduct,
         ]);
     }
 
-  
     public function show($id)
     {
         $purchase = Purchase::with(['supplier', 'items.productVariant.product'])
