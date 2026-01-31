@@ -33,7 +33,7 @@ class SaleService
                         return [
                             'name' => $item->productVariant->product->name,
                             'variant' => $item->productVariant->variant_name,
-                            'mode' => 'refill',
+                            'mode' => $item->pricing_source === 'manual' ? 'swap' : 'refill',
                             'qty' => $item->qty,
                             'unit_price' => $item->unit_price,
                         ];

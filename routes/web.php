@@ -10,6 +10,7 @@ use App\Http\Controllers\Cashier\SaleController;
 use App\Http\Controllers\Inventory\StockController;
 use App\Http\Controllers\Inventory\RestockRequestController;
 use App\Http\Controllers\Cashier\POSController;
+use App\Http\Controllers\AuditLogController;
 
 Route::get('/', function () {
     if (Auth::check()) {
@@ -43,7 +44,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/employees', fn () => Inertia::render('AdminPage/Employees'))->name('dash.admin.employees');
         Route::get('/customers', fn () => Inertia::render('CashierPage/Customers'))->name('dash.admin.customer');  
         Route::get('/roles', fn () => Inertia::render('AdminPage/Roles'))->name('dash.admin.roles');
-        Route::get('/audit', fn () => Inertia::render('AdminPage/AuditLogs'))->name('dash.admin.audit');
+        Route::get('/audit', [AuditLogController::class, 'index'])->name('dash.admin.audit');
         Route::get('/reports', fn () => Inertia::render('AdminPage/Reports'))->name('dash.admin.reports');
         Route::get('/suppliers', fn () => Inertia::render('AdminPage/Suppliers'))->name('dash.admin.suppliers');
         Route::get('/products', fn () => Inertia::render('AdminPage/Products'))->name('dash.admin.products');
@@ -57,6 +58,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/POS', [POSController::class, 'index'])->name('dash.cashier.POS');
         Route::post('/POS', [POSController::class, 'store'])->name('dash.cashier.POS.store');
         Route::get('/sales', [SaleController::class, 'index'])->name('dash.cashier.sales');
+        Route::get('/sales/latest', [SaleController::class, 'latest'])->name('dash.cashier.sales.latest');
+        Route::get('/audit', [AuditLogController::class, 'index'])->name('dash.cashier.audit');
 
         Route::get('/customers', [CustomerController::class, 'index'])->name('dash.cashier.customers');
         Route::post('/customers', [CustomerController::class, 'store'])->name('dash.cashier.customers.store');
@@ -74,6 +77,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/payroll', fn () => Inertia::render('AccountantPage/Payroll'))->name('dash.accountant.payroll');
         Route::get('/ledger', fn () => Inertia::render('AccountantPage/Ledger'))->name('dash.accountant.ledger');
         Route::get('/reports', fn () => Inertia::render('AccountantPage/Reports'))->name('dash.accountant.reports');
+        Route::get('/audit', [AuditLogController::class, 'index'])->name('dash.accountant.audit');
     });
 
     Route::prefix('dashboard/rider')->middleware('role:rider')->group(function () {
@@ -81,6 +85,7 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/deliveries', fn () => Inertia::render('RiderPage/MyDeliveries'))->name('dash.rider.deliveries');
         Route::get('/history', fn () => Inertia::render('RiderPage/History'))->name('dash.rider.history');
+        Route::get('/audit', [AuditLogController::class, 'index'])->name('dash.rider.audit');
     });
 
     Route::prefix('dashboard/inventory')->middleware('role:inventory_manager')->group(function () {
@@ -100,6 +105,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/purchases', fn () => Inertia::render('InventoryPage/Purchases'))->name('dash.inventory.purchases');
         Route::get('/suppliers', [SupplierController::class, 'index'])->name('dash.inventory.suppliers');
         Route::get('/suppliers', [SupplierController::class, 'index'])->name('dash.inventory.suppliers');
+        Route::get('/audit', [AuditLogController::class, 'index'])->name('dash.inventory.audit');
     });
 
 });

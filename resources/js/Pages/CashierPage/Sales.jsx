@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
 
@@ -197,12 +197,6 @@ export default function Sales() {
     meta: { current_page: 1, last_page: 1, from: 1, to: 3, total: 3 },
   };
 
-  const sales =
-    page.props?.sales ?? (import.meta.env.DEV ? SAMPLE : { data: [], meta: null });
-
-  const rows = sales?.data ?? [];
-  const meta = sales?.meta ?? null;
-
   const query = page.props?.filters || {};
   const per = Number(query?.per || 10);
 
@@ -212,6 +206,15 @@ export default function Sales() {
   const [activeSale, setActiveSale] = useState(null);
   const [viewOpen, setViewOpen] = useState(false);
   const [reprintOpen, setReprintOpen] = useState(false);
+  const [liveSales, setLiveSales] = useState(null);
+
+  const sales =
+    liveSales ??
+    page.props?.sales ??
+    (import.meta.env.DEV ? SAMPLE : { data: [], meta: null });
+
+  const rows = sales?.data ?? [];
+  const meta = sales?.meta ?? null;
 
   const statusOptions = [
     { value: "all", label: "All status" },
@@ -308,6 +311,33 @@ export default function Sales() {
     ],
     []
   );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const poll = async () => {
+      try {
+        const params = new URLSearchParams({ q, status, per: String(per) });
+        const res = await fetch(`/dashboard/cashier/sales/latest?${params.toString()}`, {
+          headers: { Accept: "application/json" },
+        });
+
+        if (!res.ok) return;
+        const data = await res.json();
+        if (isMounted && data && data.data) setLiveSales(data);
+      } catch {
+        // ignore polling errors
+      }
+    };
+
+    poll();
+    const timer = setInterval(poll, 5000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(timer);
+    };
+  }, [q, status, per]);
 
   const readOnly = !(isAdmin || isCashier);
 

@@ -297,7 +297,6 @@ export default function POS() {
 
               <div className="mt-2 flex items-start gap-2 text-xs text-slate-500">
                 <Info className="mt-0.5 h-4 w-4 text-slate-400" />
-                <div className="leading-relaxed">Swap only. Tap products to add.</div>
               </div>
             </div>
 
@@ -355,9 +354,6 @@ export default function POS() {
                 icon={SlidersHorizontal}
                 right={
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-2xl bg-teal-600/10 text-teal-900 ring-1 ring-teal-700/10 px-3 py-2 text-xs font-extrabold">
-                      SWAP ONLY
-                    </span>
 
                     <Pill active={delivery} onClick={() => setDelivery((v) => !v)}>
                       <span className="inline-flex items-center gap-2">

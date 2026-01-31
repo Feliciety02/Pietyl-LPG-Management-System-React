@@ -26,4 +26,12 @@ class SaleController extends Controller
             'filters' => $filters,
         ]);
     }
+
+    public function latest(Request $request)
+    {
+        $filters = $request->only(['q', 'status', 'per', 'page']);
+        $sales = $this->svc->getSalesForPage($filters);
+
+        return response()->json($sales);
+    }
 }

@@ -13,6 +13,7 @@ use App\Models\Customer;
 use App\Models\ProductVariant;
 use App\Models\PaymentMethod;
 use App\Models\Location;
+use App\Models\AuditLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -170,6 +171,25 @@ class POSController extends Controller
             }
 
             DB::commit();
+
+            $user = auth()->user();
+            if ($user) {
+                AuditLog::create([
+                    'actor_user_id' => $user->id,
+                    'action' => 'sale.create',
+                    'entity_type' => 'Sale',
+                    'entity_id' => $sale->id,
+                    'message' => 'Recorded a sale (' . ($request->is_delivery ? 'delivery' : 'walk in') . ')',
+                    'after_json' => [
+                        'sale_number' => $sale->sale_number,
+                        'grand_total' => $sale->grand_total,
+                        'payment_method' => $request->payment_method,
+                        'lines' => $request->lines,
+                    ],
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                ]);
+            }
 
             return redirect()->back()->with('success', 'Sale completed successfully!');
 
