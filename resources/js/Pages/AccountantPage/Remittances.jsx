@@ -281,10 +281,8 @@ export default function Remittances() {
 
         <DataTableFilters
           q={q}
-          onQ={(value) => {
-            setQ(value);
-            pushQuery({ q: value, page: 1 });
-          }}
+          onQ={setQ}
+          onQDebounced={(value) => pushQuery({ q: value, page: 1 })}
           placeholder="Search cashier name..."
           filters={[
             {
@@ -303,6 +301,7 @@ export default function Remittances() {
           columns={columns}
           rows={tableRows}
           loading={loading}
+          searchQuery={q}
           emptyTitle="No turnover found"
           emptyHint="Turnover appears here per business date per cashier."
           renderActions={(r) =>

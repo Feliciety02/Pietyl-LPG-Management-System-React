@@ -108,11 +108,6 @@ export default function Reports() {
     );
   };
 
-  const handleSearch = (value) => {
-    setQ(value);
-    pushQuery({ q: value, page: 1 });
-  };
-
   const handleType = (value) => {
     setType(value);
     pushQuery({ type: value, page: 1 });
@@ -304,7 +299,8 @@ export default function Reports() {
 
         <DataTableFilters
           q={q}
-          onQ={handleSearch}
+          onQ={setQ}
+          onQDebounced={(value) => pushQuery({ q: value, page: 1 })}
           placeholder="Search generated reports..."
           filters={[
             { key: "type", value: type, onChange: handleType, options: typeOptions },
@@ -347,6 +343,7 @@ export default function Reports() {
           columns={columns}
           rows={tableRows}
           loading={loading}
+          searchQuery={q}
           emptyTitle="No reports yet"
           emptyHint="Generate a report by choosing a type and date range, then export."
           renderActions={(r) =>

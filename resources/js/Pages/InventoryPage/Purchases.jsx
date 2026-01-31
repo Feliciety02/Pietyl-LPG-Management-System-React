@@ -164,11 +164,6 @@ export default function Purchases() {
     );
   };
 
-  const handleSearch = (v) => {
-    setQ(v);
-    pushQuery({ q: v, page: 1 });
-  };
-
   const handleStatus = (v) => {
     setStatus(v);
     pushQuery({ status: v, page: 1 });
@@ -326,7 +321,8 @@ export default function Purchases() {
 
         <DataTableFilters
           q={q}
-          onQ={handleSearch}
+          onQ={setQ}
+          onQDebounced={(v) => pushQuery({ q: v, page: 1 })}
           placeholder="Search reference, supplier, product..."
           filters={[
             {
@@ -342,6 +338,7 @@ export default function Purchases() {
           columns={columns}
           rows={tableRows}
           loading={loading}
+          searchQuery={q}
           emptyTitle="No purchase requests found"
           emptyHint="Create a purchase request when stock is low."
           renderActions={(x) =>

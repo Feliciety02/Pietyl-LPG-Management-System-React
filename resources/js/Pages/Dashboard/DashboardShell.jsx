@@ -68,8 +68,9 @@ export default function DashboardShell({
   const { auth } = page.props;
   const user = auth?.user;
   const url = page?.url || "";
+  const baseUrl = normalize(url);
 
-  const crumbs = useMemo(() => buildCrumbs(url), [url]);
+  const crumbs = useMemo(() => buildCrumbs(baseUrl), [baseUrl]);
   const roleBadge = user?.role ? titleCase(String(user.role).replace(/_/g, " ")) : "Role";
 
   const [q, setQ] = useState("");
@@ -134,7 +135,7 @@ export default function DashboardShell({
           </header>
 
           <motion.div
-            key={url}
+            key={baseUrl}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.18 }}

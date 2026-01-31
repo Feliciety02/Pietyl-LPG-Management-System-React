@@ -118,11 +118,6 @@ export default function Ledger() {
     );
   };
 
-  const handleSearch = (value) => {
-    setQ(value);
-    pushQuery({ q: value, page: 1 });
-  };
-
   const handleType = (value) => {
     setType(value);
     pushQuery({ type: value, page: 1 });
@@ -355,7 +350,8 @@ export default function Ledger() {
 
         <DataTableFilters
           q={q}
-          onQ={handleSearch}
+          onQ={setQ}
+          onQDebounced={(value) => pushQuery({ q: value, page: 1 })}
           placeholder="Search reference, account, description..."
           filters={[
             { key: "type", value: type, onChange: handleType, options: typeOptions },
@@ -367,6 +363,7 @@ export default function Ledger() {
           columns={columns}
           rows={tableRows}
           loading={loading}
+          searchQuery={q}
           emptyTitle="No ledger entries found"
           emptyHint="Ledger entries appear after sales, turnover, or adjustments are posted."
           renderActions={(r) =>

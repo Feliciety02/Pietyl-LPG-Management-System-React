@@ -520,10 +520,8 @@ export default function Products() {
             variant="inline"
             containerClass="w-full md:w-auto"
             q={q}
-            onQ={(v) => {
-              setQ(v);
-              pushQuery({ q: v, page: 1 });
-            }}
+            onQ={setQ}
+            onQDebounced={(v) => pushQuery({ q: v, page: 1 })}
             placeholder="Search product name, brand, sku..."
             filters={[
               {
@@ -561,6 +559,7 @@ export default function Products() {
           columns={columns}
           rows={tableRows}
           loading={loading}
+          searchQuery={q}
           emptyTitle="No products found"
           emptyHint="Create a new product or adjust filters."
           renderActions={(p) =>

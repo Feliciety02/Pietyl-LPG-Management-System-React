@@ -308,10 +308,8 @@ export default function Employees() {
 
         <DataTableFilters
           q={q}
-          onQ={(v) => {
-            setQ(v);
-            pushQuery({ q: v, page: 1 });
-          }}
+          onQ={setQ}
+          onQDebounced={(v) => pushQuery({ q: v, page: 1 })}
           placeholder="Search name or employee no..."
           filters={[
             {
@@ -330,6 +328,7 @@ export default function Employees() {
           columns={columns}
           rows={tableRows}
           loading={loading}
+          searchQuery={q}
           emptyTitle="No employees found"
           emptyHint="Add employees or adjust filters."
           renderActions={(e) =>

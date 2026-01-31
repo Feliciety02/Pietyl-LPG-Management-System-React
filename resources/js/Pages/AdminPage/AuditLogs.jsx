@@ -426,8 +426,8 @@ export default function AuditLogs() {
 
         <DataTableFilters
           q={q}
-          onQ={function (v) {
-            setQ(v);
+          onQ={setQ}
+          onQDebounced={function (v) {
             pushQuery({ q: v, page: 1 });
           }}
           placeholder="Search actor, event, entity, or details..."
@@ -467,6 +467,7 @@ export default function AuditLogs() {
           columns={columns}
           rows={tableRows}
           loading={loading}
+          searchQuery={q}
           emptyTitle="No audit logs found"
           emptyHint="Try a different search or filter."
           renderActions={function (a) {

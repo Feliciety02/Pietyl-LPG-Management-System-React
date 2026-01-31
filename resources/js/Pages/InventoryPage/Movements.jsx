@@ -247,11 +247,6 @@ export default function Movements() {
     );
   };
 
-  const handleSearch = (v) => {
-    setQ(v);
-    pushQuery({ q: v, page: 1 });
-  };
-
   const handleType = (v) => {
     setType(v);
     pushQuery({ type: v, page: 1 });
@@ -392,7 +387,8 @@ export default function Movements() {
 
         <DataTableFilters
           q={q}
-          onQ={handleSearch}
+          onQ={setQ}
+          onQDebounced={(v) => pushQuery({ q: v, page: 1 })}
           placeholder="Search product, reference ID, or user..."
           filters={[
             { key: "type", value: type, onChange: handleType, options: typeOptions },
@@ -407,6 +403,7 @@ export default function Movements() {
             columns={columns}
             rows={tableRows}
             loading={loading}
+            searchQuery={q}
             emptyTitle="No movements found"
             emptyHint="Try adjusting filters."
             renderActions={(x) =>

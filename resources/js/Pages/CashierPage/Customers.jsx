@@ -249,10 +249,8 @@ export default function Customers() {
 
         <DataTableFilters
           q={q}
-          onQ={(v) => {
-            setQ(v);
-            pushQuery({ q: v, page: 1 });
-          }}
+          onQ={setQ}
+          onQDebounced={(v) => pushQuery({ q: v, page: 1 })}
           placeholder="Search customer name or phone..."
           filters={[]}
         />
@@ -261,6 +259,7 @@ export default function Customers() {
           columns={columns}
           rows={tableRows}
           loading={loading}
+          searchQuery={q}
           emptyTitle="No customers found"
           emptyHint="Add a customer or adjust search."
           renderActions={(c) =>

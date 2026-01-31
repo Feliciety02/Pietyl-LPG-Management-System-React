@@ -14,8 +14,46 @@ export default function DataTable({
   sort = { key: null, dir: "asc" },
   onSort,
   renderActions,
+  searchQuery,
+  searchAccessor,
 }) {
   const colCount = columns.length + (renderActions ? 1 : 0);
+  const normalizedQuery = String(searchQuery || "").trim().toLowerCase();
+
+  const collectStrings = (value, out, depth) => {
+    if (value == null || depth > 2) return;
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      out.push(String(value));
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach((item) => collectStrings(item, out, depth + 1));
+      return;
+    }
+    if (typeof value === "object") {
+      Object.values(value).forEach((item) => collectStrings(item, out, depth + 1));
+    }
+  };
+
+  const buildSearchText = (row) => {
+    if (typeof searchAccessor === "function") {
+      return String(searchAccessor(row) || "");
+    }
+    const parts = [];
+    collectStrings(row, parts, 0);
+    return parts.join(" ");
+  };
+
+  const filteredRows =
+    normalizedQuery && !loading
+      ? rows.filter((row) => {
+          if (!row || row.__filler) return false;
+          const text = buildSearchText(row).toLowerCase();
+          return text.includes(normalizedQuery);
+        })
+      : rows;
+
+  const displayRows = loading ? rows : filteredRows;
 
   const handleSort = (key, sortable) => {
     if (!sortable || !onSort) return;
@@ -83,7 +121,7 @@ export default function DataTable({
                 </td>
               </tr>
             ))
-          ) : rows.length === 0 ? (
+          ) : displayRows.length === 0 ? (
             <tr>
               <td colSpan={colCount} className="px-4 py-16 text-center">
                 <div className="text-sm font-semibold text-slate-900">
@@ -93,7 +131,7 @@ export default function DataTable({
               </td>
             </tr>
           ) : (
-            rows.map((row, idx) => (
+            displayRows.map((row, idx) => (
               <tr
                 key={row?.id ?? idx}
                 className="hover:bg-teal-50/40 transition-colors"

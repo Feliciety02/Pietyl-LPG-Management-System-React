@@ -375,11 +375,6 @@ export default function Payroll() {
     );
   };
 
-  const handleSearch = (value) => {
-    setQ(value);
-    pushQuery({ q: value, page: 1 });
-  };
-
   const handleStatus = (value) => {
     setStatus(value);
     pushQuery({ status: value, page: 1 });
@@ -619,7 +614,8 @@ export default function Payroll() {
 
         <DataTableFilters
           q={q}
-          onQ={handleSearch}
+          onQ={setQ}
+          onQDebounced={(value) => pushQuery({ q: value, page: 1 })}
           placeholder="Search employee no or name..."
           filters={[
             {
@@ -641,6 +637,7 @@ export default function Payroll() {
           columns={columns}
           rows={enriched}
           loading={loading}
+          searchQuery={q}
           emptyTitle="No payroll entries found"
           emptyHint="Adjust filters or generate payroll for this period."
           renderActions={(r) =>

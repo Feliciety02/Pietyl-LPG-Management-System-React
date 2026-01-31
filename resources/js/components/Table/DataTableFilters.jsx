@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Search } from "lucide-react";
 
 function cx(...classes) {
@@ -8,13 +8,38 @@ function cx(...classes) {
 export default function DataTableFilters({
   q,
   onQ,
+  onQDebounced,
   placeholder = "Search...",
+  debounceMs = 300,
   filters = [],
   rightSlot,
   variant = "card",
   containerClass,
   innerClass,
 }) {
+  const [localQ, setLocalQ] = useState(q || "");
+  const skipRef = useRef(false);
+
+  useEffect(() => {
+    skipRef.current = true;
+    setLocalQ(q || "");
+  }, [q]);
+
+  useEffect(() => {
+    const callback = onQDebounced;
+    if (!callback) return;
+    if (skipRef.current) {
+      skipRef.current = false;
+      return;
+    }
+    if (debounceMs <= 0) {
+      callback(localQ);
+      return;
+    }
+    const handle = setTimeout(() => callback(localQ), debounceMs);
+    return () => clearTimeout(handle);
+  }, [localQ, debounceMs, onQDebounced]);
+
   const isInline = variant === "inline";
 
   const container = isInline
@@ -32,8 +57,12 @@ export default function DataTableFilters({
           <div className="flex items-center gap-2 rounded-2xl bg-white px-3 py-2 ring-1 ring-slate-200">
             <Search className="h-4 w-4 text-slate-500" />
             <input
-              value={q}
-              onChange={(e) => onQ?.(e.target.value)}
+              value={localQ}
+              onChange={(e) => {
+                const next = e.target.value;
+                setLocalQ(next);
+                onQ?.(next);
+              }}
               className={cx(
                 "bg-transparent text-sm outline-none placeholder:text-slate-400",
                 isInline ? "w-56" : "w-64"

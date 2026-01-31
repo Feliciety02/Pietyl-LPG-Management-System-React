@@ -142,11 +142,6 @@ export default function StockCounts() {
     );
   };
 
-  const handleSearch = (value) => {
-    setQ(value);
-    pushQuery({ q: value, page: 1 });
-  };
-
   const handlePerPage = (n) => pushQuery({ per: n, page: 1 });
   const handlePrev = () =>
     meta && meta.current_page > 1 && pushQuery({ page: meta.current_page - 1 });
@@ -264,7 +259,8 @@ export default function StockCounts() {
 
         <DataTableFilters
           q={q}
-          onQ={handleSearch}
+          onQ={setQ}
+          onQDebounced={(value) => pushQuery({ q: value, page: 1 })}
           placeholder="Search product name or SKU..."
           filters={[]}
         />
@@ -273,6 +269,7 @@ export default function StockCounts() {
           columns={columns}
           rows={tableRows}
           loading={loading}
+          searchQuery={q}
           emptyTitle="No stock items found"
           emptyHint="If this is new, add products in Admin then come back here."
           renderActions={(x) =>

@@ -415,10 +415,8 @@ export default function Roles() {
             variant="inline"
             containerClass="w-full md:w-auto"
             q={q}
-            onQ={(v) => {
-              setQ(v);
-              pushQuery({ q: v, page: 1 });
-            }}
+            onQ={setQ}
+            onQDebounced={(v) => pushQuery({ q: v, page: 1 })}
             placeholder="Search role name or label..."
             filters={[
               {
@@ -438,6 +436,7 @@ export default function Roles() {
           columns={columns}
           rows={tableRows}
           loading={loading}
+          searchQuery={q}
           emptyTitle="No roles found"
           emptyHint="Create a new role or adjust your filters."
           renderActions={(r) =>

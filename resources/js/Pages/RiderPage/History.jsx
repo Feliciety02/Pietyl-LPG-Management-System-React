@@ -346,10 +346,8 @@ export default function History() {
 
         <DataTableFilters
           q={q}
-          onQ={(v) => {
-            setQ(v);
-            pushQuery({ q: v, page: 1 });
-          }}
+          onQ={setQ}
+          onQDebounced={(v) => pushQuery({ q: v, page: 1 })}
           placeholder="Search code, customer, or address..."
           filters={[
             {
@@ -425,6 +423,7 @@ export default function History() {
               columns={columns}
               rows={tableRows}
               loading={loading}
+              searchQuery={q}
               emptyTitle="No delivery history"
               emptyHint="Completed deliveries will appear here."
               renderActions={(d) =>

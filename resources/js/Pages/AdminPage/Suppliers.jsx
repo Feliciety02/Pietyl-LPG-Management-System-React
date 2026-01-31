@@ -352,10 +352,8 @@ export default function Suppliers() {
             variant="inline"
             containerClass="w-full md:w-auto"
             q={q}
-            onQ={(v) => {
-              setQ(v);
-              pushQuery({ q: v, page: 1 });
-            }}
+            onQ={setQ}
+            onQDebounced={(v) => pushQuery({ q: v, page: 1 })}
             placeholder="Search supplier name or contact..."
             filters={[
               {
@@ -379,6 +377,7 @@ export default function Suppliers() {
           columns={columns}
           rows={tableRows}
           loading={loading}
+          searchQuery={q}
           emptyTitle="No suppliers found"
           emptyHint={readOnly ? "Ask admin to add suppliers" : "Add suppliers or adjust filters"}
           renderActions={(s) =>

@@ -188,10 +188,8 @@ export default function Users() {
 
         <DataTableFilters
           q={q}
-          onQ={(v) => {
-            setQ(v);
-            pushQuery({ q: v, page: 1 });
-          }}
+          onQ={setQ}
+          onQDebounced={(v) => pushQuery({ q: v, page: 1 })}
           placeholder="Search name or email..."
           filters={[
             {
@@ -219,6 +217,7 @@ export default function Users() {
           columns={columns}
           rows={tableRows}
           loading={loading}
+          searchQuery={q}
           emptyTitle="No users found"
           emptyHint="Add a user or adjust filters."
         />

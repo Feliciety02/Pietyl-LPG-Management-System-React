@@ -310,10 +310,8 @@ export default function Sales() {
 
         <DataTableFilters
           q={q}
-          onQ={(v) => {
-            setQ(v);
-            pushQuery({ q: v, page: 1 });
-          }}
+          onQ={setQ}
+          onQDebounced={(v) => pushQuery({ q: v, page: 1 })}
           placeholder="Search reference or customer..."
           filters={[
             {
@@ -332,6 +330,7 @@ export default function Sales() {
           columns={columns}
           rows={tableRows}
           loading={loading}
+          searchQuery={q}
           emptyTitle="No sales yet"
           emptyHint="Completed sales will appear here."
           renderActions={(row) =>

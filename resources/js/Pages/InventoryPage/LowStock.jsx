@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
 
@@ -235,10 +235,14 @@ export default function LowStock() {
     defaults: { q: "", risk: "all", req: "all", per: 10, page: 1 },
   });
 
-  const q = query.q;
+  const [q, setQ] = useState(query.q);
   const risk = query.risk;
   const req = query.req;
   const per = query.per;
+
+  useEffect(() => {
+    setQ(query.q);
+  }, [query.q]);
 
   const [thresholdsOpen, setThresholdsOpen] = useState(false);
 
@@ -448,7 +452,8 @@ export default function LowStock() {
 
         <DataTableFilters
           q={q}
-          onQ={(v) => set("q", v, { resetPage: true })}
+          onQ={setQ}
+          onQDebounced={(v) => set("q", v, { resetPage: true })}
           placeholder="Search product, SKU, supplier..."
           filters={[
             { key: "risk", value: risk, onChange: (v) => set("risk", v, { resetPage: true }), options: riskOptions },
@@ -465,6 +470,7 @@ export default function LowStock() {
             columns={columns}
             rows={rows}
             loading={loading}
+            searchQuery={q}
             emptyTitle="No low stock items"
             emptyHint="Try changing the search or restock levels."
             renderActions={(row) =>
