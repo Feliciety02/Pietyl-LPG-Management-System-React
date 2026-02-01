@@ -105,6 +105,7 @@ export function RecordTurnoverModal({ open, onClose, onSubmit, row, loading = fa
 
   const [remitted, setRemitted] = useState("");
   const [note, setNote] = useState("");
+  const [negativeInput, setNegativeInput] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -128,9 +129,10 @@ export function RecordTurnoverModal({ open, onClose, onSubmit, row, loading = fa
   const canSubmit = useMemo(() => {
     if (loading) return false;
     if (safeText(remitted) === "") return false;
+    if (negativeInput) return false;
     if (!noteOk) return false;
     return true;
-  }, [loading, remitted, noteOk]);
+  }, [loading, remitted, noteOk, negativeInput]);
 
   const submit = () => {
     if (!canSubmit) return;
@@ -194,11 +196,25 @@ export function RecordTurnoverModal({ open, onClose, onSubmit, row, loading = fa
               <Input
                 icon={Banknote}
                 value={remitted}
-                onChange={(e) => setRemitted(e.target.value)}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw.includes("-")) {
+                    setNegativeInput(true);
+                    setRemitted(raw.replace(/-/g, ""));
+                    return;
+                  }
+                  const parsed = safeNum(raw);
+                  setNegativeInput(parsed < 0);
+                  setRemitted(raw);
+                }}
                 inputMode="decimal"
+                min="0"
                 placeholder="0.00"
                 autoFocus
               />
+              {negativeInput ? (
+                <div className="text-[11px] font-semibold text-rose-700">Negative amounts are not allowed.</div>
+              ) : null}
             </Field>
 
             <Field label="Variance preview" hint="Preview only. Final variance is computed and saved by the server">

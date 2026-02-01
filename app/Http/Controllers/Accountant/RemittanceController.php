@@ -25,14 +25,11 @@ class RemittanceController extends Controller
         $fromDate = now()->subDays(30)->toDateString();
         $toDate = now()->toDateString();
 
-        $expectedRows = DB::table('payments as p')
-            ->join('payment_methods as pm', 'pm.id', '=', 'p.payment_method_id')
-            ->join('sales as s', 's.id', '=', 'p.sale_id')
+        $expectedRows = DB::table('sales as s')
             ->join('users as u', 'u.id', '=', 's.cashier_user_id')
-            ->where('pm.method_key', 'cash')
             ->whereDate('s.sale_datetime', '>=', $fromDate)
             ->whereDate('s.sale_datetime', '<=', $toDate)
-            ->selectRaw('DATE(s.sale_datetime) as business_date, s.cashier_user_id, u.name as cashier_name, SUM(p.amount) as expected_amount')
+            ->selectRaw('DATE(s.sale_datetime) as business_date, s.cashier_user_id, u.name as cashier_name, SUM(s.grand_total) as expected_amount')
             ->groupBy('business_date', 's.cashier_user_id', 'u.name')
             ->orderByDesc('business_date')
             ->get();
@@ -113,13 +110,10 @@ class RemittanceController extends Controller
             return back()->with('error', 'This business date is already finalized.');
         }
 
-        $expected = DB::table('payments as p')
-            ->join('payment_methods as pm', 'pm.id', '=', 'p.payment_method_id')
-            ->join('sales as s', 's.id', '=', 'p.sale_id')
-            ->where('pm.method_key', 'cash')
+        $expected = DB::table('sales as s')
             ->whereDate('s.sale_datetime', $validated['business_date'])
             ->where('s.cashier_user_id', $validated['cashier_user_id'])
-            ->sum('p.amount');
+            ->sum('s.grand_total');
 
         $remitted = (float) $validated['remitted_amount'];
         $variance = $remitted - (float) $expected;

@@ -28,6 +28,7 @@ use App\Models\UserRole;
 use App\Observers\AuditTrailObserver;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
+use Spatie\Permission\Models\Permission;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -44,6 +45,19 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // One-off safety net: ensure inventory_manager always has low stock permission.
+        try {
+            $role = Role::where('name', 'inventory_manager')->first();
+            if ($role && !$role->hasPermissionTo('inventory.stock.low_stock')) {
+                $perm = Permission::firstOrCreate(
+                    ['name' => 'inventory.stock.low_stock', 'guard_name' => 'web']
+                );
+                $role->givePermissionTo($perm);
+            }
+        } catch (\Throwable $e) {
+            // Fail silently to avoid breaking boot if permissions aren't ready yet.
+        }
+
         Gate::before(function ($user) {
             return $user->hasRole('admin') ? true : null;
         });
