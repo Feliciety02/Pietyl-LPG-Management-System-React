@@ -113,7 +113,6 @@ export default function Users() {
       onSuccess: () => {
         setCreateOpen(false);
         setCreateError("");
-        router.reload({ only: ["users"] });
       },
       onError: (errors) => {
         setCreateError(errors?.email || errors?.name || errors?.password || errors?.role || "Failed to create user.");

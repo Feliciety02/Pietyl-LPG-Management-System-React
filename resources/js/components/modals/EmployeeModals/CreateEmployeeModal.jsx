@@ -43,6 +43,15 @@ function Select(props) {
   );
 }
 
+const POSITION_OPTIONS = [
+  "Owner / Admin",
+  "Cashier",
+  "Delivery Rider",
+  "Inventory Manager",
+  "Accountant",
+  "Warehouse Staff",
+];
+
 export default function CreateEmployeeModal({
   open,
   onClose,
@@ -152,7 +161,14 @@ export default function CreateEmployeeModal({
         </Field>
 
         <Field label="Position" hint="Optional, you can update later.">
-          <Input value={position} onChange={(e) => setPosition(e.target.value)} placeholder="Cashier" />
+          <Select value={position} onChange={(e) => setPosition(e.target.value)}>
+            <option value="">Select position</option>
+            {POSITION_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </Select>
         </Field>
 
         <Field label="Status">

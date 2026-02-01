@@ -42,6 +42,11 @@ class User extends Authenticatable
 
     public function primaryRoleName(): ?string
     {
+        if ($this->relationLoaded('roles')) {
+            $role = $this->roles->sortBy('name')->first();
+            return $role ? $role->name : null;
+        }
+
         return $this->roles()->orderBy('name')->value('name');
     }
 }

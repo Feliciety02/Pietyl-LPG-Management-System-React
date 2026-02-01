@@ -171,7 +171,6 @@ export default function Customers() {
         preserveScroll: true,
         onSuccess: () => {
           setEditOpen(false);
-          router.reload({ only: ["customers"] });
         },
         onFinish: () => resolve(),
       });
@@ -317,7 +316,7 @@ export default function Customers() {
         open={openAdd}
         onClose={() => setOpenAdd(false)}
         postTo={postTo}
-        onCreated={() => router.reload({ only: ["customers"] })}
+        onCreated={() => setOpenAdd(false)}
       />
 
       <CustomerDetailsModal

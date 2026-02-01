@@ -342,7 +342,6 @@ export default function Products() {
       preserveScroll: true,
       onSuccess: () => {
         setAddOpen(false);
-        router.reload({ only: ["products"] });
       },
     });
   };
@@ -355,7 +354,6 @@ export default function Products() {
         preserveScroll: true,
         onSuccess: () => {
           setEditOpen(false);
-          router.reload({ only: ["products"] });
         },
         onFinish: () => resolve(),
       });
@@ -372,7 +370,6 @@ export default function Products() {
         preserveScroll: true,
         onSuccess: () => {
           setArchiveOpen(false);
-          router.reload({ only: ["products"] });
         },
       }
     );
@@ -388,7 +385,6 @@ export default function Products() {
         preserveScroll: true,
         onSuccess: () => {
           setRestoreOpen(false);
-          router.reload({ only: ["products"] });
         },
       }
     );

@@ -19,6 +19,7 @@ export default function DataTableFilters({
 }) {
   const [localQ, setLocalQ] = useState(q || "");
   const skipRef = useRef(false);
+  const onQDebouncedRef = useRef(onQDebounced);
 
   useEffect(() => {
     skipRef.current = true;
@@ -26,7 +27,11 @@ export default function DataTableFilters({
   }, [q]);
 
   useEffect(() => {
-    const callback = onQDebounced;
+    onQDebouncedRef.current = onQDebounced;
+  }, [onQDebounced]);
+
+  useEffect(() => {
+    const callback = onQDebouncedRef.current;
     if (!callback) return;
     if (skipRef.current) {
       skipRef.current = false;
@@ -38,7 +43,7 @@ export default function DataTableFilters({
     }
     const handle = setTimeout(() => callback(localQ), debounceMs);
     return () => clearTimeout(handle);
-  }, [localQ, debounceMs, onQDebounced]);
+  }, [localQ, debounceMs]);
 
   const isInline = variant === "inline";
 

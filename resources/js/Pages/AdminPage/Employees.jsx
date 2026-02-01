@@ -181,23 +181,26 @@ export default function Employees() {
       onSuccess: () => {
         setCreateOpen(false);
         setActiveEmployee(null);
-        router.reload({ only: ["employees"] });
       },
     });
   };
 
   const updateEmployee = (id, payload) => {
-    if (!id || submitting) return;
+    if (!id || submitting) return Promise.resolve(false);
     setSubmitting(true);
 
-    router.put(`/dashboard/admin/employees/${id}`, payload, {
-      preserveScroll: true,
-      onFinish: () => setSubmitting(false),
-      onSuccess: () => {
-        setEditOpen(false);
-        setActiveEmployee(null);
-        router.reload({ only: ["employees"] });
-      },
+    return new Promise((resolve) => {
+      router.put(`/dashboard/admin/employees/${id}`, payload, {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+          setEditOpen(false);
+          setActiveEmployee(null);
+          resolve(true);
+        },
+        onError: () => resolve(false),
+        onFinish: () => setSubmitting(false),
+      });
     });
   };
 
@@ -213,7 +216,6 @@ export default function Employees() {
         setLinkOpen(false);
         setActiveEmployee(null);
         setLinkError("");
-        router.reload({ only: ["employees"] });
       },
       onError: (errors) => {
         setLinkError(errors?.email || errors?.role || "Failed to link user.");
@@ -231,7 +233,6 @@ export default function Employees() {
       onSuccess: () => {
         setConfirm({ open: false, employee: null });
         setActiveEmployee(null);
-        router.reload({ only: ["employees"] });
       },
     });
   };

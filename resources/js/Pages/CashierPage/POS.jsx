@@ -52,7 +52,7 @@ function Pill({ active, onClick, children }) {
       className={cx(
         "rounded-2xl px-3 py-2 text-xs font-extrabold ring-1 transition whitespace-nowrap",
         active
-          ? "bg-teal-600 text-white ring-teal-600"
+          ? "bg-teal-600 text-white ring-teal-600 teal-breathe"
           : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
       )}
     >
@@ -69,7 +69,7 @@ function IconPill({ active, onClick, icon: Icon, label }) {
       className={cx(
         "flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-extrabold ring-1 transition whitespace-nowrap",
         active
-          ? "bg-teal-600 text-white ring-teal-600"
+          ? "bg-teal-600 text-white ring-teal-600 teal-breathe"
           : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
       )}
     >
@@ -307,10 +307,6 @@ export default function POS() {
                   className="w-full min-w-0 bg-transparent text-sm font-semibold text-slate-700 outline-none placeholder:text-slate-400"
                 />
               </div>
-
-              <div className="mt-2 flex items-start gap-2 text-xs text-slate-500">
-                <Info className="mt-0.5 h-4 w-4 text-slate-400" />
-              </div>
             </div>
 
             <div className="p-4 flex-1 min-h-0 overflow-y-auto no-scrollbar">
@@ -330,7 +326,7 @@ export default function POS() {
                         onClick={() => addToCart(p)}
                         disabled={readOnly}
                         className={cx(
-                          "text-left rounded-3xl p-4 ring-1 transition",
+                          "text-left rounded-3xl p-4 ring-1 transition hover:-translate-y-0.5 hover:ring-teal-300/60 hover:shadow-[0_10px_22px_rgba(13,148,136,0.12)]",
                           readOnly
                             ? "bg-slate-50 ring-slate-200 cursor-not-allowed"
                             : "bg-white ring-slate-200 hover:bg-slate-50"
@@ -338,15 +334,13 @@ export default function POS() {
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="text-sm font-extrabold text-slate-800 truncate">
-                              {p.name} <span className="text-slate-500 font-semibold">({p.variant})</span>
-                            </div>
+                            <div className="text-sm font-extrabold text-slate-800 truncate">{p.name}</div>
                             <div className="mt-1 text-xs text-slate-500">
                               {String(p.category || "").toUpperCase() || "—"}
                             </div>
                           </div>
 
-                          <div className="shrink-0 rounded-2xl bg-teal-600/10 ring-1 ring-teal-700/10 px-3 py-2 text-xs font-extrabold text-teal-900">
+                          <div className="shrink-0 rounded-2xl bg-teal-600/10 ring-1 ring-teal-700/10 px-3 py-2 text-xs font-extrabold text-teal-900 teal-float">
                             {formatPeso(price)}
                           </div>
                         </div>
@@ -444,10 +438,7 @@ export default function POS() {
                     <div key={x._key} className="rounded-3xl bg-white ring-1 ring-slate-200 p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="text-sm font-extrabold text-slate-800 truncate">
-                            {x.name} <span className="text-slate-500 font-semibold">({x.variant})</span>
-                          </div>
-                          <div className="mt-1 text-xs text-slate-500">SWAP • {formatPeso(x.unit_price)} each</div>
+                          <div className="text-sm font-extrabold text-slate-800 truncate">{x.name}</div>
                         </div>
 
                         <button
@@ -567,9 +558,9 @@ export default function POS() {
                   onClick={checkout}
                   disabled={!canCheckout}
                   className={cx(
-                    "w-full inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-extrabold ring-1 transition focus:outline-none focus:ring-4 focus:ring-teal-500/25",
+                    "w-full inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-extrabold ring-1 transition focus:outline-none focus:ring-4 focus:ring-teal-500/25 hover:-translate-y-0.5",
                     canCheckout
-                      ? "bg-teal-600 text-white ring-teal-600 hover:bg-teal-700"
+                      ? "bg-teal-600 text-white ring-teal-600 hover:bg-teal-700 teal-breathe"
                       : "bg-slate-200 text-slate-500 ring-slate-200 cursor-not-allowed"
                   )}
                 >
@@ -603,7 +594,6 @@ export default function POS() {
         postTo="/dashboard/cashier/customers"
         onCreated={(created) => {
           if (created?.id) setCustomerId(created.id);
-          router.reload({ only: ["customers"] });
         }}
       />
 

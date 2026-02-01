@@ -257,7 +257,6 @@ export default function Suppliers() {
       onFinish: () => setSubmitting(false),
       onSuccess: () => {
         setAddOpen(false);
-        router.reload({ only: ["suppliers"] });
       },
     });
   };
@@ -271,7 +270,6 @@ export default function Suppliers() {
       onFinish: () => setSubmitting(false),
       onSuccess: () => {
         setEditOpen(false);
-        router.reload({ only: ["suppliers"] });
       },
     });
   };
@@ -288,7 +286,6 @@ export default function Suppliers() {
         onFinish: () => setSubmitting(false),
         onSuccess: () => {
           setArchiveOpen(false);
-          router.reload({ only: ["suppliers"] });
         },
       }
     );
@@ -306,7 +303,6 @@ export default function Suppliers() {
         onFinish: () => setSubmitting(false),
         onSuccess: () => {
           setRestoreOpen(false);
-          router.reload({ only: ["suppliers"] });
         },
       }
     );

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { UserRound, BadgeCheck, StickyNote } from "lucide-react";
 import ModalShell from "../ModalShell";
 
@@ -59,6 +59,15 @@ function niceText(v, fallback = "None") {
   return s ? s : fallback;
 }
 
+const POSITION_OPTIONS = [
+  "Owner / Admin",
+  "Cashier",
+  "Delivery Rider",
+  "Inventory Manager",
+  "Accountant",
+  "Warehouse Staff",
+];
+
 export default function EditEmployeeModal({ open, onClose, employee, onSubmit, loading = false }) {
   const [employeeNo, setEmployeeNo] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -70,8 +79,17 @@ export default function EditEmployeeModal({ open, onClose, employee, onSubmit, l
   const [localError, setLocalError] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const lastEmployeeIdRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) {
+      lastEmployeeIdRef.current = null;
+    }
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
+    if (employee?.id && lastEmployeeIdRef.current === employee.id) return;
 
     setEmployeeNo(employee?.employee_no || "");
     setFirstName(employee?.first_name || "");
@@ -82,7 +100,16 @@ export default function EditEmployeeModal({ open, onClose, employee, onSubmit, l
 
     setLocalError("");
     setSaving(false);
-  }, [open, employee]);
+    lastEmployeeIdRef.current = employee?.id || null;
+  }, [open, employee?.id]);
+
+  const positionOptions = useMemo(() => {
+    const current = String(position || "").trim();
+    if (current && !POSITION_OPTIONS.includes(current)) {
+      return [current, ...POSITION_OPTIONS];
+    }
+    return POSITION_OPTIONS;
+  }, [position]);
 
   const canSubmit = useMemo(() => {
     if (!employee?.id) return false;
@@ -110,7 +137,7 @@ export default function EditEmployeeModal({ open, onClose, employee, onSubmit, l
     setSaving(true);
 
     try {
-      await onSubmit?.({
+      const ok = await onSubmit?.({
         employee_no: employeeNo.trim() || null,
         first_name: firstName.trim(),
         last_name: lastName.trim(),
@@ -118,6 +145,9 @@ export default function EditEmployeeModal({ open, onClose, employee, onSubmit, l
         status: status,
         notes: notes.trim() || null,
       });
+      if (ok) {
+        onClose?.();
+      }
     } finally {
       setSaving(false);
     }
@@ -203,12 +233,20 @@ export default function EditEmployeeModal({ open, onClose, employee, onSubmit, l
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Position">
-              <Input
+              <Select
                 value={position}
                 onChange={(e) => setPosition(e.target.value)}
-                placeholder="Cashier"
                 disabled={saving || loading}
-              />
+              >
+                <option value="" disabled>
+                  Select position
+                </option>
+                {positionOptions.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </Select>
             </Field>
 
             <Field label="Status">

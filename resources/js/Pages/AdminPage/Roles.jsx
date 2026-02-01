@@ -217,8 +217,6 @@ export default function Roles() {
     setActiveRole(null);
   };
 
-  const refreshRoles = () => router.reload({ only: ["roles"] });
-
   const createRole = (payload) => {
     if (submitting) return;
     setSubmitting(true);
@@ -228,7 +226,6 @@ export default function Roles() {
       onFinish: () => setSubmitting(false),
       onSuccess: () => {
         closeModals();
-        refreshRoles();
       },
     });
   };
@@ -242,7 +239,6 @@ export default function Roles() {
       onFinish: () => setSubmitting(false),
       onSuccess: () => {
         closeModals();
-        refreshRoles();
       },
     });
   };
@@ -259,7 +255,6 @@ export default function Roles() {
         onFinish: () => setSubmitting(false),
         onSuccess: () => {
           closeModals();
-          refreshRoles();
         },
       }
     );
@@ -274,7 +269,6 @@ export default function Roles() {
       onFinish: () => setSubmitting(false),
       onSuccess: () => {
         closeModals();
-        refreshRoles();
       },
     });
   };
@@ -288,7 +282,6 @@ export default function Roles() {
       onFinish: () => setSubmitting(false),
       onSuccess: () => {
         closeModals();
-        refreshRoles();
       },
     });
   };
@@ -302,7 +295,6 @@ export default function Roles() {
       onFinish: () => setSubmitting(false),
       onSuccess: () => {
         closeModals();
-        refreshRoles();
       },
     });
   };

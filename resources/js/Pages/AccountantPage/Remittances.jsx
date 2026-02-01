@@ -177,7 +177,6 @@ export default function Remittances() {
       onFinish: () => setSubmitting(false),
       onSuccess: () => {
         closeRecord();
-        router.reload({ only: ["remittances"] });
       },
     });
   };
