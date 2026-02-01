@@ -199,7 +199,7 @@ class PurchaseController extends Controller
 
         $validated = $request->all();
 
-        \DB::transaction(function () use ($validated) {
+        \DB::transaction(function () use ($validated, $user) {
             // Generate sequential purchase number
             $lastPurchase = Purchase::orderBy('id', 'desc')->lockForUpdate()->first();
             
@@ -215,12 +215,15 @@ class PurchaseController extends Controller
             $unitCost = $validated['unit_cost'] ?? 0;
             $lineTotal = $validated['qty'] * $unitCost;
 
+            // Set status based on user role
+            $status = $user->hasRole('admin') ? 'awaiting_confirmation' : 'pending';
+
             // Create purchase
             $purchase = Purchase::create([
                 'purchase_number' => $purchaseNumber,
                 'supplier_id' => $validated['supplier_id'],
                 'created_by_user_id' => auth()->id(),
-                'status' => 'pending',
+                'status' => $status,
                 'subtotal' => $lineTotal,
                 'grand_total' => $lineTotal,
                 'notes' => $validated['notes'] ?? null,
