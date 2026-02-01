@@ -32,6 +32,22 @@ class RestockRequestController extends Controller
         ]);
     }
 
+    public function adminIndex(Request $request)
+    {
+        $user = $request->user();
+        if (!$user || !$user->can('inventory.purchases.view')) {
+            abort(403);
+        }
+
+        $filters = $request->only(['q', 'status', 'priority', 'per', 'page']);
+        $requests = $this->svc->getRequestsForPage($filters);
+
+        return Inertia::render('AdminPage/StockRequests', [
+            'stock_requests' => $requests,
+            'filters' => $filters,
+        ]);
+    }
+
     public function store(Request $request)
     {
         $user = $request->user();
@@ -42,6 +58,7 @@ class RestockRequestController extends Controller
         // Transform the modal data to match the service's expected structure
         $data = [
             'requested_by_user_id' => auth()->id(),
+            'location_id' => $request->input('location_id'),
             'priority' => 'normal',
             'needed_by_date' => null,
             'notes' => $request->input('note'), // The note field from the modal
@@ -49,9 +66,9 @@ class RestockRequestController extends Controller
                 [
                     'product_variant_id' => $request->input('product_variant_id'),
                     'requested_qty' => $request->input('qty'),
-                    'current_qty' => 0,
-                    'reorder_level' => 0,
-                    'supplier_id' => null,
+                    'current_qty' => $request->input('current_qty', 0),
+                    'reorder_level' => $request->input('reorder_level', 0),
+                    'supplier_id' => $request->input('supplier_id'),
                 ]
             ]
         ];
@@ -84,7 +101,7 @@ class RestockRequestController extends Controller
             abort(403);
         }
 
-        $success = $this->svc->rejectRequest($id, auth()->id());
+        $success = $this->svc->rejectRequest($id, auth()->id(), $request->input('reason'));
 
         if (!$success) {
             return redirect()->back()->with('error', 'Unable to reject request');

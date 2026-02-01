@@ -20,6 +20,22 @@ class RestockRequestService
 
         return [
             'data' => collect($requestsPaginated->items())->map(function ($request) {
+                $items = $request->items->map(function ($item) {
+                    $variant = $item->productVariant;
+                    $product = $variant?->product;
+
+                    return [
+                        'id' => $item->id,
+                        'product_variant_id' => $item->product_variant_id,
+                        'product_name' => $product?->name ?? '—',
+                        'variant' => $variant?->variant_name ?? '',
+                        'requested_qty' => (float) $item->requested_qty,
+                        'supplier_name' => $item->supplier?->name ?? '—',
+                    ];
+                })->values();
+
+                $primaryItem = $items->first();
+
                 return [
                     'id' => $request->id,
                     'request_number' => $request->request_number,
@@ -32,7 +48,10 @@ class RestockRequestService
                     'priority' => $request->priority,
                     'needed_by' => $request->needed_by_date?->format('M d, Y'),
                     'items_count' => $request->items->count(),
+                    'items' => $items,
+                    'primary_item' => $primaryItem,
                     'notes' => $request->notes,
+                    'rejection_reason' => $request->rejection_reason,
                     'created_at' => $request->created_at->format('M d, Y g:i A'),
                 ];
             }),
@@ -99,7 +118,7 @@ class RestockRequestService
         return true;
     }
 
-    public function rejectRequest(int $id, int $approvedByUserId)
+    public function rejectRequest(int $id, int $approvedByUserId, ?string $reason = null)
     {
         $request = $this->repo->findById($id);
         
@@ -110,6 +129,7 @@ class RestockRequestService
         $request->update([
             'status' => 'rejected',
             'approved_by_user_id' => $approvedByUserId,
+            'rejection_reason' => $reason,
         ]);
 
         return true;

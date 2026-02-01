@@ -309,23 +309,16 @@ class StockController extends Controller
             abort(403);
         }
 
-        $data = $svc->getLowStock();
+        $filters = $request->only(['q', 'risk', 'req', 'per', 'page']);
+        $data = $svc->getLowStock($filters);
 
         return Inertia::render('InventoryPage/LowStock', [
-            'low_stock' => [
-                'data' => $data['low_stock'],
-                'meta' => [
-                    'current_page' => 1,
-                    'last_page' => 1,
-                    'from' => 1,
-                    'to' => count($data['low_stock']),
-                    'total' => count($data['low_stock']),
-                ],
-            ],
+            'low_stock' => $data['low_stock'],
             'product_hash' => $data['product_hash'],
             'suppliers' => $data['suppliers'],
             'suppliersByProduct' => $data['suppliersByProduct'] ?? [],
             'products' => $data['products'] ?? [],
+            'filters' => $filters,
         ]);
     }
 

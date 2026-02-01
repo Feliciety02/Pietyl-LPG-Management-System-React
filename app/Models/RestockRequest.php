@@ -20,6 +20,7 @@ class RestockRequest extends Model
         'priority',
         'needed_by_date',
         'notes',
+        'rejection_reason',
     ];
 
     protected $casts = [

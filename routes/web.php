@@ -134,6 +134,10 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/purchase-requests/{id}/reject', [RestockRequestController::class, 'reject'])
             ->middleware('permission:inventory.purchases.update')
             ->name('dash.admin.purchase-requests.reject');
+
+        Route::get('/stock-requests', [RestockRequestController::class, 'adminIndex'])
+            ->middleware('permission:inventory.purchases.view')
+            ->name('dash.admin.stock-requests');
     });
 
     Route::prefix('dashboard/cashier')->middleware('role:cashier')->group(function () {

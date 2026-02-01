@@ -6,6 +6,7 @@ export const DASHBOARD_CONFIG = {
       { label: "Employees", href: "/dashboard/admin/employees", permission: "admin.employees.view" },
       { label: "Products", href: "/dashboard/admin/products", permission: "admin.products.view" },
       { label: "Suppliers", href: "/dashboard/admin/suppliers", permission: "admin.suppliers.view" },
+      { label: "Stock Requests", href: "/dashboard/admin/stock-requests", permission: "inventory.purchases.view" },
       { label: "Stock Counts", href: "/dashboard/inventory/counts", permission: "inventory.stock.view" },
       { label: "Low Stock", href: "/dashboard/inventory/low-stock", permission: "inventory.stock.low_stock" },
       { label: "Reports", href: "/dashboard/admin/reports", permission: "admin.reports.view" },

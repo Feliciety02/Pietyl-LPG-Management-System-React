@@ -15,6 +15,7 @@ import ThresholdsModal from "@/components/modals/InventoryModals/ThresholdsModal
 import ConfirmActionModal from "@/components/modals/InventoryModals/ConfirmActionModal";
 import PurchaseRequestModal from "@/components/modals/InventoryModals/PurchaseRequestModal";
 import NewPurchaseModal from "@/components/modals/InventoryModals/OrderStockModal";
+import StockViewModal from "@/components/modals/InventoryModals/StockViewModal";
 
 import {
   AlertTriangle,
@@ -228,6 +229,7 @@ export default function LowStock() {
   const productHash = page.props?.product_hash ?? [];
 
   const { data: rows, meta } = normalizePaginator(page.props?.low_stock);
+  const [localRows, setLocalRows] = useState(rows);
 
   const { query, set, setPer, prevPage, nextPage, canPrev, canNext } = useTableQuery({
     endpoint: "/dashboard/inventory/low-stock",
@@ -244,6 +246,10 @@ export default function LowStock() {
     setQ(query.q);
   }, [query.q]);
 
+  useEffect(() => {
+    setLocalRows(rows);
+  }, [rows]);
+
   const [thresholdsOpen, setThresholdsOpen] = useState(false);
 
   const [purchaseReqOpen, setPurchaseReqOpen] = useState(false);
@@ -251,6 +257,9 @@ export default function LowStock() {
 
   const [newPurchaseOpen, setNewPurchaseOpen] = useState(false);
   const [newPurchaseItem, setNewPurchaseItem] = useState(null);
+
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewItem, setViewItem] = useState(null);
 
   const [confirm, setConfirm] = useState({
     open: false,
@@ -274,9 +283,17 @@ export default function LowStock() {
     { value: "rejected", label: "Declined" },
   ];
 
+  const filteredRows = useMemo(() => {
+    if (!isAdmin) return localRows;
+    return localRows.filter((r) => {
+      const status = String(r.purchase_request_status || "none");
+      return status !== "none" && status !== "null" && status !== "";
+    });
+  }, [isAdmin, localRows]);
+
   const urgentCount = useMemo(
-    () => rows.filter((r) => String(r.risk_level) === "critical").length,
-    [rows]
+    () => filteredRows.filter((r) => String(r.risk_level) === "critical").length,
+    [filteredRows]
   );
 
   const openRequestModal = (row) => {
@@ -300,7 +317,15 @@ export default function LowStock() {
         router.post(
           `/dashboard/admin/purchase-requests/${row.purchase_request_id}/approve`,
           {},
-          { preserveScroll: true }
+          {
+            preserveScroll: true,
+            onSuccess: () =>
+              setLocalRows((prev) =>
+                prev.map((r) =>
+                  r.id === row.id ? { ...r, purchase_request_status: "approved" } : r
+                )
+              ),
+          }
         );
       },
     });
@@ -317,7 +342,15 @@ export default function LowStock() {
         router.post(
           `/dashboard/admin/purchase-requests/${row.purchase_request_id}/reject`,
           {},
-          { preserveScroll: true }
+          {
+            preserveScroll: true,
+            onSuccess: () =>
+              setLocalRows((prev) =>
+                prev.map((r) =>
+                  r.id === row.id ? { ...r, purchase_request_status: "rejected" } : r
+                )
+              ),
+          }
         );
       },
     });
@@ -343,14 +376,10 @@ export default function LowStock() {
               <div className="min-w-0">
                 <div className="font-extrabold text-slate-900 truncate">
                   {niceText(x.name, "Product")}
-                  <span className="text-slate-500 font-semibold">
-                    {" "}
-                    {niceText(x.variant, "—")}
-                  </span>
                 </div>
-                <div className="text-xs text-slate-500 truncate">
-                  {niceText(x.sku)} • {niceText(x.supplier_name, "No supplier")}
-                </div>
+                {x.sku ? (
+                  <div className="text-xs text-slate-500 truncate">{niceText(x.sku)}</div>
+                ) : null}
               </div>
             </div>
           ),
@@ -405,8 +434,9 @@ export default function LowStock() {
     ];
   }, [isAdmin, loading]);
 
-  const viewItem = (row) => {
-    router.get(`/dashboard/inventory/products/${row.id}`, {}, { preserveScroll: true });
+  const openView = (row) => {
+    setViewItem(row || null);
+    setViewOpen(true);
   };
 
   return (
@@ -426,25 +456,14 @@ export default function LowStock() {
               </div>
 
               {isAdmin ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => openNewPurchaseModal(null)}
-                    className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 transition focus:ring-4 focus:ring-teal-500/25"
-                  >
-                    <PlusCircle className="h-4 w-4" />
-                    Order stock
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setThresholdsOpen(true)}
-                    className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
-                  >
-                    <SlidersHorizontal className="h-4 w-4 text-slate-600" />
-                    Restock levels
-                  </button>
-                </>
+                <button
+                  type="button"
+                  onClick={() => setThresholdsOpen(true)}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
+                >
+                  <SlidersHorizontal className="h-4 w-4 text-slate-600" />
+                  Restock levels
+                </button>
               ) : null}
             </div>
           }
@@ -463,12 +482,12 @@ export default function LowStock() {
           ]}
         />
 
-        {!loading && rows.length === 0 ? (
+        {!loading && filteredRows.length === 0 ? (
           <EmptyHint />
         ) : (
           <DataTable
             columns={columns}
-            rows={rows}
+            rows={filteredRows}
             loading={loading}
             searchQuery={q}
             emptyTitle="No low stock items"
@@ -478,31 +497,41 @@ export default function LowStock() {
                 <SkeletonButton w="w-28" />
               ) : (
                 <div className="flex items-center justify-end gap-2">
-                  <TableActionButton icon={Eye} title="Quick view" onClick={() => viewItem(row)}>
+                  <TableActionButton icon={Eye} title="Quick view" onClick={() => openView(row)}>
                     View
                   </TableActionButton>
 
                   {!isAdmin ? (
-                    <TableActionButton icon={ArrowRight} title="Request restock" onClick={() => openRequestModal(row)}>
-                      Request
-                    </TableActionButton>
+                    String(row.purchase_request_status || "none") === "pending" ? (
+                      <TableActionButton icon={ArrowRight} disabled title="Pending request">
+                        Pending
+                      </TableActionButton>
+                    ) : (
+                      <TableActionButton icon={ArrowRight} title="Request restock" onClick={() => openRequestModal(row)}>
+                        Request
+                      </TableActionButton>
+                    )
                   ) : String(row.purchase_request_status || "none") === "pending" ? (
                     <>
-                      <TableActionButton tone="primary" icon={CheckCircle2} title="Approve request" onClick={() => approveRequest(row)}>
+                      <TableActionButton
+                        tone="primary"
+                        icon={CheckCircle2}
+                        title="Approve request"
+                        onClick={() => approveRequest(row)}
+                      >
                         Approve
                       </TableActionButton>
 
-                      <TableActionButton icon={XCircle} title="Decline request" onClick={() => rejectRequest(row)}>
+                      <TableActionButton
+                        tone="danger"
+                        icon={XCircle}
+                        title="Decline request"
+                        onClick={() => rejectRequest(row)}
+                      >
                         Decline
                       </TableActionButton>
                     </>
-                  ) : (
-                    <>
-                      <TableActionButton icon={PlusCircle} title="Create purchase" onClick={() => openNewPurchaseModal(row)}>
-                        Order
-                      </TableActionButton>
-                    </>
-                  )}
+                  ) : null}
                 </div>
               )
             }
@@ -528,11 +557,31 @@ export default function LowStock() {
           item={purchaseReqItem}
           products={productHash}
           onSubmit={(payload) => {
-            router.post("/dashboard/inventory/purchase-requests", payload, {
+            const merged = {
+              ...payload,
+              current_qty: purchaseReqItem?.current_qty ?? 0,
+              reorder_level: purchaseReqItem?.reorder_level ?? 0,
+              supplier_id: purchaseReqItem?.supplier_id ?? null,
+              location_id: purchaseReqItem?.location_id ?? null,
+            };
+
+            router.post("/dashboard/inventory/purchase-requests", merged, {
               preserveScroll: true,
               onSuccess: () => {
                 setPurchaseReqOpen(false);
                 setPurchaseReqItem(null);
+                setLocalRows((prev) =>
+                  prev.map((r) =>
+                    r.id === purchaseReqItem?.id
+                      ? {
+                          ...r,
+                          purchase_request_status: "pending",
+                          requested_by_name: page.props?.auth?.user?.name || r.requested_by_name,
+                          requested_at: "Just now",
+                        }
+                      : r
+                  )
+                );
               },
             });
           }}
@@ -561,7 +610,7 @@ export default function LowStock() {
         <ThresholdsModal
           open={thresholdsOpen}
           onClose={() => setThresholdsOpen(false)}
-          items={rows}
+          items={filteredRows}
           onSave={(payload) => {
             router.post("/dashboard/admin/inventory/thresholds", payload, {
               preserveScroll: true,
@@ -578,6 +627,15 @@ export default function LowStock() {
           tone={confirm.tone}
           confirmLabel={confirm.tone === "rose" ? "Decline" : "Approve"}
           onConfirm={confirm.onConfirm || (() => {})}
+        />
+
+        <StockViewModal
+          open={viewOpen}
+          onClose={() => {
+            setViewOpen(false);
+            setViewItem(null);
+          }}
+          item={viewItem}
         />
       </div>
     </Layout>

@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Models\InventoryBalance;
 use App\Models\ProductVariant;
+use App\Models\RestockRequestItem;
 use App\Repositories\InventoryBalanceRepository;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class InventoryBalanceService
 {
@@ -52,14 +54,58 @@ class InventoryBalanceService
         // TODO: Add stock movement logging here
     }
 
-    public function getLowStock()
+    public function getLowStock(array $filters = [])
     {
-        $lowStockItems = $this->repo->allWithRelations()
-            ->filter(function ($balance) {
-                $available = $balance->qty_on_hand - $balance->qty_reserved;
-                return $available <= $balance->reorder_level;
+        $perPage = (int) ($filters['per'] ?? 10);
+        $page = (int) ($filters['page'] ?? 1);
+        $q = trim((string) ($filters['q'] ?? ''));
+        $riskFilter = (string) ($filters['risk'] ?? 'all');
+        $reqFilter = (string) ($filters['req'] ?? 'all');
+
+        $query = InventoryBalance::query()
+            ->with(['productVariant.product', 'location', 'productVariant.suppliers'])
+            ->whereRaw('(qty_filled + qty_empty - qty_reserved) <= reorder_level');
+
+        if ($q !== '') {
+            $query->where(function ($sub) use ($q) {
+                $sub->whereHas('productVariant.product', function ($p) use ($q) {
+                    $p->where('name', 'like', "%{$q}%")
+                      ->orWhere('sku', 'like', "%{$q}%");
+                })->orWhereHas('productVariant', function ($p) use ($q) {
+                    $p->where('variant_name', 'like', "%{$q}%");
+                })->orWhereHas('productVariant.suppliers', function ($s) use ($q) {
+                    $s->where('name', 'like', "%{$q}%");
+                });
+            });
+        }
+
+        $balances = $query->get();
+
+        $variantIds = $balances->pluck('product_variant_id')->unique()->values();
+        $locationIds = $balances->pluck('location_id')->unique()->values();
+
+        $latestItems = RestockRequestItem::query()
+            ->whereIn('product_variant_id', $variantIds)
+            ->whereHas('restockRequest', function ($q) use ($locationIds) {
+                $q->whereIn('location_id', $locationIds);
             })
-            ->map(function ($balance) {
+            ->with(['restockRequest.requestedBy'])
+            ->orderByDesc('created_at')
+            ->get();
+
+        $latestByKey = [];
+        foreach ($latestItems as $item) {
+            $request = $item->restockRequest;
+            if (!$request) {
+                continue;
+            }
+            $key = $item->product_variant_id . '|' . $request->location_id;
+            if (!isset($latestByKey[$key])) {
+                $latestByKey[$key] = $item;
+            }
+        }
+
+        $mapped = $balances->map(function ($balance) use ($latestByKey) {
                 $available = $balance->qty_on_hand - $balance->qty_reserved;
                 $reorderLevel = $balance->reorder_level;
 
@@ -71,8 +117,14 @@ class InventoryBalanceService
                 $fallbackSupplier = $primarySupplier ?? $balance->productVariant->suppliers()->first();
                 $supplierUnitCost = (float) ($fallbackSupplier?->pivot?->unit_cost ?? 0);
 
+                $key = $balance->product_variant_id . '|' . $balance->location_id;
+                $latestItem = $latestByKey[$key] ?? null;
+                $latestRequest = $latestItem?->restockRequest;
+                $requestedBy = $latestRequest?->requestedBy;
+
                 return [
                     'id' => $balance->id,
+                    'location_id' => $balance->location_id,
                     'location_name' => $balance->location->name ?? null,
                     'sku' => $balance->productVariant->product->sku ?? null,
                     'name' => $balance->productVariant->product->name ?? null,
@@ -86,12 +138,40 @@ class InventoryBalanceService
                     'est_days_left' => rand(1, 5),
                     'risk_level' => $riskLevel,
                     'last_movement_at' => $balance->updated_at?->format('M d, Y h:i A'),
-                    'purchase_request_id' => null,
-                    'purchase_request_status' => null,
-                    'requested_by_name' => null,
-                    'requested_at' => null,
+                    'purchase_request_id' => $latestRequest?->id,
+                    'purchase_request_status' => $latestRequest?->status,
+                    'requested_by_name' => $requestedBy?->name,
+                    'requested_at' => $latestRequest?->created_at?->format('M d, Y h:i A'),
                 ];
             });
+
+        $filtered = $mapped->filter(function ($row) use ($riskFilter, $reqFilter) {
+            if ($riskFilter !== 'all' && $row['risk_level'] !== $riskFilter) {
+                return false;
+            }
+
+            if ($reqFilter !== 'all') {
+                $status = $row['purchase_request_status'] ?? 'none';
+                if ($reqFilter === 'none') {
+                    return $status === null || $status === 'none';
+                }
+                return $status === $reqFilter;
+            }
+
+            return true;
+        })->values();
+
+        $total = $filtered->count();
+        $page = max(1, $page);
+        $perPage = max(1, $perPage);
+        $slice = $filtered->slice(($page - 1) * $perPage, $perPage)->values();
+
+        $paginator = new LengthAwarePaginator(
+            $slice,
+            $total,
+            $perPage,
+            $page
+        );
 
         // Build product hash
         $allVariants = ProductVariant::with(['product', 'suppliers'])->get();
@@ -137,7 +217,17 @@ class InventoryBalanceService
         }
 
         return [
-            'low_stock' => $lowStockItems->values(),
+            'low_stock' => [
+                'data' => $paginator->items(),
+                'meta' => [
+                    'current_page' => $paginator->currentPage(),
+                    'last_page' => $paginator->lastPage(),
+                    'from' => $paginator->firstItem(),
+                    'to' => $paginator->lastItem(),
+                    'total' => $paginator->total(),
+                    'per_page' => $paginator->perPage(),
+                ],
+            ],
             'product_hash' => array_values($productHash),
             'suppliers' => \App\Models\Supplier::where('is_active', true)->get(['id', 'name']),
             'suppliersByProduct' => $suppliersByProduct,

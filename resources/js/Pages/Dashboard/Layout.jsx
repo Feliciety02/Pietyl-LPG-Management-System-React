@@ -30,6 +30,7 @@ const ROLE_META = {
         items: [
           { label: "Products", href: "/dashboard/admin/products", icon: "products", permission: "admin.products.view" },
           { label: "Suppliers", href: "/dashboard/admin/suppliers", icon: "suppliers", permission: "admin.suppliers.view" },
+          { label: "Stock Requests", href: "/dashboard/admin/stock-requests", icon: "purchases", permission: "inventory.purchases.view" },
           { label: "Low Stock", href: "/dashboard/inventory/low-stock", icon: "lowStock", permission: "inventory.stock.low_stock" },
           { label: "Stock Counts", href: "/dashboard/inventory/counts", icon: "counts", permission: "inventory.stock.view" },
         ],
