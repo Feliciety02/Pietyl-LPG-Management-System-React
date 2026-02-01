@@ -154,6 +154,7 @@ export function EditProductModal({
   const [type, setType] = useState("lpg");
   const [size, setSize] = useState("");
   const [price, setPrice] = useState("");
+  const [negativePrice, setNegativePrice] = useState(false);
   const [supplierId, setSupplierId] = useState("");
   const [stoveType, setStoveType] = useState("single");
   const [accessoryTab, setAccessoryTab] = useState("hose");
@@ -167,6 +168,7 @@ export function EditProductModal({
     setType(nextType);
     setSize(product?.size_label || "");
     setPrice(safeMoney(product?.price));
+    setNegativePrice(false);
     setSupplierId(product?.supplier?.id != null ? String(product.supplier.id) : "");
     setStoveType(inferStoveType(product?.name));
     setAccessoryTab(inferAccessoryTab(product?.sku));
@@ -204,6 +206,7 @@ export function EditProductModal({
     if (!name.trim()) return false;
     if (!sku.trim()) return false;
     if (!supplierId) return false;
+    if (negativePrice) return false;
 
     const n = Number(String(price || "").replace(/,/g, ""));
     if (!Number.isFinite(n) || n <= 0) return false;
@@ -216,7 +219,7 @@ export function EditProductModal({
     }
 
     return true;
-  }, [product, name, sku, price, supplierId, type, size, stoveType, accessoryTab, length]);
+  }, [product, name, sku, price, supplierId, type, size, stoveType, accessoryTab, length, negativePrice]);
 
   const submit = () => {
     if (!canSubmit || loading) return;
@@ -348,10 +351,25 @@ export function EditProductModal({
               <Input
                 icon={PhilippinePeso}
                 value={price}
-                onChange={(e) => setPrice(e.target.value)}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw.includes("-")) {
+                    setNegativePrice(true);
+                    setPrice(raw.replace(/-/g, ""));
+                    return;
+                  }
+                  const parsed = Number(String(raw || "").replace(/,/g, ""));
+                  setNegativePrice(parsed < 0);
+                  setPrice(raw);
+                }}
                 inputMode="decimal"
                 placeholder="0.00"
               />
+              {negativePrice ? (
+                <div className="mt-1 text-[11px] font-semibold text-rose-700">
+                  Negative prices are not allowed.
+                </div>
+              ) : null}
             </Field>
           </div>
 

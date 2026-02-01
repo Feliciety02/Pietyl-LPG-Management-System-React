@@ -69,6 +69,7 @@ export default function OrderStockModal({
   const [supplierId, setSupplierId] = useState("");
   const [qty, setQty] = useState("");
   const [unitCost, setUnitCost] = useState("");
+  const [negativeUnitCost, setNegativeUnitCost] = useState(false);
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
@@ -91,6 +92,7 @@ export default function OrderStockModal({
     setSupplierId(effectiveSupplier ? String(effectiveSupplier.id) : "");
     setQty(item?.suggest_qty ? String(item.suggest_qty) : "");
     setUnitCost(effectiveSupplier?.unit_cost ? String(effectiveSupplier.unit_cost) : "");
+    setNegativeUnitCost(false);
     setNotes("");
   }, [open, item, suppliers]);
 
@@ -107,7 +109,7 @@ export default function OrderStockModal({
   const supplierMissing = Boolean(selectedProduct) && !supplierId;
   const unitCostMissing = Boolean(productId) && safeNum(unitCost) <= 0;
   const canSubmit =
-    Boolean(productId) && safeNum(qty) > 0 && !supplierMissing && !unitCostMissing;
+    Boolean(productId) && safeNum(qty) > 0 && !supplierMissing && !unitCostMissing && !negativeUnitCost;
   const totalCost = useMemo(() => safeNum(qty) * safeNum(unitCost), [qty, unitCost]);
 
   const pickProduct = (e) => {
@@ -118,10 +120,12 @@ export default function OrderStockModal({
     const defaultSupplier = variantSuppliers.find((s) => s.is_primary) || variantSuppliers[0];
     setSupplierId(defaultSupplier ? String(defaultSupplier.id) : "");
     setUnitCost(defaultSupplier?.unit_cost ? String(defaultSupplier.unit_cost) : "");
+    setNegativeUnitCost(false);
 
     if (!nextId) {
       setQty("");
       setUnitCost("");
+      setNegativeUnitCost(false);
       setNotes("");
     }
   };
@@ -234,7 +238,17 @@ export default function OrderStockModal({
             <InputShell icon={Hash}>
               <input
                 value={unitCost}
-                onChange={(e) => setUnitCost(e.target.value)}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw.includes("-")) {
+                    setNegativeUnitCost(true);
+                    setUnitCost(raw.replace(/-/g, ""));
+                    return;
+                  }
+                  const parsed = safeNum(raw);
+                  setNegativeUnitCost(parsed < 0);
+                  setUnitCost(raw);
+                }}
                 type="number"
                 min="0"
                 step="0.01"
@@ -250,6 +264,11 @@ export default function OrderStockModal({
             {unitCostMissing ? (
               <div className="mt-1 text-[11px] font-semibold text-rose-700">
                 Unit cost is required.
+              </div>
+            ) : null}
+            {negativeUnitCost ? (
+              <div className="mt-1 text-[11px] font-semibold text-rose-700">
+                Negative costs are not allowed.
               </div>
             ) : null}
           </Field>

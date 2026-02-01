@@ -196,14 +196,13 @@ class PurchaseController extends Controller
             abort(403);
         }
 
-        // $validated = $request->validate([
-        //     'product_variant_id' => 'required|exists:product_variants,id',
-        //     'supplier_id' => 'required|exists:suppliers,id',
-        //     'qty' => 'required|numeric|min:1',
-        //     'notes' => 'nullable|string',
-        // ]);
-
-        $validated = $request->all();
+        $validated = $request->validate([
+            'product_variant_id' => 'required|exists:product_variants,id',
+            'supplier_id' => 'required|exists:suppliers,id',
+            'qty' => 'required|numeric|min:1',
+            'unit_cost' => 'required|numeric|min:0',
+            'notes' => 'nullable|string',
+        ]);
 
         \DB::transaction(function () use ($validated, $user) {
             // Generate sequential purchase number
