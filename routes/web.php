@@ -8,7 +8,6 @@ use App\Http\Controllers\Supplier\SupplierController;
 use App\Http\Controllers\Cashier\CustomerController;
 use App\Http\Controllers\Cashier\SaleController;
 use App\Http\Controllers\Inventory\StockController;
-use App\Http\Controllers\Inventory\RestockRequestController;
 use App\Http\Controllers\Cashier\POSController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\Admin\RoleController;
@@ -16,6 +15,11 @@ use App\Http\Controllers\Admin\EmployeeController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Inventory\PurchaseController;
+use App\Http\Controllers\Inventory\RestockRequestController;
+use App\Http\Controllers\Accountant\RemittanceController as AccountantRemittanceController;
+use App\Http\Controllers\Accountant\DailySummaryController as AccountantDailySummaryController;
+use App\Http\Controllers\Accountant\LedgerController as AccountantLedgerController;
+use App\Http\Controllers\Accountant\ReportController as AccountantReportController;
 
 Route::get('/', function () {
     if (Auth::check()) {
@@ -123,6 +127,13 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/products/{product}/restore', [ProductController::class, 'restore'])
             ->middleware('permission:admin.products.archive')
             ->name('dash.admin.products.restore');
+
+        Route::post('/purchase-requests/{id}/approve', [RestockRequestController::class, 'approve'])
+            ->middleware('permission:inventory.purchases.update')
+            ->name('dash.admin.purchase-requests.approve');
+        Route::post('/purchase-requests/{id}/reject', [RestockRequestController::class, 'reject'])
+            ->middleware('permission:inventory.purchases.update')
+            ->name('dash.admin.purchase-requests.reject');
     });
 
     Route::prefix('dashboard/cashier')->middleware('role:cashier')->group(function () {
@@ -167,21 +178,32 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('dashboard/accountant')->middleware('role:accountant')->group(function () {
         Route::get('/', fn () => Inertia::render('Dashboard/Dashboard'))->name('dash.accountant');
 
-        Route::get('/remittances', fn () => Inertia::render('AccountantPage/Remittances'))
+        Route::get('/remittances', [AccountantRemittanceController::class, 'index'])
             ->middleware('permission:accountant.remittances.view')
             ->name('dash.accountant.remittances');
-        Route::get('/daily', fn () => Inertia::render('AccountantPage/DailySummary'))
+        Route::post('/remittances/record', [AccountantRemittanceController::class, 'record'])
+            ->middleware('permission:accountant.remittances.verify')
+            ->name('dash.accountant.remittances.record');
+
+        Route::get('/daily', [AccountantDailySummaryController::class, 'index'])
             ->middleware('permission:accountant.daily.view')
             ->name('dash.accountant.daily');
+        Route::post('/daily/finalize', [AccountantDailySummaryController::class, 'finalize'])
+            ->middleware('permission:accountant.daily.view')
+            ->name('dash.accountant.daily.finalize');
+
         Route::get('/payroll', fn () => Inertia::render('AccountantPage/Payroll'))
             ->middleware('permission:accountant.payroll.view')
             ->name('dash.accountant.payroll');
-        Route::get('/ledger', fn () => Inertia::render('AccountantPage/Ledger'))
+        Route::get('/ledger', [AccountantLedgerController::class, 'index'])
             ->middleware('permission:accountant.ledger.view')
             ->name('dash.accountant.ledger');
-        Route::get('/reports', fn () => Inertia::render('AccountantPage/Reports'))
+        Route::get('/reports', [AccountantReportController::class, 'index'])
             ->middleware('permission:accountant.reports.view')
             ->name('dash.accountant.reports');
+        Route::get('/reports/export', [AccountantReportController::class, 'export'])
+            ->middleware('permission:accountant.reports.view')
+            ->name('dash.accountant.reports.export');
         Route::get('/audit', [AuditLogController::class, 'index'])
             ->middleware('permission:accountant.audit.view')
             ->name('dash.accountant.audit');
@@ -201,16 +223,19 @@ Route::middleware(['auth'])->group(function () {
             ->name('dash.rider.audit');
     });
 
-    Route::prefix('dashboard/inventory')->middleware('role:inventory_manager')->group(function () {
+    Route::prefix('dashboard/inventory')->middleware('role:inventory_manager|admin')->group(function () {
         Route::get('/', fn () => Inertia::render('Dashboard/Dashboard'))->name('dash.inventory');
 
         // Stock Management
         Route::get('/counts', [StockController::class, 'stockCount'])
             ->middleware('permission:inventory.stock.view')
             ->name('dash.inventory.counts');
-        Route::post('/counts/{inventoryBalance}/adjust', [StockController::class, 'update'])
+        Route::post('/counts/{inventoryBalance}/submit', [StockController::class, 'submitCount'])
             ->middleware('permission:inventory.stock.adjust')
-            ->name('dash.inventory.counts.update');
+            ->name('dash.inventory.counts.submit');
+        Route::post('/counts/{stockCount}/review', [StockController::class, 'reviewCount'])
+            ->middleware('permission:inventory.stock.view')
+            ->name('dash.inventory.counts.review');
         Route::get('/low-stock', [StockController::class, 'lowStock'])
             ->middleware('permission:inventory.stock.low_stock')
             ->name('dash.inventory.lowstock');

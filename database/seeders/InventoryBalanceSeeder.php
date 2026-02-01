@@ -12,34 +12,41 @@ class InventoryBalanceSeeder extends Seeder
     public function run(): void
     {
         $locations = Location::all();
+        if ($locations->isEmpty()) {
+            $locations = collect([
+                Location::create([
+                    'name' => 'Main Warehouse',
+                    'location_type' => 'warehouse',
+                    'is_active' => true,
+                ]),
+            ]);
+        }
         $productVariants = ProductVariant::all();
 
         if ($locations->isEmpty() || $productVariants->isEmpty()) {
-            throw new \Exception('Need locations and product variants before running this seeder');
+            return;
         }
 
         foreach ($locations as $location) {
-            // Add inventory for random 50-80% of product variants at each location
-            $numVariants = rand(
-                (int)($productVariants->count() * 0.5),
-                (int)($productVariants->count() * 0.8)
-            );
-            
-            $selectedVariants = $productVariants->random($numVariants);
-
-            foreach ($selectedVariants as $variant) {
+            foreach ($productVariants as $variant) {
                 $totalQty = rand(10, 100);
                 $filledQty = rand(5, $totalQty);
                 $emptyQty = $totalQty - $filledQty;
-                
-                InventoryBalance::create([
+
+                $existing = InventoryBalance::firstOrNew([
                     'location_id' => $location->id,
                     'product_variant_id' => $variant->id,
-                    'qty_filled' => $filledQty,
-                    'qty_empty' => $emptyQty,
-                    'qty_reserved' => rand(0, 10),
-                    'reorder_level' => rand(10, 30),
                 ]);
+
+                $currentTotal = (int) $existing->qty_filled + (int) $existing->qty_empty;
+                if ($currentTotal === 0) {
+                    $existing->qty_filled = $filledQty;
+                    $existing->qty_empty = $emptyQty;
+                }
+
+                $existing->qty_reserved = $existing->qty_reserved ?? rand(0, 10);
+                $existing->reorder_level = $existing->reorder_level ?? rand(10, 30);
+                $existing->save();
             }
         }
     }

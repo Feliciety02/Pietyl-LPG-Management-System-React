@@ -76,6 +76,7 @@ export default function Remittances() {
       {
         id: 1,
         remitter_role: "cashier",
+        cashier_user_id: 1,
         cashier_name: "Maria Santos",
         business_date: "2026-01-19",
         expected_amount: 5200,
@@ -88,6 +89,7 @@ export default function Remittances() {
       {
         id: 2,
         remitter_role: "cashier",
+        cashier_user_id: 1,
         cashier_name: "Maria Santos",
         business_date: "2026-01-20",
         expected_amount: 4100,
@@ -100,6 +102,7 @@ export default function Remittances() {
       {
         id: 3,
         remitter_role: "cashier",
+        cashier_user_id: 2,
         cashier_name: "Juan Dela Cruz",
         business_date: "2026-01-20",
         expected_amount: 2800,
@@ -169,16 +172,24 @@ export default function Remittances() {
   };
 
   const submitTurnover = (payload) => {
-    if (!activeRow?.id || submitting) return;
+    if (!activeRow || submitting) return;
+    if (!activeRow?.cashier_user_id) return;
     setSubmitting(true);
 
-    router.post(`/dashboard/accountant/remittances/${activeRow.id}/record`, payload, {
-      preserveScroll: true,
-      onFinish: () => setSubmitting(false),
-      onSuccess: () => {
-        closeRecord();
+    router.post(
+      `/dashboard/accountant/remittances/record`,
+      {
+        ...payload,
+        cashier_user_id: activeRow.cashier_user_id,
       },
-    });
+      {
+        preserveScroll: true,
+        onFinish: () => setSubmitting(false),
+        onSuccess: () => {
+          closeRecord();
+        },
+      }
+    );
   };
 
   const columns = useMemo(
@@ -269,7 +280,7 @@ export default function Remittances() {
           subtitle="Record the cash turned over by cashiers and verify against expected."
           right={
             <Link
-              href="/dashboard/admin/audit"
+              href="/dashboard/accountant/audit"
               className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
             >
               <ShieldCheck className="h-4 w-4 text-teal-700" />

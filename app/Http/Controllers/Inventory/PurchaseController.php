@@ -6,6 +6,12 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\Purchase;
+use App\Models\PurchaseItem;
+use App\Models\InventoryBalance;
+use App\Models\StockMovement;
+use App\Models\Location;
+use App\Services\Accounting\LedgerService;
+use Carbon\Carbon;
 
 class PurchaseController extends Controller
 {
@@ -241,5 +247,144 @@ class PurchaseController extends Controller
         });
 
         return redirect()->back()->with('success', 'Purchase order created successfully');
+    }
+
+    public function approve(Request $request, Purchase $purchase)
+    {
+        $user = $request->user();
+        if (!$user || !$user->can('inventory.purchases.approve')) {
+            abort(403);
+        }
+
+        $purchase->update(['status' => 'approved']);
+
+        return back()->with('success', 'Purchase approved.');
+    }
+
+    public function reject(Request $request, Purchase $purchase)
+    {
+        $user = $request->user();
+        if (!$user || !$user->can('inventory.purchases.approve')) {
+            abort(403);
+        }
+
+        $purchase->update(['status' => 'rejected']);
+
+        return back()->with('success', 'Purchase rejected.');
+    }
+
+    public function markDelivered(Request $request, Purchase $purchase)
+    {
+        $user = $request->user();
+        if (!$user || !$user->can('inventory.purchases.mark_delivered')) {
+            abort(403);
+        }
+
+        $purchase->update([
+            'status' => 'delivered',
+            'received_at' => now(),
+        ]);
+
+        return back()->with('success', 'Purchase marked as delivered.');
+    }
+
+    public function confirm(Request $request, Purchase $purchase, LedgerService $ledger)
+    {
+        $user = $request->user();
+        if (!$user || !$user->can('inventory.purchases.confirm')) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'received_qty' => 'required|numeric|min:0',
+            'notes' => 'nullable|string',
+        ]);
+
+        $location = Location::first();
+
+        \DB::transaction(function () use ($purchase, $validated, $user, $ledger, $location) {
+            $purchase->update([
+                'status' => 'completed',
+                'received_at' => now(),
+            ]);
+
+            $item = $purchase->items()->first();
+            if ($item) {
+                $receivedQty = (float) $validated['received_qty'];
+                $item->update([
+                    'received_qty' => $receivedQty,
+                    'line_total' => $receivedQty * $item->unit_cost,
+                ]);
+
+                if ($location) {
+                    StockMovement::create([
+                        'location_id' => $location->id,
+                        'product_variant_id' => $item->product_variant_id,
+                        'movement_type' => StockMovement::TYPE_PURCHASE_IN,
+                        'qty' => $receivedQty,
+                        'reference_type' => Purchase::class,
+                        'reference_id' => $purchase->id,
+                        'performed_by_user_id' => $user->id,
+                        'moved_at' => Carbon::now(),
+                        'notes' => $validated['notes'] ?? 'Purchase confirmed',
+                    ]);
+
+                    $balance = InventoryBalance::firstOrCreate(
+                        [
+                            'location_id' => $location->id,
+                            'product_variant_id' => $item->product_variant_id,
+                        ],
+                        [
+                            'qty_filled' => 0,
+                            'qty_empty' => 0,
+                            'qty_reserved' => 0,
+                            'reorder_level' => 0,
+                        ]
+                    );
+
+                    $balance->qty_filled += $receivedQty;
+                    $balance->save();
+                }
+
+                $totalCost = $receivedQty * (float) $item->unit_cost;
+                if ($totalCost > 0) {
+                    $ledger->postEntry([
+                        'entry_date' => Carbon::now()->toDateString(),
+                        'reference_type' => 'purchase',
+                        'reference_id' => $purchase->id,
+                        'created_by_user_id' => $user->id,
+                        'memo' => "Purchase {$purchase->purchase_number}",
+                        'lines' => [
+                            [
+                                'account_code' => '1200',
+                                'debit' => $totalCost,
+                                'credit' => 0,
+                                'description' => 'Inventory received',
+                            ],
+                            [
+                                'account_code' => '2100',
+                                'debit' => 0,
+                                'credit' => $totalCost,
+                                'description' => 'Accounts payable for supplier',
+                            ],
+                        ],
+                    ]);
+                }
+            }
+        });
+
+        return back()->with('success', 'Purchase confirmed.');
+    }
+
+    public function discrepancy(Request $request, Purchase $purchase)
+    {
+        $user = $request->user();
+        if (!$user || !$user->can('inventory.purchases.confirm')) {
+            abort(403);
+        }
+
+        $purchase->update(['status' => 'discrepancy_reported']);
+
+        return back()->with('success', 'Discrepancy reported.');
     }
 }

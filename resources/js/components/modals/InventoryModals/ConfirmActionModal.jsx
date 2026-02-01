@@ -15,6 +15,10 @@ export default function ConfirmActionModal({
   tone = "teal", // teal | rose
   onConfirm,
   loading = false,
+  showNote = false,
+  note = "",
+  onNote,
+  notePlaceholder = "Optional note...",
 }) {
   const isDanger = tone === "rose";
 
@@ -61,6 +65,19 @@ export default function ConfirmActionModal({
       <div className="text-sm font-semibold text-slate-700 leading-relaxed">
         {message}
       </div>
+
+      {showNote ? (
+        <div className="mt-3">
+          <div className="text-xs font-extrabold text-slate-700">Note (optional)</div>
+          <textarea
+            value={note}
+            onChange={(e) => onNote?.(e.target.value)}
+            rows={3}
+            className="mt-2 w-full rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-slate-800 ring-1 ring-slate-200 outline-none focus:ring-4 focus:ring-teal-500/15"
+            placeholder={notePlaceholder}
+          />
+        </div>
+      ) : null}
 
       {isDanger ? (
         <div className="mt-3 rounded-2xl bg-rose-600/10 ring-1 ring-rose-700/10 px-4 py-3 text-xs font-semibold text-rose-900">

@@ -315,7 +315,7 @@ export default function DailySummary() {
                   </button>
 
                   <Link
-                    href="/dashboard/admin/audit"
+                    href="/dashboard/accountant/audit"
                     className="rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
                   >
                     Audit logs

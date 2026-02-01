@@ -20,7 +20,7 @@ class InventoryBalanceRepository implements InventoryBalanceRepositoryInterface
 
     public function lowStock()
     {
-        return InventoryBalance::whereColumn('qty_on_hand', '<=', 'reorder_level')
+        return InventoryBalance::whereRaw('(qty_filled + qty_empty) <= reorder_level')
             ->with(['productVariant.product', 'location'])
             ->get();
     }

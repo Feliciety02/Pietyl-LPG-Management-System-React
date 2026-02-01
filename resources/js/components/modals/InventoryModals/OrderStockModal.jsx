@@ -74,15 +74,23 @@ export default function OrderStockModal({
   useEffect(() => {
     if (!open) return;
 
-    const presetProductId = item?.id ? String(item.id) : "";
+    const presetProductId = item?.product_variant_id
+      ? String(item.product_variant_id)
+      : item?.id
+      ? String(item.id)
+      : "";
     setProductId(presetProductId);
 
     const variantSuppliers = suppliers[presetProductId]?.suppliers || [];
     const defaultSupplier = variantSuppliers.find((s) => s.is_primary) || variantSuppliers[0];
+    const presetSupplier = item?.supplier_id
+      ? variantSuppliers.find((s) => String(s.id) === String(item.supplier_id))
+      : null;
 
-    setSupplierId(defaultSupplier ? String(defaultSupplier.id) : "");
+    const effectiveSupplier = presetSupplier || defaultSupplier;
+    setSupplierId(effectiveSupplier ? String(effectiveSupplier.id) : "");
     setQty(item?.suggest_qty ? String(item.suggest_qty) : "");
-    setUnitCost(defaultSupplier?.unit_cost ? String(defaultSupplier.unit_cost) : "");
+    setUnitCost(effectiveSupplier?.unit_cost ? String(effectiveSupplier.unit_cost) : "");
     setNotes("");
   }, [open, item, suppliers]);
 
@@ -97,7 +105,10 @@ export default function OrderStockModal({
   }, [suppliers, productId, supplierId]);
 
   const supplierMissing = Boolean(selectedProduct) && !supplierId;
-  const canSubmit = Boolean(productId) && safeNum(qty) > 0 && !supplierMissing;
+  const unitCostMissing = Boolean(productId) && safeNum(unitCost) <= 0;
+  const canSubmit =
+    Boolean(productId) && safeNum(qty) > 0 && !supplierMissing && !unitCostMissing;
+  const totalCost = useMemo(() => safeNum(qty) * safeNum(unitCost), [qty, unitCost]);
 
   const pickProduct = (e) => {
     const nextId = e.target.value;
@@ -219,6 +230,30 @@ export default function OrderStockModal({
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
+          <Field label="Unit Cost" hint="Auto-filled, editable (PHP)">
+            <InputShell icon={Hash}>
+              <input
+                value={unitCost}
+                onChange={(e) => setUnitCost(e.target.value)}
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                placeholder="0.00"
+                className="w-full bg-transparent text-sm font-extrabold text-slate-900 outline-none placeholder:text-slate-400"
+                disabled={loading}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") submit();
+                }}
+              />
+            </InputShell>
+            {unitCostMissing ? (
+              <div className="mt-1 text-[11px] font-semibold text-rose-700">
+                Unit cost is required.
+              </div>
+            ) : null}
+          </Field>
+
           <Field label="Quantity" hint="Required">
             <InputShell icon={Hash}>
               <input
@@ -236,26 +271,17 @@ export default function OrderStockModal({
               />
             </InputShell>
           </Field>
-
-          <Field label="Unit Cost" hint="Auto-filled, editable (₱)">
-            <InputShell icon={Hash}>
-              <input
-                value={unitCost}
-                onChange={(e) => setUnitCost(e.target.value)}
-                type="number"
-                min="0"
-                step="0.01"
-                inputMode="decimal"
-                placeholder="0.00"
-                className="w-full bg-transparent text-sm font-extrabold text-slate-900 outline-none placeholder:text-slate-400"
-                disabled={loading}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") submit();
-                }}
-              />
-            </InputShell>
-          </Field>
         </div>
+
+        <Field label="Total Cost" hint="Unit cost x quantity">
+          <InputShell icon={Hash}>
+            <input
+              value={totalCost.toFixed(2)}
+              readOnly
+              className="w-full bg-transparent text-sm font-extrabold text-slate-900 outline-none placeholder:text-slate-400"
+            />
+          </InputShell>
+        </Field>
 
         <Field label="Notes" hint="Optional">
           <Textarea

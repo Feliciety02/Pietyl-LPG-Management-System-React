@@ -68,6 +68,8 @@ class InventoryBalanceService
                 $primarySupplier = $balance->productVariant->suppliers()
                     ->wherePivot('is_primary', true)
                     ->first();
+                $fallbackSupplier = $primarySupplier ?? $balance->productVariant->suppliers()->first();
+                $supplierUnitCost = (float) ($fallbackSupplier?->pivot?->unit_cost ?? 0);
 
                 return [
                     'id' => $balance->id,
@@ -75,7 +77,10 @@ class InventoryBalanceService
                     'sku' => $balance->productVariant->product->sku ?? null,
                     'name' => $balance->productVariant->product->name ?? null,
                     'variant' => $balance->productVariant->variant_name ?? null,
-                    'supplier_name' => $primarySupplier?->name ?? '—',
+                    'product_variant_id' => $balance->product_variant_id,
+                    'supplier_id' => $fallbackSupplier?->id,
+                    'supplier_name' => $fallbackSupplier?->name ?? '—',
+                    'supplier_unit_cost' => $supplierUnitCost,
                     'current_qty' => $available,
                     'reorder_level' => $reorderLevel,
                     'est_days_left' => rand(1, 5),
@@ -91,6 +96,8 @@ class InventoryBalanceService
         // Build product hash
         $allVariants = ProductVariant::with(['product', 'suppliers'])->get();
         $productHash = [];
+        $suppliersByProduct = [];
+        $products = [];
         foreach ($allVariants as $variant) {
             $key = $variant->product->name . '|' . $variant->variant_name;
 
@@ -111,12 +118,30 @@ class InventoryBalanceService
                     $variant->suppliers->pluck('id')->toArray()
                 ));
             }
+
+            $variantSuppliers = $variant->suppliers->map(fn($s) => [
+                'id' => $s->id,
+                'name' => $s->name,
+                'is_primary' => $s->pivot->is_primary,
+                'lead_time_days' => $s->pivot->lead_time_days,
+                'unit_cost' => (float) ($s->pivot->unit_cost ?? 0),
+            ])->values();
+
+            $suppliersByProduct[$variant->id] = ['suppliers' => $variantSuppliers];
+
+            $products[] = [
+                'id' => $variant->id,
+                'product_name' => $variant->product?->name ?? '—',
+                'variant_name' => $variant->variant_name ?? '',
+            ];
         }
 
         return [
             'low_stock' => $lowStockItems->values(),
             'product_hash' => array_values($productHash),
             'suppliers' => \App\Models\Supplier::where('is_active', true)->get(['id', 'name']),
+            'suppliersByProduct' => $suppliersByProduct,
+            'products' => $products,
         ];
     }
 }

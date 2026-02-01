@@ -2,7 +2,61 @@
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
+use App\Models\InventoryBalance;
+use App\Models\StockCount;
+use App\Models\ProductVariant;
+use App\Models\Location;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+Artisan::command('inventory:recalculate-balances {--reset-counts}', function () {
+    $resetCounts = (bool) $this->option('reset-counts');
+
+    if ($resetCounts) {
+        StockCount::truncate();
+        $this->comment('Stock counts cleared.');
+    }
+
+    $locations = Location::all();
+    $variants = ProductVariant::all();
+
+    if ($locations->isEmpty() || $variants->isEmpty()) {
+        $this->error('No locations or product variants found.');
+        return;
+    }
+
+    $movements = DB::table('stock_movements')
+        ->select('location_id', 'product_variant_id', DB::raw('SUM(qty) as on_hand'))
+        ->groupBy('location_id', 'product_variant_id')
+        ->get()
+        ->keyBy(fn ($r) => $r->location_id . '::' . $r->product_variant_id);
+
+    foreach ($locations as $location) {
+        foreach ($variants as $variant) {
+            $key = $location->id . '::' . $variant->id;
+            $onHand = (int) round((float) ($movements[$key]->on_hand ?? 0));
+
+            $existing = InventoryBalance::where('location_id', $location->id)
+                ->where('product_variant_id', $variant->id)
+                ->first();
+
+            InventoryBalance::updateOrCreate(
+                [
+                    'location_id' => $location->id,
+                    'product_variant_id' => $variant->id,
+                ],
+                [
+                    'qty_filled' => $onHand,
+                    'qty_empty' => 0,
+                    'qty_reserved' => $existing?->qty_reserved ?? 0,
+                    'reorder_level' => $existing?->reorder_level ?? 0,
+                ]
+            );
+        }
+    }
+
+    $this->info('Inventory balances recalculated from stock movements.');
+})->purpose('Recalculate inventory balances from stock movements (use --reset-counts to clear stock counts).');

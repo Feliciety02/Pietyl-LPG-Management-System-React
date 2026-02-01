@@ -224,7 +224,7 @@ export default function LowStock() {
   const loading = Boolean(page.props?.loading);
 
   const products = page.props?.products ?? [];
-  const suppliers = page.props?.suppliers ?? [];
+  const suppliers = page.props?.suppliersByProduct ?? {};
   const productHash = page.props?.product_hash ?? [];
 
   const { data: rows, meta } = normalizePaginator(page.props?.low_stock);
@@ -548,7 +548,7 @@ export default function LowStock() {
           products={products}
           suppliers={suppliers}
           onSubmit={(payload) => {
-            router.post("/dashboard/admin/purchases", payload, {
+            router.post("/dashboard/inventory/purchases", payload, {
               preserveScroll: true,
               onSuccess: () => {
                 setNewPurchaseOpen(false);

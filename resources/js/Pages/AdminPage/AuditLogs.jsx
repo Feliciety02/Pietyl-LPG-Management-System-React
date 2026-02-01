@@ -14,6 +14,7 @@ import {
   ShoppingCart,
   Boxes,
   Banknote,
+  Printer,
 } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 
@@ -33,6 +34,20 @@ function titleCase(s) {
       return w.charAt(0).toUpperCase() + w.slice(1);
     })
     .join(" ");
+}
+
+function findLabel(options, value, fallback) {
+  const match = options.find(function (opt) {
+    return opt.value === value;
+  });
+  return match ? match.label : fallback;
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function TonePill(props) {
@@ -398,6 +413,8 @@ export default function AuditLogs() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [activeAudit, setActiveAudit] = useState(null);
 
+  const canPrint = !loading && rows.length > 0;
+
   function openDetails(a) {
     setActiveAudit(a || null);
     setDetailsOpen(true);
@@ -406,6 +423,94 @@ export default function AuditLogs() {
   function closeDetails() {
     setDetailsOpen(false);
     setActiveAudit(null);
+  }
+
+  function printCurrentTab() {
+    if (!canPrint) {
+      window.alert("No audit logs to print for this tab.");
+      return;
+    }
+
+    const sectorLabel = findLabel(sectorTabs, sector, titleCase(sector));
+    const eventLabel = findLabel(eventOptions, event, titleCase(event));
+    const entityLabel = findLabel(entityOptions, entityType, titleCase(entityType));
+    const generatedAt = new Date().toLocaleString("en-US");
+
+    const rowsHtml = rows
+      .map(function (a) {
+        return `
+          <tr>
+            <td>${escapeHtml(a.created_at)}</td>
+            <td>${escapeHtml(a.actor_name || "System")}<br/><span class="muted">${escapeHtml(
+          titleCase(a.actor_role || "system")
+        )}</span></td>
+            <td>${escapeHtml(a.event)}</td>
+            <td>${escapeHtml(a.entity_type)}${
+          a.entity_id ? ` <span class="muted">#${escapeHtml(a.entity_id)}</span>` : ""
+        }</td>
+            <td>${escapeHtml(a.message || "-")}</td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    const html = `
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Audit Logs - ${escapeHtml(sectorLabel)}</title>
+          <style>
+            :root { color-scheme: light; }
+            body { font-family: "Segoe UI", Arial, sans-serif; margin: 24px; color: #0f172a; }
+            h1 { font-size: 20px; margin: 0 0 6px; }
+            .meta { font-size: 12px; color: #475569; margin-bottom: 16px; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            th, td { border: 1px solid #e2e8f0; padding: 8px; text-align: left; vertical-align: top; }
+            th { background: #f1f5f9; font-weight: 700; }
+            .muted { color: #64748b; }
+            @media print { body { margin: 10mm; } }
+          </style>
+        </head>
+        <body>
+          <h1>Audit Logs - ${escapeHtml(sectorLabel)}</h1>
+          <div class="meta">
+            Generated at: ${escapeHtml(generatedAt)}<br/>
+            Filters: Event = ${escapeHtml(eventLabel)}, Entity = ${escapeHtml(entityLabel)}, Search = ${escapeHtml(
+      q || "-"
+    )}
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Actor</th>
+                <th>Event</th>
+                <th>Entity</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open("", "_blank", "noopener,noreferrer");
+    if (!printWindow) {
+      window.alert("Popup blocked. Please allow popups to print.");
+      return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(function () {
+      printWindow.print();
+    }, 250);
   }
 
   return (
@@ -431,6 +536,22 @@ export default function AuditLogs() {
             pushQuery({ q: v, page: 1 });
           }}
           placeholder="Search actor, event, entity, or details..."
+          rightSlot={
+            <button
+              type="button"
+              onClick={printCurrentTab}
+              disabled={!canPrint}
+              className={cx(
+                "inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-extrabold ring-1 transition",
+                canPrint
+                  ? "bg-slate-900 text-white ring-slate-900 hover:bg-slate-800"
+                  : "bg-slate-100 text-slate-400 ring-slate-200 cursor-not-allowed"
+              )}
+            >
+              <Printer className="h-4 w-4" />
+              Print tab
+            </button>
+          }
           filters={[
             {
               key: "event",

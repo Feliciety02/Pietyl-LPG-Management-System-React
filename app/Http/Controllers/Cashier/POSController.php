@@ -13,6 +13,10 @@ use App\Models\Customer;
 use App\Models\ProductVariant;
 use App\Models\PaymentMethod;
 use App\Models\Location;
+use App\Models\InventoryBalance;
+use App\Models\DailyClose;
+use App\Services\Accounting\CostingService;
+use App\Services\Accounting\LedgerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -82,11 +86,15 @@ class POSController extends Controller
     /**
      * Process a new sale
      */
-    public function store(Request $request)
+    public function store(Request $request, LedgerService $ledger, CostingService $costing)
     {
         $user = $request->user();
         if (!$user || !$user->can('cashier.sales.create')) {
             abort(403);
+        }
+
+        if (DailyClose::where('business_date', now()->toDateString())->exists()) {
+            return redirect()->back()->with('error', 'Sales are locked for this business date.');
         }
 
         $request->validate([
@@ -153,6 +161,22 @@ class POSController extends Controller
                         'moved_at' => Carbon::now(),
                         'notes' => 'Sale via POS',
                     ]);
+
+                    $balance = InventoryBalance::firstOrCreate(
+                        [
+                            'location_id' => $location->id,
+                            'product_variant_id' => $line['product_id'],
+                        ],
+                        [
+                            'qty_filled' => 0,
+                            'qty_empty' => 0,
+                            'qty_reserved' => 0,
+                            'reorder_level' => 0,
+                        ]
+                    );
+
+                    $balance->qty_filled = (int) $balance->qty_filled - (int) $line['qty'];
+                    $balance->save();
                 }
             }
 
@@ -169,6 +193,63 @@ class POSController extends Controller
                     'paid_at' => Carbon::now(),
                 ]);
             }
+
+            // Post ledger entry
+            $paymentKey = $request->payment_method;
+            $salesLines = [];
+            if ($paymentKey === 'cash') {
+                $salesLines[] = [
+                    'account_code' => '2010',
+                    'debit' => $grandTotal,
+                    'credit' => 0,
+                    'description' => 'Cash sales recorded as turnover receivable',
+                ];
+            } else {
+                $salesLines[] = [
+                    'account_code' => '1020',
+                    'debit' => $grandTotal,
+                    'credit' => 0,
+                    'description' => 'Non-cash sales received in bank',
+                ];
+            }
+
+            $salesLines[] = [
+                'account_code' => '4010',
+                'debit' => 0,
+                'credit' => $grandTotal,
+                'description' => 'Recognize sales revenue',
+            ];
+
+            $cogsTotal = 0.0;
+            foreach ($request->lines as $line) {
+                $avgCost = $costing->getWeightedAverageCost((int) $line['product_id'], Carbon::now());
+                $cogsTotal += ((float) $line['qty']) * $avgCost;
+            }
+
+            $cogsLines = [];
+            if ($cogsTotal > 0) {
+                $cogsLines[] = [
+                    'account_code' => '5000',
+                    'debit' => $cogsTotal,
+                    'credit' => 0,
+                    'description' => 'Record cost of goods sold',
+                ];
+                $cogsLines[] = [
+                    'account_code' => '1200',
+                    'debit' => 0,
+                    'credit' => $cogsTotal,
+                    'description' => 'Reduce inventory',
+                ];
+            }
+
+            $ledger->postEntry([
+                'entry_date' => Carbon::now()->toDateString(),
+                'reference_type' => 'sale',
+                'reference_id' => $sale->id,
+                'created_by_user_id' => $user->id,
+                'memo' => "Sale {$sale->sale_number}",
+                'lines' => array_merge($salesLines, $cogsLines),
+            ]);
 
             // Create receipt
             Receipt::create([

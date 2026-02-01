@@ -5,7 +5,7 @@ import Layout from "../Dashboard/Layout";
 import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
-import { Download, FileSpreadsheet, FileText, ShieldCheck } from "lucide-react";
+import { Download, FileText, ShieldCheck } from "lucide-react";
 import { SkeletonLine, SkeletonButton, SkeletonPill } from "@/components/ui/Skeleton";
 
 function cx(...classes) {
@@ -271,23 +271,15 @@ export default function Reports() {
           right={
             <div className="flex items-center gap-2">
               <a
-                href={exportHref("pdf")}
+                href={exportHref("csv")}
                 className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 transition focus:ring-4 focus:ring-teal-500/25"
               >
                 <FileText className="h-4 w-4" />
-                Export PDF
-              </a>
-
-              <a
-                href={exportHref("xlsx")}
-                className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
-              >
-                <FileSpreadsheet className="h-4 w-4 text-teal-700" />
-                Export Excel
+                Export CSV
               </a>
 
               <Link
-                href="/dashboard/admin/audit"
+                href="/dashboard/accountant/audit"
                 className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
               >
                 <ShieldCheck className="h-4 w-4 text-teal-700" />
@@ -355,18 +347,11 @@ export default function Reports() {
             ) : (
               <div className="flex items-center justify-end gap-2">
                 <a
-                  href={`${exportBase}?id=${encodeURIComponent(r.id)}&format=pdf`}
+                  href={`${exportBase}?id=${encodeURIComponent(r.id)}&format=csv`}
                   className="rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
-                  title="Export this report to PDF"
+                  title="Export this report to CSV"
                 >
-                  PDF
-                </a>
-                <a
-                  href={`${exportBase}?id=${encodeURIComponent(r.id)}&format=xlsx`}
-                  className="rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
-                  title="Export this report to Excel"
-                >
-                  Excel
+                  CSV
                 </a>
 
                 <button
