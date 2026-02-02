@@ -3,25 +3,26 @@
 namespace App\Http\Controllers\Cashier;
 
 use App\Http\Controllers\Controller;
+use App\Models\Customer;
+use App\Models\DailyClose;
+use App\Models\Delivery;
+use App\Models\InventoryBalance;
+use App\Models\Location;
+use App\Models\Payment;
+use App\Models\PaymentMethod;
+use App\Models\Receipt;
 use App\Models\Sale;
 use App\Models\SaleItem;
-use App\Models\Payment;
-use App\Models\Receipt;
-use App\Models\Delivery;
 use App\Models\StockMovement;
-use App\Models\Customer;
-use App\Models\ProductVariant;
-use App\Models\PaymentMethod;
-use App\Models\Location;
-use App\Models\InventoryBalance;
-use App\Models\DailyClose;
 use App\Services\Accounting\CostingService;
 use App\Services\Accounting\LedgerService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
-use Inertia\Inertia;
-use Carbon\Carbon;
+use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class POSController extends Controller
 {
@@ -33,7 +34,7 @@ class POSController extends Controller
         }
 
         $variants = \App\Models\ProductVariant::with('product')
-            ->where('is_active', 1) // 2026 standard ang 1
+            ->where('is_active', 1)
             ->whereHas('product', function ($q) {
                 $q->where('is_active', true);
             })
@@ -73,19 +74,16 @@ class POSController extends Controller
             ];
         });
 
-        $customers = \App\Models\Customer::select('id', 'name', 'phone')
+        $customers = Customer::select('id', 'name', 'phone')
             ->orderBy('name')
             ->get();
-       
+
         return \Inertia\Inertia::render('CashierPage/POS', [
             'products' => $products,
             'customers' => $customers,
         ]);
     }
 
-    /**
-     * Process a new sale
-     */
     public function store(Request $request, LedgerService $ledger, CostingService $costing)
     {
         $user = $request->user();
@@ -102,6 +100,7 @@ class POSController extends Controller
             'is_delivery' => 'boolean',
             'payment_method' => 'required|in:cash,gcash,card',
             'payment_ref' => 'nullable|string',
+            'cash_tendered' => 'nullable|numeric|min:0',
             'lines' => 'required|array|min:1',
             'lines.*.product_id' => 'required|exists:product_variants,id',
             'lines.*.qty' => 'required|numeric|min:1',
@@ -109,55 +108,141 @@ class POSController extends Controller
             'lines.*.unit_price' => 'required|numeric|min:0',
         ]);
 
+        $paymentMethodKey = (string) $request->payment_method;
+        $needsRef = in_array($paymentMethodKey, ['gcash', 'card'], true);
+
+        if ($needsRef) {
+            $ref = trim((string) $request->payment_ref);
+            if (mb_strlen($ref) < 4) {
+                throw ValidationException::withMessages([
+                    'payment_ref' => 'Reference number is required for this payment method.',
+                ]);
+            }
+        }
+
         DB::beginTransaction();
 
+        $sale = null;
+
         try {
-            // Calculate totals
-            $subtotal = 0;
-            foreach ($request->lines as $line) {
-                $subtotal += $line['qty'] * $line['unit_price'];
+            Log::info('POS store: start', [
+                'user_id' => $user->id,
+                'customer_id' => $request->customer_id,
+                'is_delivery' => (bool) $request->is_delivery,
+                'payment_method' => $paymentMethodKey,
+                'lines_count' => is_array($request->lines) ? count($request->lines) : 0,
+            ]);
+
+            $subtotal = 0.0;
+            foreach ($request->lines as $i => $line) {
+                Log::info('POS store: line', [
+                    'i' => $i,
+                    'product_id' => $line['product_id'] ?? null,
+                    'qty' => $line['qty'] ?? null,
+                    'unit_price' => $line['unit_price'] ?? null,
+                    'mode' => $line['mode'] ?? null,
+                ]);
+
+                $qty = (float) ($line['qty'] ?? 0);
+                $unitPrice = (float) ($line['unit_price'] ?? 0);
+                $subtotal += ($qty * $unitPrice);
             }
 
-            $discount = 0;
-            $tax = 0;
-            $grandTotal = $subtotal - $discount + $tax;
+            $discount = 0.0;
+            $tax = 0.0;
+            $grandTotal = round($subtotal - $discount + $tax, 2);
 
-            // Create sale
-            $sale = Sale::create([
+            Log::info('POS store: totals computed', [
+                'subtotal' => $subtotal,
+                'discount' => $discount,
+                'tax' => $tax,
+                'grand_total' => $grandTotal,
+            ]);
+
+            $cashTendered = null;
+            $cashChange = null;
+
+            if ($paymentMethodKey === 'cash') {
+                if (!$request->has('cash_tendered') || $request->cash_tendered === null || $request->cash_tendered === '') {
+                    throw ValidationException::withMessages([
+                        'cash_tendered' => 'Amount received is required for cash payment.',
+                    ]);
+                }
+
+                $cashTendered = round((float) $request->cash_tendered, 2);
+                if ($cashTendered < 0) {
+                    $cashTendered = 0;
+                }
+
+                if ($cashTendered < $grandTotal) {
+                    throw ValidationException::withMessages([
+                        'cash_tendered' => 'Amount received must be equal to or higher than the total.',
+                    ]);
+                }
+
+                $cashChange = round($cashTendered - $grandTotal, 2);
+                if ($cashChange < 0) {
+                    $cashChange = 0;
+                }
+            }
+
+            $salePayload = [
                 'sale_number' => Sale::generateSaleNumber(),
                 'sale_type' => $request->is_delivery ? 'delivery' : 'walkin',
                 'customer_id' => $request->customer_id,
-                'cashier_user_id' => auth()->id(),
+                'cashier_user_id' => $user->id,
                 'status' => 'paid',
                 'sale_datetime' => Carbon::now(),
                 'subtotal' => $subtotal,
                 'discount_total' => $discount,
                 'tax_total' => $tax,
                 'grand_total' => $grandTotal,
+            ];
+
+            if (Schema::hasColumn('sales', 'cash_tendered')) {
+                $salePayload['cash_tendered'] = $cashTendered;
+            }
+            if (Schema::hasColumn('sales', 'cash_change')) {
+                $salePayload['cash_change'] = $cashChange;
+            }
+
+            $sale = Sale::create($salePayload);
+
+            Log::info('POS store: sale created', [
+                'sale_id' => $sale->id,
+                'sale_number' => $sale->sale_number,
+                'cash_tendered' => $cashTendered,
+                'cash_change' => $cashChange,
             ]);
 
-            // Create sale items
-            foreach ($request->lines as $line) {
+            foreach ($request->lines as $i => $line) {
+                $qty = (float) $line['qty'];
+                $unitPrice = (float) $line['unit_price'];
+
                 SaleItem::create([
                     'sale_id' => $sale->id,
                     'product_variant_id' => $line['product_id'],
-                    'qty' => $line['qty'],
-                    'unit_price' => $line['unit_price'],
-                    'line_total' => $line['qty'] * $line['unit_price'],
+                    'qty' => $qty,
+                    'unit_price' => $unitPrice,
+                    'line_total' => $qty * $unitPrice,
                     'pricing_source' => 'manual',
                 ]);
 
-                // Create stock movement (OUT)
-                $location = Location::first(); // Get default location
-                if ($location) {
+                $location = Location::first();
+                if (!$location) {
+                    Log::warning('POS store: no location found, skipping stock movement', [
+                        'sale_id' => $sale->id,
+                        'product_variant_id' => $line['product_id'],
+                    ]);
+                } else {
                     StockMovement::create([
                         'location_id' => $location->id,
                         'product_variant_id' => $line['product_id'],
                         'movement_type' => StockMovement::TYPE_SALE_OUT,
-                        'qty' => -$line['qty'], // Negative for OUT
-                        'reference_type' => 'App\Models\Sale',
+                        'qty' => -$qty,
+                        'reference_type' => Sale::class,
                         'reference_id' => $sale->id,
-                        'performed_by_user_id' => auth()->id(),
+                        'performed_by_user_id' => $user->id,
                         'moved_at' => Carbon::now(),
                         'notes' => 'Sale via POS',
                     ]);
@@ -175,29 +260,32 @@ class POSController extends Controller
                         ]
                     );
 
-                    $balance->qty_filled = (int) $balance->qty_filled - (int) $line['qty'];
+                    $balance->qty_filled = (int) $balance->qty_filled - (int) $qty;
                     $balance->save();
                 }
             }
 
-            // Create payment
-            $paymentMethod = PaymentMethod::where('method_key', $request->payment_method)->first();
-            
-            if ($paymentMethod) {
+            $paymentMethod = PaymentMethod::where('method_key', $paymentMethodKey)->first();
+            if (!$paymentMethod) {
+                Log::warning('POS store: payment method not found', [
+                    'sale_id' => $sale->id,
+                    'method_key' => $paymentMethodKey,
+                ]);
+            } else {
                 Payment::create([
                     'sale_id' => $sale->id,
                     'payment_method_id' => $paymentMethod->id,
                     'amount' => $grandTotal,
-                    'reference_no' => $request->payment_ref,
-                    'received_by_user_id' => auth()->id(),
+                    'reference_no' => $needsRef ? trim((string) $request->payment_ref) : null,
+                    'received_by_user_id' => $user->id,
                     'paid_at' => Carbon::now(),
                 ]);
             }
 
-            // Post ledger entry
-            $paymentKey = $request->payment_method;
             $salesLines = [];
-            if ($paymentKey === 'cash') {
+            $cogsLines = [];
+
+            if ($paymentMethodKey === 'cash') {
                 $salesLines[] = [
                     'account_code' => '2010',
                     'debit' => $grandTotal,
@@ -221,12 +309,19 @@ class POSController extends Controller
             ];
 
             $cogsTotal = 0.0;
-            foreach ($request->lines as $line) {
+            foreach ($request->lines as $i => $line) {
                 $avgCost = $costing->getWeightedAverageCost((int) $line['product_id'], Carbon::now());
-                $cogsTotal += ((float) $line['qty']) * $avgCost;
+
+                Log::info('POS store: avg cost computed', [
+                    'sale_id' => $sale->id,
+                    'i' => $i,
+                    'product_id' => $line['product_id'],
+                    'avg_cost' => $avgCost,
+                ]);
+
+                $cogsTotal += ((float) $line['qty']) * ((float) $avgCost);
             }
 
-            $cogsLines = [];
             if ($cogsTotal > 0) {
                 $cogsLines[] = [
                     'account_code' => '5000',
@@ -242,6 +337,12 @@ class POSController extends Controller
                 ];
             }
 
+            Log::info('POS store: before ledger post', [
+                'sale_id' => $sale->id,
+                'sales_lines' => count($salesLines),
+                'cogs_lines' => count($cogsLines),
+            ]);
+
             $ledger->postEntry([
                 'entry_date' => Carbon::now()->toDateString(),
                 'reference_type' => 'sale',
@@ -251,7 +352,8 @@ class POSController extends Controller
                 'lines' => array_merge($salesLines, $cogsLines),
             ]);
 
-            // Create receipt
+            Log::info('POS store: after ledger post', ['sale_id' => $sale->id]);
+
             Receipt::create([
                 'sale_id' => $sale->id,
                 'receipt_number' => Receipt::generateReceiptNumber(),
@@ -259,11 +361,16 @@ class POSController extends Controller
                 'issued_at' => Carbon::now(),
             ]);
 
-            // Create delivery if requested
             if ($request->is_delivery) {
                 $customer = Customer::with('addresses')->find($request->customer_id);
-                $defaultAddress = $customer->addresses()->where('is_default', 1)->first() 
-                    ?? $customer->addresses()->first();
+
+                $defaultAddress = null;
+                if ($customer) {
+                    $defaultAddress = $customer->addresses()
+                        ->where('is_default', 1)
+                        ->first()
+                        ?? $customer->addresses()->first();
+                }
 
                 if ($defaultAddress) {
                     Delivery::create([
@@ -274,15 +381,34 @@ class POSController extends Controller
                         'status' => Delivery::STATUS_PENDING,
                         'scheduled_at' => Carbon::now()->addHours(2),
                     ]);
+                } else {
+                    Log::warning('POS store: no address found, skipping delivery', [
+                        'sale_id' => $sale->id,
+                        'customer_id' => $request->customer_id,
+                    ]);
                 }
             }
 
             DB::commit();
 
-            return redirect()->back()->with('success', 'Sale completed successfully!');
+            Log::info('POS store: committed', [
+                'sale_id' => $sale->id,
+                'sale_number' => $sale->sale_number,
+            ]);
 
-        } catch (\Exception $e) {
+            return redirect()->back()->with('success', 'Sale completed successfully!');
+        } catch (Throwable $e) {
             DB::rollBack();
+
+            Log::error('POS store: FAILED and rolled back', [
+                'sale_id' => $sale?->id,
+                'sale_number' => $sale?->sale_number,
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => substr($e->getTraceAsString(), 0, 2000),
+            ]);
+
             return redirect()->back()->with('error', 'Failed to process sale: ' . $e->getMessage());
         }
     }

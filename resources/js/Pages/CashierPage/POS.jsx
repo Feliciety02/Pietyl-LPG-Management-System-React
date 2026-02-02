@@ -6,26 +6,14 @@ import AddCustomerModal from "@/components/modals/CustomerModals/AddCustomerModa
 import { posIcons, sidebarIconMap } from "@/components/ui/Icons";
 import TransactionResultModal from "@/components/modals/TransactionResultModal";
 
-import {
-  Info,
-  PackageSearch,
-  SlidersHorizontal,
-  ShoppingCart,
-  CreditCard,
-  Users,
-  Truck,
-} from "lucide-react";
+import { Info, PackageSearch, SlidersHorizontal, ShoppingCart, CreditCard, Users, Truck } from "lucide-react";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
 function Card({ children, className = "" }) {
-  return (
-    <div className={cx("rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm", className)}>
-      {children}
-    </div>
-  );
+  return <div className={cx("rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm", className)}>{children}</div>;
 }
 
 function SectionTitle({ title, right, icon: Icon }) {
@@ -51,9 +39,7 @@ function Pill({ active, onClick, children }) {
       onClick={onClick}
       className={cx(
         "rounded-2xl px-3 py-2 text-xs font-extrabold ring-1 transition whitespace-nowrap",
-        active
-          ? "bg-teal-600 text-white ring-teal-600 teal-breathe"
-          : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
+        active ? "bg-teal-600 text-white ring-teal-600 teal-breathe" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
       )}
     >
       {children}
@@ -68,9 +54,7 @@ function IconPill({ active, onClick, icon: Icon, label }) {
       onClick={onClick}
       className={cx(
         "flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-extrabold ring-1 transition whitespace-nowrap",
-        active
-          ? "bg-teal-600 text-white ring-teal-600 teal-breathe"
-          : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
+        active ? "bg-teal-600 text-white ring-teal-600 teal-breathe" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
       )}
     >
       <Icon className={cx("h-4 w-4", active ? "text-white" : "text-slate-600")} />
@@ -102,6 +86,67 @@ function EmptyState({ title, desc, icon: Icon }) {
   );
 }
 
+function PesoAmountInput({ value, onValueChange, disabled, placeholder = "0.00" }) {
+  const sanitize = (raw) => {
+    let s = String(raw ?? "");
+
+    s = s.replace(/[^\d.]/g, "");
+
+    const firstDot = s.indexOf(".");
+    if (firstDot !== -1) {
+      const before = s.slice(0, firstDot + 1);
+      const after = s.slice(firstDot + 1).replace(/\./g, "");
+      s = before + after;
+    }
+
+    if (s.length > 1 && s[0] === "0" && s[1] !== ".") {
+      s = s.replace(/^0+/, "");
+      if (s === "") s = "0";
+    }
+
+    return s;
+  };
+
+  const handleChange = (e) => {
+    onValueChange(sanitize(e.target.value));
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "-" || e.key === "+" || e.key === "e" || e.key === "E") {
+      e.preventDefault();
+    }
+  };
+
+  const handlePaste = (e) => {
+    const text = e.clipboardData.getData("text");
+    const clean = sanitize(text);
+    e.preventDefault();
+    onValueChange(clean);
+  };
+
+  return (
+    <div
+      className={cx(
+        "mt-2 flex items-center rounded-2xl border border-slate-200 bg-white focus-within:ring-4 focus-within:ring-teal-500/15",
+        disabled ? "opacity-80" : ""
+      )}
+    >
+      <span className="pl-4 pr-2 text-sm font-extrabold text-slate-600 select-none">₱</span>
+      <input
+        type="text"
+        inputMode="decimal"
+        value={value}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        onPaste={handlePaste}
+        disabled={disabled}
+        placeholder={placeholder}
+        className="w-full rounded-2xl bg-transparent pr-4 py-2 text-sm font-extrabold text-slate-700 outline-none placeholder:text-slate-400"
+      />
+    </div>
+  );
+}
+
 export default function POS() {
   const page = usePage();
   const user = page.props?.auth?.user;
@@ -110,7 +155,6 @@ export default function POS() {
   const isAdmin = roleKey === "admin";
   const readOnly = isAdmin || Boolean(page.props?.pos_read_only);
 
-  const PosCart = posIcons.cart;
   const PosSearch = posIcons.search;
   const PosCash = posIcons.cashAlt || posIcons.cash;
   const PosGcash = posIcons.gcash;
@@ -130,12 +174,7 @@ export default function POS() {
   const products = Array.isArray(page.props?.products) ? page.props.products : [];
   const customers = Array.isArray(page.props?.customers) ? page.props.customers : [];
 
-  const [resultModal, setResultModal] = useState({
-    open: false,
-    status: "success",
-    title: "",
-    message: "",
-  });
+  const [resultModal, setResultModal] = useState({ open: false, status: "success", title: "", message: "" });
 
   const [delivery, setDelivery] = useState(false);
   const [payment, setPayment] = useState("cash");
@@ -148,9 +187,10 @@ export default function POS() {
   const [cart, setCart] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [cashTendered, setCashTendered] = useState("");
+
   const filteredProducts = useMemo(() => {
     const s = String(q || "").toLowerCase().trim();
-
     return products
       .filter((p) => {
         if (category === "all") return true;
@@ -174,10 +214,7 @@ export default function POS() {
         copy[idx] = { ...copy[idx], qty: copy[idx].qty + 1 };
         return copy;
       }
-      return [
-        ...prev,
-        { _key: key, product_id: p.id, name: p.name, variant: p.variant, mode: "swap", unit_price: price, qty: 1 },
-      ];
+      return [...prev, { _key: key, product_id: p.id, name: p.name, variant: p.variant, mode: "swap", unit_price: price, qty: 1 }];
     });
   };
 
@@ -196,16 +233,24 @@ export default function POS() {
     setCart((prev) => prev.filter((x) => x._key !== k));
   };
 
-  const subtotal = useMemo(() => {
-    return cart.reduce((sum, x) => sum + Number(x.unit_price || 0) * Number(x.qty || 0), 0);
-  }, [cart]);
-
+  const subtotal = useMemo(() => cart.reduce((sum, x) => sum + Number(x.unit_price || 0) * Number(x.qty || 0), 0), [cart]);
   const total = Math.max(0, subtotal);
 
   const needsRef = payment === "gcash" || payment === "card";
   const validRef = !needsRef || String(paymentRef || "").trim().length >= 4;
 
-  const canCheckout = cart.length > 0 && !readOnly && validRef && !isSubmitting;
+  const tenderedNumber = useMemo(() => {
+    const cleaned = String(cashTendered || "").trim();
+    const n = Number(cleaned);
+    if (!Number.isFinite(n)) return 0;
+    return Math.max(0, n);
+  }, [cashTendered]);
+
+  const isCash = payment === "cash";
+  const change = useMemo(() => (isCash ? Math.max(0, tenderedNumber - total) : 0), [isCash, tenderedNumber, total]);
+  const cashEnough = !isCash || tenderedNumber >= total;
+
+  const canCheckout = cart.length > 0 && !readOnly && validRef && !isSubmitting && cashEnough;
 
   const checkout = () => {
     if (!canCheckout) return;
@@ -219,11 +264,13 @@ export default function POS() {
         is_delivery: delivery,
         payment_method: payment,
         payment_ref: needsRef ? String(paymentRef || "").trim() : null,
+
+        cash_tendered: payment === "cash" ? tenderedNumber : null,
+
         lines: cart.map((x) => ({
           product_id: x.product_id,
           qty: x.qty,
           mode: "swap",
-          unit_price: x.unit_price,
         })),
       },
       {
@@ -232,27 +279,19 @@ export default function POS() {
           setCart([]);
           setQ("");
           setPaymentRef("");
+          setCashTendered("");
 
-          setResultModal({
-            open: true,
-            status: "success",
-            title: "Payment complete",
-            message: "Sale was recorded successfully.",
-          });
+          setResultModal({ open: true, status: "success", title: "Payment complete", message: "Sale was recorded successfully." });
         },
         onError: (errs) => {
           const msg =
             errs?.message ||
+            errs?.cash_tendered ||
             errs?.payment_ref ||
             errs?.customer_id ||
             (typeof errs === "object" ? "Please review the form and try again." : "Something went wrong.");
 
-          setResultModal({
-            open: true,
-            status: "error",
-            title: "Payment failed",
-            message: String(msg),
-          });
+          setResultModal({ open: true, status: "error", title: "Payment failed", message: String(msg) });
         },
         onFinish: () => setIsSubmitting(false),
       }
@@ -326,18 +365,14 @@ export default function POS() {
                         onClick={() => addToCart(p)}
                         disabled={readOnly}
                         className={cx(
-                          "text-left rounded-3xl p-4 ring-1 transition hover:-translate-y-0.5 hover:ring-teal-300/60 hover:shadow-[0_10px_22px_rgba(13,148,136,0.12)]",
-                          readOnly
-                            ? "bg-slate-50 ring-slate-200 cursor-not-allowed"
-                            : "bg-white ring-slate-200 hover:bg-slate-50"
+                          "text-left rounded-3xl p-4 ring-1 transition hover:ring-teal-300/60 hover:shadow-[0_10px_22px_rgba(13,148,136,0.12)]",
+                          readOnly ? "bg-slate-50 ring-slate-200 cursor-not-allowed" : "bg-white ring-slate-200 hover:bg-slate-50"
                         )}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <div className="text-sm font-extrabold text-slate-800 truncate">{p.name}</div>
-                            <div className="mt-1 text-xs text-slate-500">
-                              {String(p.category || "").toUpperCase() || "—"}
-                            </div>
+                            <div className="mt-1 text-xs text-slate-500">{String(p.category || "").toUpperCase() || "—"}</div>
                           </div>
 
                           <div className="shrink-0 rounded-2xl bg-teal-600/10 ring-1 ring-teal-700/10 px-3 py-2 text-xs font-extrabold text-teal-900 teal-float">
@@ -361,7 +396,6 @@ export default function POS() {
                 icon={SlidersHorizontal}
                 right={
                   <div className="flex flex-wrap items-center gap-2">
-
                     <Pill active={delivery} onClick={() => setDelivery((v) => !v)}>
                       <span className="inline-flex items-center gap-2">
                         <Truck className="h-4 w-4" />
@@ -407,9 +441,7 @@ export default function POS() {
                     onClick={() => setOpenAddCustomer(true)}
                     className={cx(
                       "shrink-0 inline-flex items-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-extrabold ring-1 transition",
-                      readOnly
-                        ? "bg-slate-100 text-slate-400 ring-slate-200 cursor-not-allowed"
-                        : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
+                      readOnly ? "bg-slate-100 text-slate-400 ring-slate-200 cursor-not-allowed" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
                     )}
                     disabled={readOnly}
                     title="Add customer"
@@ -447,9 +479,7 @@ export default function POS() {
                           disabled={readOnly}
                           className={cx(
                             "rounded-2xl p-2 ring-1 transition",
-                            readOnly
-                              ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed"
-                              : "bg-white ring-slate-200 hover:bg-slate-50"
+                            readOnly ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed" : "bg-white ring-slate-200 hover:bg-slate-50"
                           )}
                           title="Remove"
                         >
@@ -465,9 +495,7 @@ export default function POS() {
                             disabled={readOnly}
                             className={cx(
                               "rounded-2xl p-2 ring-1 transition",
-                              readOnly
-                                ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed"
-                                : "bg-white ring-slate-200 hover:bg-slate-50"
+                              readOnly ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed" : "bg-white ring-slate-200 hover:bg-slate-50"
                             )}
                             aria-label="Decrease quantity"
                           >
@@ -482,9 +510,7 @@ export default function POS() {
                             disabled={readOnly}
                             className={cx(
                               "rounded-2xl p-2 ring-1 transition",
-                              readOnly
-                                ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed"
-                                : "bg-white ring-slate-200 hover:bg-slate-50"
+                              readOnly ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed" : "bg-white ring-slate-200 hover:bg-slate-50"
                             )}
                             aria-label="Increase quantity"
                           >
@@ -492,9 +518,7 @@ export default function POS() {
                           </button>
                         </div>
 
-                        <div className="text-sm font-extrabold text-slate-800">
-                          {formatPeso(Number(x.unit_price) * Number(x.qty))}
-                        </div>
+                        <div className="text-sm font-extrabold text-slate-800">{formatPeso(Number(x.unit_price) * Number(x.qty))}</div>
                       </div>
                     </div>
                   ))
@@ -516,8 +540,24 @@ export default function POS() {
                     icon={PosCash}
                     label="Cash"
                   />
-                  <IconPill active={payment === "gcash"} onClick={() => setPayment("gcash")} icon={PosGcash} label="GCash" />
-                  <IconPill active={payment === "card"} onClick={() => setPayment("card")} icon={PosCard} label="Card" />
+                  <IconPill
+                    active={payment === "gcash"}
+                    onClick={() => {
+                      setPayment("gcash");
+                      setCashTendered("");
+                    }}
+                    icon={PosGcash}
+                    label="GCash"
+                  />
+                  <IconPill
+                    active={payment === "card"}
+                    onClick={() => {
+                      setPayment("card");
+                      setCashTendered("");
+                    }}
+                    icon={PosCard}
+                    label="Card"
+                  />
                 </div>
 
                 {needsRef ? (
@@ -536,6 +576,40 @@ export default function POS() {
                       <Info className="mt-0.5 h-4 w-4 text-slate-400" />
                       <div className="leading-relaxed">Required so this payment can be verified later if needed.</div>
                     </div>
+                  </div>
+                ) : null}
+
+                {payment === "cash" ? (
+                  <div className="rounded-3xl bg-slate-50 ring-1 ring-slate-200 p-5">
+                    <div className="text-xs font-extrabold text-slate-700">Amount received</div>
+
+                    <PesoAmountInput value={cashTendered} onValueChange={setCashTendered} disabled={readOnly} placeholder="0.00" />
+
+                    <div className="mt-3 grid gap-2 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-600 font-semibold">Amount due</span>
+                        <span className="text-slate-800 font-extrabold">{formatPeso(total)}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-600 font-semibold">Received</span>
+                        <span className="text-slate-800 font-extrabold">{formatPeso(tenderedNumber)}</span>
+                      </div>
+
+                      <div className="h-px bg-slate-200" />
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-700 text-sm font-extrabold">Change</span>
+                        <span className="text-slate-800 text-lg font-extrabold">{formatPeso(change)}</span>
+                      </div>
+                    </div>
+
+                    {!cashEnough ? (
+                      <div className="mt-2 flex items-start gap-2 text-xs text-rose-600">
+                        <Info className="mt-0.5 h-4 w-4 text-rose-500" />
+                        <div className="leading-relaxed">Amount received must be equal to or higher than the total.</div>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
 
@@ -559,9 +633,7 @@ export default function POS() {
                   disabled={!canCheckout}
                   className={cx(
                     "w-full inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-extrabold ring-1 transition focus:outline-none focus:ring-4 focus:ring-teal-500/25 hover:-translate-y-0.5",
-                    canCheckout
-                      ? "bg-teal-600 text-white ring-teal-600 hover:bg-teal-700 teal-breathe"
-                      : "bg-slate-200 text-slate-500 ring-slate-200 cursor-not-allowed"
+                    canCheckout ? "bg-teal-600 text-white ring-teal-600 hover:bg-teal-700 teal-breathe" : "bg-slate-200 text-slate-500 ring-slate-200 cursor-not-allowed"
                   )}
                 >
                   {isSubmitting ? "Processing..." : "Confirm payment"}
@@ -578,6 +650,8 @@ export default function POS() {
                     </span>
                   ) : needsRef && !validRef ? (
                     <span>Please enter a valid reference number to continue.</span>
+                  ) : payment === "cash" && !cashEnough ? (
+                    <span>Please enter amount received that covers the total.</span>
                   ) : (
                     <span>Payment is recorded first, delivery is dispatched after.</span>
                   )}
@@ -606,11 +680,7 @@ export default function POS() {
         primaryLabel={resultModal.status === "error" ? "Try again" : "Close"}
         onPrimary={() => setResultModal((s) => ({ ...s, open: false }))}
         secondaryLabel={resultModal.status === "error" ? "Close" : undefined}
-        onSecondary={
-          resultModal.status === "error"
-            ? () => setResultModal((s) => ({ ...s, open: false }))
-            : undefined
-        }
+        onSecondary={resultModal.status === "error" ? () => setResultModal((s) => ({ ...s, open: false })) : undefined}
       />
     </Layout>
   );
