@@ -271,6 +271,7 @@ export default function POS() {
           product_id: x.product_id,
           qty: x.qty,
           mode: "swap",
+          unit_price: x.unit_price,
         })),
       },
       {
