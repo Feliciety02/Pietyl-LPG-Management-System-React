@@ -27,7 +27,10 @@ class PurchaseController extends Controller
         $data = $this->transformPurchasesForIndex($purchases->getCollection());
         
         $productsData = $this->getProductsWithSuppliers();
+        $mapsData = $this->getProductSupplierMaps();
 
+       
+     
         return Inertia::render('InventoryPage/Purchases', [
             'purchases' => [
                 'data' => $data,
@@ -36,6 +39,8 @@ class PurchaseController extends Controller
             'filters' => $request->only(['q', 'status', 'per']),
             'products' => $productsData['products'],
             'suppliersByProduct' => $productsData['suppliersByProduct'],
+            'productsMap' => $mapsData['productsMap'],
+            'suppliersMap' => $mapsData['suppliersMap'],
         ]);
     }
 
@@ -385,5 +390,55 @@ class PurchaseController extends Controller
         $purchase->update(['status' => 'discrepancy_reported']);
 
         return back()->with('success', 'Discrepancy reported.');
+    }
+
+    protected function getProductSupplierMaps()
+    {
+        $productVariants = \App\Models\ProductVariant::with(['product', 'suppliers'])
+            ->where('is_active', true)
+            ->get();
+
+        $productsMap = [];
+        $suppliersMap = [];
+
+        foreach ($productVariants as $variant) {
+            // Map 1: Products HashMap - variant_id => product info
+            $productsMap[$variant->id] = [
+                'id' => $variant->id,
+                'product_name' => $variant->product->name ?? '—',
+                'variant_name' => $variant->variant_name ?? '',
+                'supplier_id' => null,
+            ];
+
+            // Get primary supplier or first supplier
+            $primarySupplier = $variant->suppliers->firstWhere('pivot.is_primary', true) 
+                ?? $variant->suppliers->first();
+
+            if ($primarySupplier) {
+                // Link product to supplier
+                $productsMap[$variant->id]['supplier_id'] = $primarySupplier->id;
+
+                // Map 2: Suppliers HashMap - supplier_id => supplier info
+                if (!isset($suppliersMap[$primarySupplier->id])) {
+                    $suppliersMap[$primarySupplier->id] = [
+                        'id' => $primarySupplier->id,
+                        'name' => $primarySupplier->name,
+                        'variants' => [],
+                    ];
+                }
+
+                // Store variant-specific supplier data
+                $suppliersMap[$primarySupplier->id]['variants'][$variant->id] = [
+                    'unit_cost' => (float) ($primarySupplier->pivot->supplier_cost ?? 0),
+                    'is_primary' => $primarySupplier->pivot->is_primary ?? false,
+                    'lead_time_days' => $primarySupplier->pivot->lead_time_days ?? 0,
+                ];
+            }
+        }
+
+        return [
+            'productsMap' => $productsMap,
+            'suppliersMap' => $suppliersMap,
+        ];
     }
 }

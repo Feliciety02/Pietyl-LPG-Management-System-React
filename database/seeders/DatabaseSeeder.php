@@ -33,6 +33,7 @@ class DatabaseSeeder extends Seeder
             DeliverySeeder::class,
             RestockRequestSeeder::class,
             RestockRequestItemSeeder::class,
+            LinkSuppliersToProductsSeeder::class,
         ]);
     }
 }

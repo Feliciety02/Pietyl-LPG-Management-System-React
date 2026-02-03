@@ -62,6 +62,7 @@ class PermissionSeeder extends Seeder
             'inventory.purchases.view',
             'inventory.purchases.create',
             'inventory.purchases.update',
+            'inventory.purchases.confirm',
             'inventory.suppliers.view',
             'inventory.suppliers.create',
             'inventory.suppliers.update',
