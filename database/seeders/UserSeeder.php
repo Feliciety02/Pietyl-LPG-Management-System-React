@@ -67,6 +67,12 @@ class UserSeeder extends Seeder
                 'updated_at' => now(),
             ]);
 
+            // Link employee back to user
+            DB::table('employees')->where('id', $employeeId)->update([
+                'user_id' => $userId,
+                'updated_at' => now(),
+            ]);
+
             // assign role (spatie model_has_roles)
             $roleId = DB::table('roles')->where('name', $u['role'])->value('id');
             if ($roleId) {

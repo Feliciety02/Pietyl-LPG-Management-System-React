@@ -38,19 +38,27 @@ class LoginController extends Controller
             ]);
         }
 
-        if (!$user->is_active) {
+
+        
+        if (!$user->employee) {
+            throw ValidationException::withMessages([
+                'email' => 'No employee record found.',
+            ]);
+        }
+
+        if ($user->employee->status !== 'active') {
             AuditLog::create([
                 'actor_user_id' => $user->id,
                 'action' => 'auth.login_failed',
                 'entity_type' => 'User',
                 'entity_id' => $user->id,
-                'message' => 'Login failed: account disabled',
-                'after_json' => ['email' => $data['email']],
+                'message' => 'Login failed: employee inactive',
+                'after_json' => ['email' => $data['email'], 'employee_status' => $user->employee->status],
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->userAgent(),
             ]);
             throw ValidationException::withMessages([
-                'email' => 'This account is disabled.',
+                'email' => 'Employee record is inactive.',
             ]);
         }
 
