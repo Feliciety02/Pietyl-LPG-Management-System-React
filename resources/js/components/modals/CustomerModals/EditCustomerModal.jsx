@@ -152,10 +152,13 @@ export default function EditCustomerModal({ open, onClose, customer, onSave }) {
           <Input
             icon={Phone}
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onKeyDown={allowPhoneKeyDown}
+            onChange={(e) => setPhone(digitsOnly(e.target.value))}
             placeholder="09XXXXXXXXX"
-            inputMode="tel"
+            inputMode="numeric"
+            maxLength={11}
           />
+
         </Field>
 
         <Field label="Address">

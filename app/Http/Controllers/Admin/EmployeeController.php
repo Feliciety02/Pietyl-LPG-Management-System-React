@@ -20,14 +20,18 @@ class EmployeeController extends Controller
 
         $filters = $request->only(['q', 'status', 'per', 'page']);
         $per = max(1, min(100, (int) ($filters['per'] ?? 10)));
+
         $query = Employee::query()->with(['user.roles']);
 
         if (!empty($filters['q'])) {
             $q = trim((string) $filters['q']);
             $query->where(function ($sub) use ($q) {
-                $sub->where('first_name', 'like', "%{$q}%")
-                    ->orWhere('last_name', 'like', "%{$q}%")
-                    ->orWhere('employee_no', 'like', "%{$q}%");
+                $sub->where('employee_no', 'like', "%{$q}%")
+                    ->orWhere('position', 'like', "%{$q}%")
+                    ->orWhereHas('user', function ($uq) use ($q) {
+                        $uq->where('name', 'like', "%{$q}%")
+                           ->orWhere('email', 'like', "%{$q}%");
+                    });
             });
         }
 
@@ -36,8 +40,7 @@ class EmployeeController extends Controller
         }
 
         $employees = $query
-            ->orderBy('last_name')
-            ->orderBy('first_name')
+            ->orderBy('employee_no')
             ->paginate($per)
             ->withQueryString();
 
@@ -45,25 +48,33 @@ class EmployeeController extends Controller
             return [
                 'id' => $employee->id,
                 'employee_no' => $employee->employee_no,
-                'first_name' => $employee->first_name,
-                'last_name' => $employee->last_name,
                 'position' => $employee->position,
                 'status' => $employee->status,
                 'notes' => $employee->notes,
                 'phone' => $employee->phone,
-                'email' => $employee->email,
+                'hired_at' => $employee->hired_at,
                 'user' => $employee->user ? [
                     'id' => $employee->user->id,
+                    'name' => $employee->user->name,
                     'email' => $employee->user->email,
                     'role' => $employee->user->primaryRoleName(),
                 ] : null,
             ];
         });
 
+        // Step 3 change
+        // old: whereNull('employee_id')
+        // new: whereDoesntHave('employee') because User hasOne Employee via employees.user_id
+        $eligibleUsers = User::query()
+            ->whereDoesntHave('employee')
+            ->orderBy('name')
+            ->get(['id', 'name', 'email']);
+
         return Inertia::render('AdminPage/Employees', [
             'employees' => $employees,
             'filters' => $filters,
             'next_employee_no' => $this->generateEmployeeNo(),
+            'eligible_users' => $eligibleUsers,
         ]);
     }
 
@@ -75,40 +86,45 @@ class EmployeeController extends Controller
         }
 
         $validated = $request->validate([
+            'user_id' => 'required|integer|exists:users,id|unique:employees,user_id',
             'employee_no' => 'nullable|string|max:50|unique:employees,employee_no',
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
             'position' => 'nullable|string|max:255',
-            'phone' => 'nullable|string|max:50',
-            'email' => 'nullable|email|max:255|unique:employees,email',
             'status' => 'nullable|in:active,inactive,resigned,terminated',
-            'hired_at' => 'nullable|date',
-            'notes' => 'nullable|string',
         ]);
+
+        $targetUser = User::query()->with('employee')->findOrFail($validated['user_id']);
+
+        // Step 3 change
+        // old: if ($targetUser->employee_id) ...
+        // new: check the relationship that uses employees.user_id
+        if ($targetUser->employee) {
+            return redirect()->back()->withErrors([
+                'user_id' => 'This user already has an employee record.',
+            ]);
+        }
 
         $employeeNo = $validated['employee_no'] ?? null;
         if (!$employeeNo) {
             $employeeNo = $this->generateEmployeeNo();
         }
 
-        $email = $validated['email'] ?? null;
-        if (!$email) {
-            $email = $this->makePlaceholderEmail($employeeNo);
-        }
-
-        Employee::create([
+        // Step 3 change
+        // old: create employee without user_id then associate to user.employee_id
+        // new: create employee with user_id directly
+        $employee = Employee::create([
+            'user_id' => $targetUser->id,
             'employee_no' => $employeeNo,
-            'first_name' => $validated['first_name'],
-            'last_name' => $validated['last_name'],
             'position' => $validated['position'] ?? null,
-            'phone' => $validated['phone'] ?? null,
-            'email' => $email,
             'status' => $validated['status'] ?? 'active',
-            'hired_at' => $validated['hired_at'] ?? null,
-            'notes' => $validated['notes'] ?? null,
         ]);
 
-        return redirect()->back()->with('success', 'Employee created successfully.');
+        $roleName = $this->roleFromPosition($employee->position);
+
+        if ($roleName && Role::where('name', $roleName)->exists()) {
+            $targetUser->syncRoles([$roleName]);
+        }
+
+        return redirect()->back()->with('success', 'Employee created and user assigned successfully.');
     }
 
     public function update(Request $request, Employee $employee)
@@ -120,14 +136,11 @@ class EmployeeController extends Controller
 
         $validated = $request->validate([
             'employee_no' => 'nullable|string|max:50|unique:employees,employee_no,' . $employee->id,
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
             'position' => 'nullable|string|max:255',
-            'phone' => 'nullable|string|max:50',
-            'email' => 'nullable|email|max:255|unique:employees,email,' . $employee->id,
             'status' => 'nullable|in:active,inactive,resigned,terminated',
-            'hired_at' => 'nullable|date',
+            'phone' => 'nullable|string|max:50',
             'notes' => 'nullable|string',
+            'hired_at' => 'nullable|date',
         ]);
 
         $employeeNo = $validated['employee_no'] ?? $employee->employee_no;
@@ -135,75 +148,38 @@ class EmployeeController extends Controller
             $employeeNo = $this->generateEmployeeNo();
         }
 
-        $email = $validated['email'] ?? $employee->email;
-        if (!$email) {
-            $email = $this->makePlaceholderEmail($employeeNo);
-        }
-
         $employee->update([
             'employee_no' => $employeeNo,
-            'first_name' => $validated['first_name'],
-            'last_name' => $validated['last_name'],
-            'position' => $validated['position'] ?? null,
-            'phone' => $validated['phone'] ?? null,
-            'email' => $email,
+            'position' => $validated['position'] ?? $employee->position,
             'status' => $validated['status'] ?? $employee->status,
-            'hired_at' => $validated['hired_at'] ?? null,
-            'notes' => $validated['notes'] ?? null,
+            'phone' => $validated['phone'] ?? $employee->phone,
+            'notes' => $validated['notes'] ?? $employee->notes,
+            'hired_at' => $validated['hired_at'] ?? $employee->hired_at,
         ]);
+
+        if ($employee->user) {
+            $roleName = $this->roleFromPosition($employee->position);
+            if ($roleName && Role::where('name', $roleName)->exists()) {
+                $employee->user->syncRoles([$roleName]);
+            }
+        }
 
         return redirect()->back()->with('success', 'Employee updated successfully.');
     }
 
-    public function linkUser(Request $request, Employee $employee)
+    private function roleFromPosition(?string $position): ?string
     {
-        $user = $request->user();
-        if (!$user || !$user->can('admin.employees.update')) {
-            abort(403);
-        }
+        if (!$position) return null;
 
-        $validated = $request->validate([
-            'email' => 'required|email|max:255',
-            'role' => 'required|in:cashier,inventory_manager,rider,accountant,admin',
-        ]);
+        $p = strtolower(trim($position));
 
-        $target = User::where('email', $validated['email'])->first();
-        if (!$target) {
-            return redirect()->back()->withErrors([
-                'email' => 'No user found with that email. Create the user first.',
-            ]);
-        }
+        if (str_contains($p, 'cashier')) return 'cashier';
+        if (str_contains($p, 'inventory')) return 'inventory_manager';
+        if (str_contains($p, 'delivery') || str_contains($p, 'rider')) return 'rider';
+        if (str_contains($p, 'accountant')) return 'accountant';
+        if (str_contains($p, 'admin') || str_contains($p, 'owner')) return 'admin';
 
-        if ($target->employee_id && $target->employee_id !== $employee->id) {
-            return redirect()->back()->withErrors([
-                'email' => 'This user is already linked to another employee.',
-            ]);
-        }
-
-        $target->employee()->associate($employee);
-        $target->save();
-
-        if (Role::where('name', $validated['role'])->exists()) {
-            $target->syncRoles([$validated['role']]);
-        }
-
-        return redirect()->back()->with('success', 'User linked successfully.');
-    }
-
-    public function unlinkUser(Request $request, Employee $employee)
-    {
-        $user = $request->user();
-        if (!$user || !$user->can('admin.employees.update')) {
-            abort(403);
-        }
-
-        $target = $employee->user;
-        if ($target) {
-            $target->employee_id = null;
-            $target->save();
-        }
-
-        return redirect()->back()->with('success', 'User unlinked successfully.');
+        return null;
     }
 
     private function generateEmployeeNo(): string
@@ -222,21 +198,6 @@ class EmployeeController extends Controller
         while (Employee::where('employee_no', $candidate)->exists()) {
             $next++;
             $candidate = 'EMP-' . str_pad((string) $next, 4, '0', STR_PAD_LEFT);
-        }
-
-        return $candidate;
-    }
-
-    private function makePlaceholderEmail(string $employeeNo): string
-    {
-        $slug = strtolower(preg_replace('/[^a-z0-9]+/i', '-', $employeeNo));
-        $slug = trim($slug, '-');
-
-        $candidate = "employee-{$slug}@example.invalid";
-        $counter = 1;
-        while (Employee::where('email', $candidate)->exists()) {
-            $counter++;
-            $candidate = "employee-{$slug}-{$counter}@example.invalid";
         }
 
         return $candidate;

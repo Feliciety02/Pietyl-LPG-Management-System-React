@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class UserController extends Controller
@@ -19,22 +19,16 @@ class UserController extends Controller
             abort(403);
         }
 
-        $filters = $request->only(['q', 'role', 'status', 'per', 'page']);
+        $filters = $request->only(['q', 'status', 'per', 'page']);
         $per = max(1, min(100, (int) ($filters['per'] ?? 10)));
 
-        $query = User::query()->with(['roles', 'employee']);
+        $query = User::query();
 
         if (!empty($filters['q'])) {
             $q = trim((string) $filters['q']);
             $query->where(function ($sub) use ($q) {
                 $sub->where('name', 'like', "%{$q}%")
                     ->orWhere('email', 'like', "%{$q}%");
-            });
-        }
-
-        if (!empty($filters['role']) && $filters['role'] !== 'all') {
-            $query->whereHas('roles', function ($roleQuery) use ($filters) {
-                $roleQuery->where('name', $filters['role']);
             });
         }
 
@@ -53,22 +47,13 @@ class UserController extends Controller
                 'name' => $u->name,
                 'email' => $u->email,
                 'is_active' => $u->is_active,
-                'role' => $u->primaryRoleName(),
-                'employee' => $u->employee ? [
-                    'id' => $u->employee->id,
-                    'name' => $u->employee->fullName(),
-                ] : null,
+                'created_at' => $u->created_at,
             ];
         });
-
-        $roles = Role::query()
-            ->orderBy('name')
-            ->get(['id', 'name', 'description']);
 
         return Inertia::render('AdminPage/Users', [
             'users' => $users,
             'filters' => $filters,
-            'roles' => $roles,
         ]);
     }
 
@@ -82,21 +67,36 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email',
-            'password' => 'required|string|min:8',
-            'role' => ['required', Rule::exists('roles', 'name')],
             'is_active' => 'nullable|boolean',
         ]);
 
-        $created = User::create([
+        $tempPassword = Str::random(32);
+
+        User::create([
             'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
+            'email' => strtolower($validated['email']),
+            'password' => Hash::make($tempPassword),
             'is_active' => $validated['is_active'] ?? true,
         ]);
-
-        $created->syncRoles([$validated['role']]);
 
         return redirect()->back()->with('success', 'User created successfully.');
     }
 
+    public function resetPassword(Request $request, User $target)
+    {
+        $user = $request->user();
+        if (!$user || !$user->can('admin.users.update')) {
+            abort(403);
+        }
+
+        $status = Password::sendResetLink(['email' => $target->email]);
+
+        if ($status !== Password::RESET_LINK_SENT) {
+            return redirect()->back()->withErrors([
+                'message' => __($status),
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Password reset link sent.');
+    }
 }

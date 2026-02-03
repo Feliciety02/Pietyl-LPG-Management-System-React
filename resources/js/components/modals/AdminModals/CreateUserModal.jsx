@@ -159,40 +159,6 @@ export default function CreateUserModal({
           />
         </Field>
 
-        <Field label="Role" hint="Access level for this user.">
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            className="w-full rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-slate-800 ring-1 ring-slate-200 outline-none focus:ring-4 focus:ring-teal-500/15"
-          >
-            {roles?.length ? (
-              roles.map((r) => (
-                <option key={r.id || r.name} value={r.name}>
-                  {r.name}
-                </option>
-              ))
-            ) : (
-              <>
-                <option value="cashier">cashier</option>
-                <option value="inventory_manager">inventory_manager</option>
-                <option value="rider">rider</option>
-                <option value="accountant">accountant</option>
-                <option value="admin">admin</option>
-              </>
-            )}
-          </select>
-        </Field>
-
-        <Field label="Status">
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="w-full rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-slate-800 ring-1 ring-slate-200 outline-none focus:ring-4 focus:ring-teal-500/15"
-          >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
-        </Field>
       </div>
     </ModalShell>
   );

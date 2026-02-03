@@ -1,48 +1,49 @@
 // resources/js/components/modals/ProductModals/EditProductModal.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import { Package, Tag, Layers, PhilippinePeso, Building2 } from "lucide-react";
+import { Package, Tag, Layers, Building2 } from "lucide-react";
 import ModalShell from "../ModalShell";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
-function Field({ label, hint, children }) {
-  return (
-    <div>
-      <div className="text-xs font-extrabold text-slate-700">{label}</div>
-      {hint ? (
-        <div className="mt-0.5 text-[11px] text-slate-500">{hint}</div>
-      ) : null}
-      <div className="mt-2">{children}</div>
-    </div>
-  );
+/* ---------------- helpers ---------------- */
+
+function decimalOnly(v) {
+  const s = String(v || "").replace(/[^\d.]/g, "");
+  const parts = s.split(".");
+  if (parts.length <= 1) return s;
+  return `${parts[0]}.${parts.slice(1).join("")}`;
 }
 
-function Input({ icon: Icon, ...props }) {
-  return (
-    <div className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-slate-200 px-3 py-2.5 focus-within:ring-teal-500/30">
-      {Icon ? <Icon className="h-4 w-4 text-slate-500" /> : null}
-      <input
-        {...props}
-        className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
-      />
-    </div>
-  );
+function allowDecimalKeyDown(e) {
+  const k = e.key;
+
+  const allowed =
+    k === "Backspace" ||
+    k === "Delete" ||
+    k === "Tab" ||
+    k === "Enter" ||
+    k === "Escape" ||
+    k === "ArrowLeft" ||
+    k === "ArrowRight" ||
+    k === "Home" ||
+    k === "End";
+
+  if (allowed) return;
+  if (e.ctrlKey || e.metaKey) return;
+
+  if (k === ".") {
+    if (String(e.currentTarget.value || "").includes(".")) e.preventDefault();
+    return;
+  }
+
+  if (!/^\d$/.test(k)) e.preventDefault();
 }
 
-function Select({ icon: Icon, children, ...props }) {
-  return (
-    <div className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-slate-200 px-3 py-2.5 focus-within:ring-teal-500/30">
-      {Icon ? <Icon className="h-4 w-4 text-slate-500" /> : null}
-      <select
-        {...props}
-        className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none"
-      >
-        {children}
-      </select>
-    </div>
-  );
+function safeMoney(v) {
+  if (v == null) return "";
+  return decimalOnly(String(v).trim());
 }
 
 function slugifySku(value = "") {
@@ -65,44 +66,75 @@ function nextSequence(base, existingSkus = []) {
   if (!base) return "";
   const prefix = `${base}-`;
   let max = 0;
+
   existingSkus.forEach((sku) => {
     if (!sku || typeof sku !== "string") return;
     if (!sku.startsWith(prefix)) return;
+
     const match = sku.match(/-(\d{3,})$/);
     if (!match) return;
+
     const n = Number(match[1]);
     if (Number.isFinite(n) && n > max) max = n;
   });
+
   const next = max + 1 || 1;
   const padded = String(next).padStart(3, "0");
   return `${base}-${padded}`;
 }
 
-function Tabs({ tabs, value, onChange }) {
-  return (
-    <div className="inline-flex flex-wrap gap-1 rounded-2xl bg-slate-50 p-1 ring-1 ring-slate-200">
-      {tabs.map((t) => {
-        const active = t.value === value;
+/* ---------------- UI primitives ---------------- */
 
-        return (
-          <button
-            key={t.value}
-            type="button"
-            onClick={() => onChange(t.value)}
-            className={cx(
-              "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-extrabold transition",
-              active
-                ? "bg-teal-600/10 text-teal-900 ring-1 ring-teal-500/30"
-                : "text-slate-600 hover:text-slate-800"
-            )}
-          >
-            {t.label}
-          </button>
-        );
-      })}
+function Field({ label, hint, children }) {
+  return (
+    <div>
+      <div className="text-xs font-extrabold text-slate-700">{label}</div>
+      {hint ? <div className="mt-0.5 text-[11px] text-slate-500">{hint}</div> : null}
+      <div className="mt-2">{children}</div>
     </div>
   );
 }
+
+function Input({ icon: Icon, left, right, ...props }) {
+  return (
+    <div className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-slate-200 px-3 py-2.5 focus-within:ring-teal-500/30">
+      {Icon ? <Icon className="h-4 w-4 text-slate-500" /> : null}
+
+      {left ? (
+        <div className="shrink-0 pr-2 border-r border-slate-200/70 text-xs font-extrabold text-slate-600">
+          {left}
+        </div>
+      ) : null}
+
+      <input
+        {...props}
+        className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+      />
+
+      {right ? (
+        <div className="shrink-0 pl-2 border-l border-slate-200/70 text-xs font-extrabold text-slate-600">
+          {right}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function Select({ icon: Icon, children, ...props }) {
+  return (
+    <div className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-slate-200 px-3 py-2.5 focus-within:ring-teal-500/30">
+      {Icon ? <Icon className="h-4 w-4 text-slate-500" /> : null}
+      <select
+        {...props}
+        className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none"
+      >
+        {children}
+      </select>
+    </div>
+  );
+}
+
+/* ---------------- constants ---------------- */
 
 const PRODUCT_TYPES = [
   { value: "lpg", label: "LPG" },
@@ -115,33 +147,7 @@ const STOVE_TYPES = [
   { value: "double", label: "Double burner" },
 ];
 
-const ACCESSORY_TABS = [
-  { value: "hose", label: "Hose" },
-  { value: "regulator", label: "Regulator" },
-  { value: "others", label: "Others" },
-];
-
-function safeMoney(v) {
-  if (v == null) return "";
-  const s = String(v).trim();
-  return s;
-}
-
-function inferAccessoryTab(sku = "") {
-  const hay = String(sku || "").toUpperCase();
-  if (hay.includes("HOSE")) return "hose";
-  if (hay.includes("REG")) return "regulator";
-  return "others";
-}
-
-function inferStoveType(name = "") {
-  const hay = String(name || "").toLowerCase();
-  if (hay.includes("double")) return "double";
-  return "single";
-}
-
-/* named export (optional) */
-export function EditProductModal({
+export default function EditProductModal({
   open,
   onClose,
   product,
@@ -157,30 +163,29 @@ export function EditProductModal({
   const [negativePrice, setNegativePrice] = useState(false);
   const [supplierId, setSupplierId] = useState("");
   const [stoveType, setStoveType] = useState("single");
-  const [accessoryTab, setAccessoryTab] = useState("hose");
-  const [length, setLength] = useState("");
 
   useEffect(() => {
     if (!open) return;
 
-    setName(product?.name || "");
     const nextType = product?.type || "lpg";
+    setName(product?.name || "");
     setType(nextType);
-    setSize(product?.size_label || "");
+    setSize(nextType === "lpg" ? product?.size_label || "" : "");
     setPrice(safeMoney(product?.price));
     setNegativePrice(false);
     setSupplierId(product?.supplier?.id != null ? String(product.supplier.id) : "");
-    setStoveType(inferStoveType(product?.name));
-    setAccessoryTab(inferAccessoryTab(product?.sku));
-    setLength(nextType === "accessories" ? product?.size_label || "" : "");
+    setStoveType(product?.stove_type || "single");
   }, [open, product]);
+
+  const sizeClean = useMemo(() => decimalOnly(size), [size]);
+  const priceClean = useMemo(() => decimalOnly(price), [price]);
 
   const sku = useMemo(() => {
     const nameCode = compactCode(name, 3);
     const skuPool = existingSkus.filter((s) => s && s !== product?.sku);
 
     if (type === "lpg") {
-      const sizeSlug = slugifySku(size);
+      const sizeSlug = slugifySku(sizeClean);
       const base = sizeSlug && nameCode ? `LPG-${sizeSlug}-${nameCode}` : "";
       return nextSequence(base, skuPool);
     }
@@ -191,15 +196,8 @@ export function EditProductModal({
       return nextSequence(base, skuPool);
     }
 
-    if (type === "accessories") {
-      const accessoryCode =
-        accessoryTab === "hose" ? "HOSE" : accessoryTab === "regulator" ? "REG" : "OTH";
-      const base = nameCode ? `ACC-${accessoryCode}-${nameCode}` : "";
-      return nextSequence(base, skuPool);
-    }
-
     return "";
-  }, [type, size, stoveType, accessoryTab, name, existingSkus, product?.sku]);
+  }, [type, sizeClean, stoveType, name, existingSkus, product?.sku]);
 
   const canSubmit = useMemo(() => {
     if (!product?.id) return false;
@@ -208,18 +206,14 @@ export function EditProductModal({
     if (!supplierId) return false;
     if (negativePrice) return false;
 
-    const n = Number(String(price || "").replace(/,/g, ""));
+    const n = Number(String(priceClean || "").replace(/,/g, ""));
     if (!Number.isFinite(n) || n <= 0) return false;
 
-    if (type === "lpg" && !String(size || "").trim()) return false;
+    if (type === "lpg" && !String(sizeClean || "").trim()) return false;
     if (type === "stove" && !stoveType) return false;
-    if (type === "accessories") {
-      if (accessoryTab === "hose" && !String(length || "").trim()) return false;
-      if (!accessoryTab) return false;
-    }
 
     return true;
-  }, [product, name, sku, price, supplierId, type, size, stoveType, accessoryTab, length, negativePrice]);
+  }, [product, name, sku, priceClean, supplierId, type, sizeClean, stoveType, negativePrice]);
 
   const submit = () => {
     if (!canSubmit || loading) return;
@@ -229,16 +223,10 @@ export function EditProductModal({
       name: name.trim(),
       sku: sku.trim(),
       type,
-      size_label:
-        type === "lpg"
-          ? String(size || "").trim() || null
-          : type === "accessories" && accessoryTab === "hose"
-          ? String(length || "").trim() || null
-          : null,
-      price: String(price || "").trim(),
+      size_label: type === "lpg" ? String(sizeClean || "").trim() || null : null,
+      price: String(priceClean || "").trim(),
       supplier_id: supplierId,
       stove_type: type === "stove" ? stoveType : null,
-      accessory_type: type === "accessories" ? accessoryTab : null,
     });
   };
 
@@ -285,13 +273,20 @@ export function EditProductModal({
           <div className="h-11 rounded-2xl bg-slate-200/80 animate-pulse" />
           <div className="h-11 rounded-2xl bg-slate-200/80 animate-pulse" />
           <div className="h-11 rounded-2xl bg-slate-200/80 animate-pulse" />
-          <div className="h-11 rounded-2xl bg-slate-200/80 animate-pulse" />
         </div>
       ) : (
         <div className="grid gap-4">
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Product type">
-              <Select icon={Layers} value={type} onChange={(e) => setType(e.target.value)}>
+              <Select
+                icon={Layers}
+                value={type}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setType(next);
+                  if (next !== "lpg") setSize("");
+                }}
+              >
                 {PRODUCT_TYPES.map((t) => (
                   <option key={t.value} value={t.value}>
                     {t.label}
@@ -299,31 +294,6 @@ export function EditProductModal({
                 ))}
               </Select>
             </Field>
-          </div>
-
-          <Field label="Product name">
-            <Input
-              icon={Package}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="LPG Cylinder 11kg"
-              autoFocus
-            />
-          </Field>
-
-          {type === "accessories" ? (
-            <div className="grid gap-3">
-              <div className="text-xs font-extrabold text-slate-700">Accessory type</div>
-              <Tabs tabs={ACCESSORY_TABS} value={accessoryTab} onChange={setAccessoryTab} />
-            </div>
-          ) : null}
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {type === "lpg" ? (
-              <Field label="Size">
-                <Input value={size} onChange={(e) => setSize(e.target.value)} placeholder="11kg" />
-              </Field>
-            ) : null}
 
             {type === "stove" ? (
               <Field label="Stove type">
@@ -336,31 +306,50 @@ export function EditProductModal({
                 </Select>
               </Field>
             ) : null}
+          </div>
 
-            {type === "accessories" && accessoryTab === "hose" ? (
-              <Field label="Length">
+          <Field label="Product name">
+            <Input
+              icon={Package}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="LPG Cylinder"
+              autoFocus
+            />
+          </Field>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            {type === "lpg" ? (
+              <Field label="Size">
                 <Input
-                  value={length}
-                  onChange={(e) => setLength(e.target.value)}
-                  placeholder="1.5m"
+                  value={sizeClean}
+                  onKeyDown={allowDecimalKeyDown}
+                  onChange={(e) => setSize(decimalOnly(e.target.value))}
+                  placeholder="11"
+                  inputMode="decimal"
+                  right="KG"
                 />
               </Field>
             ) : null}
 
             <Field label="Price">
               <Input
-                icon={PhilippinePeso}
-                value={price}
+                left="₱"
+                value={priceClean}
+                onKeyDown={allowDecimalKeyDown}
                 onChange={(e) => {
                   const raw = e.target.value;
+
                   if (raw.includes("-")) {
                     setNegativePrice(true);
                     setPrice(raw.replace(/-/g, ""));
                     return;
                   }
-                  const parsed = Number(String(raw || "").replace(/,/g, ""));
-                  setNegativePrice(parsed < 0);
-                  setPrice(raw);
+
+                  const cleaned = decimalOnly(raw);
+                  const parsed = Number(String(cleaned || "").replace(/,/g, ""));
+                  setNegativePrice(Number.isFinite(parsed) ? parsed < 0 : false);
+                  setPrice(cleaned);
                 }}
                 inputMode="decimal"
                 placeholder="0.00"
@@ -398,6 +387,3 @@ export function EditProductModal({
     </ModalShell>
   );
 }
-
-/* default export */
-export default EditProductModal;

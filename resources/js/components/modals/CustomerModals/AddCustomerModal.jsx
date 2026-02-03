@@ -1,4 +1,4 @@
-
+// AddCustomerModal.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { router } from "@inertiajs/react";
 import { UserPlus, Phone, MapPin, StickyNote } from "lucide-react";
@@ -6,6 +6,31 @@ import ModalShell from "../ModalShell";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
+}
+
+function digitsOnly(value) {
+  return String(value || "").replace(/\D+/g, "");
+}
+
+function allowPhoneKeyDown(e) {
+  const k = e.key;
+
+  const allowed =
+    k === "Backspace" ||
+    k === "Delete" ||
+    k === "Tab" ||
+    k === "Enter" ||
+    k === "Escape" ||
+    k === "ArrowLeft" ||
+    k === "ArrowRight" ||
+    k === "Home" ||
+    k === "End";
+
+  if (allowed) return;
+
+  if (e.ctrlKey || e.metaKey) return;
+
+  if (!/^\d$/.test(k)) e.preventDefault();
 }
 
 function Field({ label, hint, children }) {
@@ -44,13 +69,7 @@ function Textarea({ icon: Icon, ...props }) {
   );
 }
 
-export default function AddCustomerModal({
-  open,
-  onClose,
-  postTo,
-  onCreated,
-  defaults,
-}) {
+export default function AddCustomerModal({ open, onClose, postTo, onCreated, defaults }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
@@ -61,26 +80,26 @@ export default function AddCustomerModal({
   useEffect(() => {
     if (!open) return;
     setName(defaults?.name || "");
-    setPhone(defaults?.phone || "");
+    setPhone(digitsOnly(defaults?.phone || ""));
     setAddress(defaults?.address || "");
     setNotes(defaults?.notes || "");
     setLocalError("");
     setSubmitting(false);
   }, [open, defaults]);
 
-  const phoneClean = useMemo(() => String(phone || "").replace(/\s+/g, ""), [phone]);
+  const phoneDigits = useMemo(() => digitsOnly(phone), [phone]);
 
   const canSubmit = useMemo(() => {
     if (!name.trim()) return false;
-    if (!phoneClean.trim()) return false;
+    if (!phoneDigits.trim()) return false;
     return true;
-  }, [name, phoneClean]);
+  }, [name, phoneDigits]);
 
   const validate = () => {
     if (!name.trim()) return "Full name is required.";
-    if (!phoneClean.trim()) return "Mobile number is required.";
-    if (!/^(\+?63|0)\d{10}$/.test(phoneClean)) {
-      return "Mobile number looks invalid. Use 09XXXXXXXXX or +63XXXXXXXXXX.";
+    if (!phoneDigits.trim()) return "Mobile number is required.";
+    if (!/^(0)\d{10}$/.test(phoneDigits)) {
+      return "Mobile number looks invalid. Use 09XXXXXXXXX.";
     }
     return "";
   };
@@ -99,17 +118,17 @@ export default function AddCustomerModal({
       postTo,
       {
         name: name.trim(),
-        phone: phoneClean,
+        phone: phoneDigits,
         address: address.trim() || null,
         notes: notes.trim() || null,
       },
       {
         preserveScroll: true,
         onFinish: () => setSubmitting(false),
-        onSuccess: (page) => {
+        onSuccess: () => {
           onClose?.();
-          const created = page?.props?.created_customer || null;
-          onCreated?.(created);
+          onCreated?.();
+          router.reload({ only: ["customers"] });
         },
         onError: (errors) => {
           const first =
@@ -179,10 +198,12 @@ export default function AddCustomerModal({
         <Field label="Mobile number" hint="Used for lookup and delivery contact.">
           <Input
             icon={Phone}
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            value={phoneDigits}
+            onKeyDown={allowPhoneKeyDown}
+            onChange={(e) => setPhone(digitsOnly(e.target.value))}
             placeholder="09XXXXXXXXX"
-            inputMode="tel"
+            inputMode="numeric"
+            maxLength={11}
           />
         </Field>
 

@@ -6,15 +6,13 @@ import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
 
-import { UserPlus, Pencil, Link2, Unlink } from "lucide-react";
+import { UserPlus, Pencil } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 
 import { TableActionButton } from "@/components/Table/ActionTableButton";
 
 import CreateEmployeeModal from "@/components/modals/EmployeeModals/CreateEmployeeModal";
 import EditEmployeeModal from "@/components/modals/EmployeeModals/EditEmployeeModal";
-import LinkEmployeeUserModal from "@/components/modals/EmployeeModals/LinkEmployeeUserModal";
-import ConfirmActionModal from "@/components/modals/EmployeeModals/ConfirmActionModal";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -27,6 +25,19 @@ function titleCase(s = "") {
     .filter(Boolean)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
+}
+
+function normalizePaginator(p) {
+  const x = p || {};
+  const data = Array.isArray(x.data) ? x.data : [];
+  const meta =
+    x.meta && typeof x.meta === "object"
+      ? x.meta
+      : x.current_page != null || x.last_page != null
+      ? x
+      : null;
+
+  return { data, meta };
 }
 
 function StatusPill({ status }) {
@@ -71,47 +82,44 @@ export default function Employees() {
       {
         id: 1,
         employee_no: "EMP-0001",
-        first_name: "Maria",
-        last_name: "Santos",
         position: "Owner / Admin",
         status: "active",
-        user: { email: "admin@pietylpg.com", role: "admin" },
+        user: { id: 1, name: "Admin User", email: "admin@pietylpg.com" },
       },
       {
         id: 2,
         employee_no: "EMP-0003",
-        first_name: "Juan",
-        last_name: "Dela Cruz",
         position: "Cashier",
         status: "active",
-        user: { email: "cashier1@pietylpg.com", role: "cashier" },
-      },
-      {
-        id: 3,
-        employee_no: "EMP-0006",
-        first_name: "Carlos",
-        last_name: "Mendoza",
-        position: "Cashier",
-        status: "resigned",
-        user: null,
+        user: { id: 2, name: "Cashier One", email: "cashier1@pietylpg.com" },
       },
     ],
-    meta: { current_page: 1, last_page: 1, total: 3 },
+    meta: { current_page: 1, last_page: 1, total: 2, from: 1, to: 2 },
   };
 
-  const employees =
+  const SAMPLE_ELIGIBLE_USERS = [
+    { id: 10, name: "New User", email: "new@pietylpg.com" },
+    { id: 11, name: "Another User", email: "another@pietylpg.com" },
+  ];
+
+  const rawEmployees =
     page.props?.employees ??
     (import.meta.env.DEV ? SAMPLE_EMPLOYEES : { data: [], meta: null });
 
-  const rows = employees.data || [];
-  const meta = employees.meta || null;
+  const eligibleUsers =
+    page.props?.eligible_users ?? (import.meta.env.DEV ? SAMPLE_ELIGIBLE_USERS : []);
+
+  const { data: rows, meta } = normalizePaginator(rawEmployees);
+
   const nextEmployeeNo = page.props?.next_employee_no || "";
 
-  const query = page.props?.filters || {};
-  const per = Number(query?.per || 10);
+  const filters = page.props?.filters || {};
+  const qInitial = filters?.q || "";
+  const statusInitial = filters?.status || "all";
+  const perInitial = Number(filters?.per || 10) || 10;
 
-  const [q, setQ] = useState(query?.q || "");
-  const [status, setStatus] = useState(query?.status || "all");
+  const [q, setQ] = useState(qInitial);
+  const [status, setStatus] = useState(statusInitial);
 
   const statusOptions = [
     { value: "all", label: "All status" },
@@ -121,53 +129,40 @@ export default function Employees() {
     { value: "terminated", label: "Terminated" },
   ];
 
-  const pushQuery = (patch) => {
+  const loading = Boolean(page.props?.loading);
+
+  const pushQuery = (patch = {}) => {
     router.get(
       "/dashboard/admin/employees",
-      { q, status, per, ...patch },
+      { q, status, per: perInitial, ...patch },
       { preserveScroll: true, preserveState: true, replace: true }
     );
   };
 
-  const loading = Boolean(page.props?.loading);
+  const handlePrev = () => {
+    if (!meta) return;
+    if ((meta.current_page || 1) <= 1) return;
+    pushQuery({ page: (meta.current_page || 1) - 1 });
+  };
 
-  const fillerRows = useMemo(
-    () =>
-      Array.from({ length: per }).map((_, i) => ({
-        id: `__filler__${i}`,
-        __filler: true,
-      })),
-    [per]
-  );
+  const handleNext = () => {
+    if (!meta) return;
+    if ((meta.current_page || 1) >= (meta.last_page || 1)) return;
+    pushQuery({ page: (meta.current_page || 1) + 1 });
+  };
+
+  const fillerRows = useMemo(() => {
+    return Array.from({ length: perInitial }).map((_, i) => ({
+      id: `__filler__${i}`,
+      __filler: true,
+    }));
+  }, [perInitial]);
 
   const tableRows = loading ? fillerRows : rows;
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [linkOpen, setLinkOpen] = useState(false);
-  const [linkError, setLinkError] = useState("");
-
-  const [confirm, setConfirm] = useState({
-    open: false,
-    employee: null,
-  });
-
   const [activeEmployee, setActiveEmployee] = useState(null);
-
-  const openEdit = (e) => {
-    setActiveEmployee(e);
-    setEditOpen(true);
-  };
-
-  const openLink = (e) => {
-    setActiveEmployee(e);
-    setLinkError("");
-    setLinkOpen(true);
-  };
-
-  const openConfirmUnlink = (e) => {
-    setConfirm({ open: true, employee: e });
-  };
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -204,37 +199,10 @@ export default function Employees() {
     });
   };
 
-  const linkUser = (id, payload) => {
-    if (!id || submitting) return;
-    setSubmitting(true);
-    setLinkError("");
-
-    router.post(`/dashboard/admin/employees/${id}/link-user`, payload, {
-      preserveScroll: true,
-      onFinish: () => setSubmitting(false),
-      onSuccess: () => {
-        setLinkOpen(false);
-        setActiveEmployee(null);
-        setLinkError("");
-      },
-      onError: (errors) => {
-        setLinkError(errors?.email || errors?.role || "Failed to link user.");
-      },
-    });
-  };
-
-  const unlinkUser = (id) => {
-    if (!id || submitting) return;
-    setSubmitting(true);
-
-    router.delete(`/dashboard/admin/employees/${id}/unlink-user`, {
-      preserveScroll: true,
-      onFinish: () => setSubmitting(false),
-      onSuccess: () => {
-        setConfirm({ open: false, employee: null });
-        setActiveEmployee(null);
-      },
-    });
+  const openEdit = (e) => {
+    if (!e || e.__filler) return;
+    setActiveEmployee(e);
+    setEditOpen(true);
   };
 
   const columns = useMemo(
@@ -248,7 +216,7 @@ export default function Employees() {
           ) : (
             <div>
               <div className="font-extrabold text-slate-900">
-                {e.first_name} {e.last_name}
+                {e.user?.name || "Unassigned"}
               </div>
               <div className="text-xs text-slate-500">{e.employee_no}</div>
             </div>
@@ -261,7 +229,7 @@ export default function Employees() {
           e?.__filler ? (
             <SkeletonLine w="w-28" />
           ) : (
-            <span className="text-sm text-slate-700">{e.position}</span>
+            <span className="text-sm text-slate-700">{e.position || "—"}</span>
           ),
       },
       {
@@ -272,14 +240,14 @@ export default function Employees() {
       },
       {
         key: "account",
-        label: "Account",
+        label: "Account Email",
         render: (e) =>
           e?.__filler ? (
-            <SkeletonLine w="w-32" />
-          ) : e.user ? (
+            <SkeletonLine w="w-40" />
+          ) : e.user?.email ? (
             <span className="text-sm text-slate-700">{e.user.email}</span>
           ) : (
-            <span className="text-xs text-slate-400">Not linked</span>
+            <span className="text-xs text-slate-400">No account</span>
           ),
       },
     ],
@@ -291,7 +259,7 @@ export default function Employees() {
       <div className="grid gap-6">
         <TopCard
           title="Employee Directory"
-          subtitle="Maintain staff records and employment status."
+          subtitle="Assign users to employee records and manage roles through employee workflows."
           right={
             <button
               type="button"
@@ -336,36 +304,12 @@ export default function Employees() {
             e?.__filler ? (
               <div className="flex items-center justify-end gap-2">
                 <SkeletonButton w="w-20" />
-                <SkeletonButton w="w-24" />
-                <SkeletonButton w="w-24" />
               </div>
             ) : (
               <div className="flex items-center justify-end gap-2">
-                <TableActionButton
-                  icon={Pencil}
-                  onClick={() => openEdit(e)}
-                  title="Edit employee"
-                >
+                <TableActionButton icon={Pencil} onClick={() => openEdit(e)} title="Edit employee">
                   Edit
                 </TableActionButton>
-
-                {!e.user ? (
-                  <TableActionButton
-                    icon={Link2}
-                    onClick={() => openLink(e)}
-                    title="Link account"
-                  >
-                    Link
-                  </TableActionButton>
-                ) : (
-                  <TableActionButton
-                    icon={Unlink}
-                    onClick={() => openConfirmUnlink(e)}
-                    title="Unlink account"
-                  >
-                    Unlink
-                  </TableActionButton>
-                )}
               </div>
             )
           }
@@ -373,12 +317,12 @@ export default function Employees() {
 
         <DataTablePagination
           meta={meta}
-          perPage={per}
+          perPage={perInitial}
           onPerPage={(n) => pushQuery({ per: n, page: 1 })}
-          onPrev={() => meta?.current_page > 1 && pushQuery({ page: meta.current_page - 1 })}
-          onNext={() => meta?.current_page < meta?.last_page && pushQuery({ page: meta.current_page + 1 })}
-          disablePrev={!meta || meta.current_page <= 1}
-          disableNext={!meta || meta.current_page >= meta.last_page}
+          onPrev={handlePrev}
+          onNext={handleNext}
+          disablePrev={!meta || (meta.current_page || 1) <= 1}
+          disableNext={!meta || (meta.current_page || 1) >= (meta.last_page || 1)}
         />
       </div>
 
@@ -391,6 +335,7 @@ export default function Employees() {
         onSubmit={createEmployee}
         loading={submitting}
         nextEmployeeNo={nextEmployeeNo}
+        eligibleUsers={eligibleUsers}
       />
 
       <EditEmployeeModal
@@ -402,29 +347,6 @@ export default function Employees() {
         employee={activeEmployee}
         onSubmit={(payload) => updateEmployee(activeEmployee?.id, payload)}
         loading={submitting}
-      />
-
-      <LinkEmployeeUserModal
-        open={linkOpen}
-        onClose={() => {
-          setLinkOpen(false);
-          setActiveEmployee(null);
-        }}
-        employee={activeEmployee}
-        onSubmit={(payload) => linkUser(activeEmployee?.id, payload)}
-        loading={submitting}
-        serverError={linkError}
-      />
-
-      <ConfirmActionModal
-        open={confirm.open}
-        onClose={() => setConfirm({ open: false, employee: null })}
-        title="Unlink account"
-        message="This will detach the user account from this employee. The employee record will remain."
-        confirmLabel="Unlink"
-        tone="rose"
-        loading={submitting}
-        onConfirm={() => unlinkUser(confirm.employee?.id)}
       />
     </Layout>
   );

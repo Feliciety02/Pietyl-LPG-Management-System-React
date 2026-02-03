@@ -37,6 +37,19 @@ function titleCase(s = "") {
     .join(" ");
 }
 
+function normalizePaginator(p) {
+  const x = p || {};
+  const data = Array.isArray(x.data) ? x.data : [];
+  const meta =
+    x.meta && typeof x.meta === "object"
+      ? x.meta
+      : x.current_page != null || x.last_page != null
+      ? x
+      : null;
+
+  return { data, meta };
+}
+
 /* -------------------------------------------------------------------------- */
 /* DEV SAMPLE DATA                                                             */
 /* -------------------------------------------------------------------------- */
@@ -84,7 +97,7 @@ const SAMPLE_ROLES = {
       users: [],
     },
   ],
-  meta: { current_page: 1, last_page: 1, total: 4 },
+  meta: { current_page: 1, last_page: 1, total: 4, from: 1, to: 4 },
 };
 
 /* -------------------------------------------------------------------------- */
@@ -118,25 +131,25 @@ function ArchivedPill() {
 function Tabs({ tabs, value, onChange }) {
   return (
     <div className="inline-flex flex-wrap gap-1 rounded-2xl bg-slate-50 p-1 ring-1 ring-slate-200">
-        {tabs.map((t) => {
-          const active = t.value === value;
+      {tabs.map((t) => {
+        const active = t.value === value;
 
-          return (
-            <button
-              key={t.value}
-              type="button"
-              onClick={() => onChange(t.value)}
-              className={cx(
-                "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-extrabold transition",
-                active
-                  ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200"
-                  : "text-slate-600 hover:text-slate-800"
-              )}
-            >
-              {t.label}
-            </button>
-          );
-        })}
+        return (
+          <button
+            key={t.value}
+            type="button"
+            onClick={() => onChange(t.value)}
+            className={cx(
+              "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-extrabold transition",
+              active
+                ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200"
+                : "text-slate-600 hover:text-slate-800"
+            )}
+          >
+            {t.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -166,22 +179,24 @@ function TopCard({ title, subtitle, right }) {
 export default function Roles() {
   const page = usePage();
 
-  const roles =
+  const rawRoles =
     page.props?.roles ??
     (import.meta.env.DEV ? SAMPLE_ROLES : { data: [], meta: null });
 
-  const rows = roles.data || [];
-  const meta = roles.meta || null;
+  const { data: rows, meta } = normalizePaginator(rawRoles);
+
   const permissions = page.props?.permissions || [];
 
-  const query = page.props?.filters || {};
-  const per = Number(query?.per || 10);
+  const filters = page.props?.filters || {};
+  const qInitial = filters?.q || "";
+  const scopeInitial = filters?.scope || "all";
+  const perInitial = Number(filters?.per || 10) || 10;
 
-  const [q, setQ] = useState(query?.q || "");
-  const [scope, setScope] = useState(query?.scope || "all");
+  const [q, setQ] = useState(qInitial);
+  const [scope, setScope] = useState(scopeInitial);
 
   const [activeRole, setActiveRole] = useState(null);
-  const [modal, setModal] = useState(null); // users | actions | create | edit | duplicate | archive | restore | permissions
+  const [modal, setModal] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   const loading = Boolean(page.props?.loading);
@@ -204,12 +219,24 @@ export default function Roles() {
     ? scope
     : "all";
 
-  const pushQuery = (patch) => {
+  const pushQuery = (patch = {}) => {
     router.get(
       "/dashboard/admin/roles",
-      { q, scope, per, ...patch },
+      { q, scope, per: perInitial, ...patch },
       { preserveScroll: true, preserveState: true, replace: true }
     );
+  };
+
+  const handlePrev = () => {
+    if (!meta) return;
+    if ((meta.current_page || 1) <= 1) return;
+    pushQuery({ page: (meta.current_page || 1) - 1 });
+  };
+
+  const handleNext = () => {
+    if (!meta) return;
+    if ((meta.current_page || 1) >= (meta.last_page || 1)) return;
+    pushQuery({ page: (meta.current_page || 1) + 1 });
   };
 
   const closeModals = () => {
@@ -224,9 +251,7 @@ export default function Roles() {
     router.post("/dashboard/admin/roles", payload, {
       preserveScroll: true,
       onFinish: () => setSubmitting(false),
-      onSuccess: () => {
-        closeModals();
-      },
+      onSuccess: () => closeModals(),
     });
   };
 
@@ -237,9 +262,7 @@ export default function Roles() {
     router.put(`/dashboard/admin/roles/${activeRole.id}`, payload, {
       preserveScroll: true,
       onFinish: () => setSubmitting(false),
-      onSuccess: () => {
-        closeModals();
-      },
+      onSuccess: () => closeModals(),
     });
   };
 
@@ -253,9 +276,7 @@ export default function Roles() {
       {
         preserveScroll: true,
         onFinish: () => setSubmitting(false),
-        onSuccess: () => {
-          closeModals();
-        },
+        onSuccess: () => closeModals(),
       }
     );
   };
@@ -267,9 +288,7 @@ export default function Roles() {
     router.post(`/dashboard/admin/roles/${activeRole.id}/archive`, {}, {
       preserveScroll: true,
       onFinish: () => setSubmitting(false),
-      onSuccess: () => {
-        closeModals();
-      },
+      onSuccess: () => closeModals(),
     });
   };
 
@@ -280,9 +299,7 @@ export default function Roles() {
     router.put(`/dashboard/admin/roles/${activeRole.id}/restore`, {}, {
       preserveScroll: true,
       onFinish: () => setSubmitting(false),
-      onSuccess: () => {
-        closeModals();
-      },
+      onSuccess: () => closeModals(),
     });
   };
 
@@ -293,20 +310,16 @@ export default function Roles() {
     router.put(`/dashboard/admin/roles/${activeRole.id}/permissions`, payload, {
       preserveScroll: true,
       onFinish: () => setSubmitting(false),
-      onSuccess: () => {
-        closeModals();
-      },
+      onSuccess: () => closeModals(),
     });
   };
 
-  const fillerRows = useMemo(
-    () =>
-      Array.from({ length: per }).map((_, i) => ({
-        id: `__filler__${i}`,
-        __filler: true,
-      })),
-    [per]
-  );
+  const fillerRows = useMemo(() => {
+    return Array.from({ length: perInitial }).map((_, i) => ({
+      id: `__filler__${i}`,
+      __filler: true,
+    }));
+  }, [perInitial]);
 
   const tableRows = loading ? fillerRows : rows;
 
@@ -485,14 +498,12 @@ export default function Roles() {
 
         <DataTablePagination
           meta={meta}
-          perPage={per}
+          perPage={perInitial}
           onPerPage={(n) => pushQuery({ per: n, page: 1 })}
-          onPrev={() => meta?.current_page > 1 && pushQuery({ page: meta.current_page - 1 })}
-          onNext={() =>
-            meta?.current_page < meta?.last_page && pushQuery({ page: meta.current_page + 1 })
-          }
-          disablePrev={!meta || meta.current_page <= 1}
-          disableNext={!meta || meta.current_page >= meta.last_page}
+          onPrev={handlePrev}
+          onNext={handleNext}
+          disablePrev={!meta || (meta.current_page || 1) <= 1}
+          disableNext={!meta || (meta.current_page || 1) >= (meta.last_page || 1)}
         />
 
         {/* MODALS */}
@@ -511,7 +522,11 @@ export default function Roles() {
           loading={submitting}
         />
 
-        <RoleUsersModal open={modal === "users"} role={activeRole} onClose={closeModals} />
+        <RoleUsersModal
+          open={modal === "users"}
+          role={activeRole}
+          onClose={closeModals}
+        />
 
         <RoleActionsModal
           open={modal === "actions"}

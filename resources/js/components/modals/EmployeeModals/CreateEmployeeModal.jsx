@@ -58,47 +58,52 @@ export default function CreateEmployeeModal({
   onSubmit,
   loading = false,
   nextEmployeeNo = "",
+  eligibleUsers = [],
 }) {
+  const [userId, setUserId] = useState("");
   const [employeeNo, setEmployeeNo] = useState("");
-  const [first, setFirst] = useState("");
-  const [last, setLast] = useState("");
   const [position, setPosition] = useState("");
   const [status, setStatus] = useState("active");
   const [err, setErr] = useState("");
 
+  const selectedUser = useMemo(() => {
+    const idNum = Number(userId);
+    if (!idNum) return null;
+    return eligibleUsers.find((u) => Number(u.id) === idNum) || null;
+  }, [userId, eligibleUsers]);
+
   useEffect(() => {
     if (!open) return;
+    setUserId("");
     setEmployeeNo(nextEmployeeNo || "");
-    setFirst("");
-    setLast("");
     setPosition("");
     setStatus("active");
     setErr("");
   }, [open, nextEmployeeNo]);
 
   const canSubmit = useMemo(() => {
-    if (!safeText(first)) return false;
-    if (!safeText(last)) return false;
+    if (!Number(userId)) return false;
     if (loading) return false;
     return true;
-  }, [first, last, loading]);
+  }, [userId, loading]);
 
   const submit = () => {
-    if (!safeText(first) || !safeText(last)) {
-      setErr("First name and last name are required.");
+    if (!Number(userId)) {
+      setErr("Please select a user.");
       return;
     }
 
     setErr("");
 
     onSubmit?.({
+      user_id: Number(userId),
       employee_no: safeText(employeeNo) || null,
-      first_name: safeText(first),
-      last_name: safeText(last),
       position: safeText(position) || null,
       status: safeText(status) || "active",
     });
   };
+
+  const hasEligible = eligibleUsers?.length > 0;
 
   return (
     <ModalShell
@@ -107,7 +112,7 @@ export default function CreateEmployeeModal({
       maxWidthClass="max-w-lg"
       layout="compact"
       title="Add employee"
-      subtitle="Create a staff record for HR and operations"
+      subtitle="Assign a user to an employee record and role"
       icon={UserPlus}
       footer={
         <div className="flex items-center justify-end gap-2">
@@ -141,23 +146,33 @@ export default function CreateEmployeeModal({
           </div>
         ) : null}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="First name" required>
-            <Input value={first} onChange={(e) => setFirst(e.target.value)} placeholder="Juan" autoFocus />
-          </Field>
+        {!hasEligible ? (
+          <div className="rounded-2xl bg-slate-50 ring-1 ring-slate-200 px-4 py-3 text-sm font-semibold text-slate-700">
+            No eligible users available. Create a user first in Users tab.
+          </div>
+        ) : null}
 
-          <Field label="Last name" required>
-            <Input value={last} onChange={(e) => setLast(e.target.value)} placeholder="Dela Cruz" />
-          </Field>
-        </div>
+        <Field label="User" hint="Only users without an employee record are shown." required>
+          <Select value={userId} onChange={(e) => setUserId(e.target.value)}>
+            <option value="">Select user</option>
+            {eligibleUsers.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name} ({u.email})
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        {selectedUser ? (
+          <div className="rounded-2xl bg-white ring-1 ring-slate-200 px-4 py-3">
+            <div className="text-xs font-extrabold text-slate-700">Selected</div>
+            <div className="mt-1 text-sm font-extrabold text-slate-900">{selectedUser.name}</div>
+            <div className="text-xs text-slate-500">{selectedUser.email}</div>
+          </div>
+        ) : null}
 
         <Field label="Employee no" hint="Auto-generated.">
-          <Input
-            value={employeeNo}
-            onChange={(e) => setEmployeeNo(e.target.value)}
-            placeholder="EMP-0007"
-            readOnly
-          />
+          <Input value={employeeNo} readOnly placeholder="EMP-0007" />
         </Field>
 
         <Field label="Position" hint="Optional, you can update later.">

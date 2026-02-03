@@ -1,6 +1,5 @@
 <?php
 
-
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -11,6 +10,7 @@ class Employee extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'employee_no',
         'first_name',
         'last_name',
@@ -28,7 +28,7 @@ class Employee extends Model
 
     public function user()
     {
-        return $this->hasOne(User::class);
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function fullName(): string

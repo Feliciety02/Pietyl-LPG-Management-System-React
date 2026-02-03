@@ -1,11 +1,11 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
-
 
 /**
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Role> $roles
@@ -33,11 +33,10 @@ class User extends Authenticatable
         'is_active' => 'boolean',
         'email_verified_at' => 'datetime',
     ];
-    
 
     public function employee()
     {
-        return $this->belongsTo(Employee::class);
+        return $this->hasOne(Employee::class, 'user_id');
     }
 
     public function primaryRoleName(): ?string

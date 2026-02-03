@@ -1,29 +1,46 @@
 import React, { useMemo, useState } from "react";
 import { router, usePage } from "@inertiajs/react";
-import { UserPlus } from "lucide-react";
+import { UserPlus, RefreshCw } from "lucide-react";
 import Layout from "../Dashboard/Layout";
 
 import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
-import { SkeletonLine, SkeletonPill } from "@/components/ui/Skeleton";
+import { SkeletonLine, SkeletonButton } from "@/components/ui/Skeleton";
+
+import { TableActionButton } from "@/components/Table/ActionTableButton";
+
 import CreateUserModal from "@/components/modals/AdminModals/CreateUserModal";
+import ResetPasswordConfirmModal from "@/components/modals/AdminModals/ResetPasswordConfirmModal";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
-function StatusPill({ active }) {
-  return (
-    <span
-      className={cx(
-        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1",
-        active ? "bg-teal-600/10 text-teal-900 ring-teal-700/10" : "bg-slate-100 text-slate-700 ring-slate-200"
-      )}
-    >
-      {active ? "Active" : "Inactive"}
-    </span>
-  );
+function normalizePaginator(p) {
+  const x = p || {};
+  const data = Array.isArray(x.data) ? x.data : [];
+  const meta =
+    x.meta && typeof x.meta === "object"
+      ? x.meta
+      : x.current_page != null || x.last_page != null
+      ? x
+      : null;
+
+  return { data, meta };
+}
+
+function niceText(v) {
+  if (v == null) return "—";
+  const s = String(v).trim();
+  return s ? s : "—";
+}
+
+function formatDate(v) {
+  if (!v) return "—";
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return niceText(v);
+  return d.toLocaleString();
 }
 
 function TopCard({ title, subtitle, right }) {
@@ -45,62 +62,70 @@ export default function Users() {
 
   const SAMPLE_USERS = {
     data: [
-      { id: 1, name: "Admin User", email: "admin@pietylpg.com", role: "admin", is_active: true },
-      { id: 2, name: "Cashier One", email: "cashier1@pietylpg.com", role: "cashier", is_active: true },
+      {
+        id: 1,
+        name: "Admin User",
+        email: "admin@pietylpg.com",
+        created_at: "2026-02-01T10:22:00Z",
+      },
+      {
+        id: 2,
+        name: "Cashier One",
+        email: "cashier1@pietylpg.com",
+        created_at: "2026-02-02T08:12:00Z",
+      },
     ],
-    meta: { current_page: 1, last_page: 1, total: 2 },
+    meta: { current_page: 1, last_page: 1, total: 2, from: 1, to: 2 },
   };
 
-  const users =
+  const rawUsers =
     page.props?.users ??
     (import.meta.env.DEV ? SAMPLE_USERS : { data: [], meta: null });
 
-  const roles = page.props?.roles ?? [];
-  const rows = users.data || [];
-  const meta = users.meta || null;
+  const { data: rows, meta } = normalizePaginator(rawUsers);
 
-  const query = page.props?.filters || {};
-  const per = Number(query?.per || 10);
+  const filters = page.props?.filters || {};
+  const qInitial = filters?.q || "";
+  const perInitial = Number(filters?.per || 10) || 10;
 
-  const [q, setQ] = useState(query?.q || "");
-  const [role, setRole] = useState(query?.role || "all");
-  const [status, setStatus] = useState(query?.status || "all");
+  const [q, setQ] = useState(qInitial);
 
-  const roleOptions = [
-    { value: "all", label: "All roles" },
-    ...roles.map((r) => ({ value: r.name, label: r.name })),
-  ];
-
-  const statusOptions = [
-    { value: "all", label: "All status" },
-    { value: "active", label: "Active" },
-    { value: "inactive", label: "Inactive" },
-  ];
-
-  const pushQuery = (patch) => {
+  const pushQuery = (patch = {}) => {
     router.get(
       "/dashboard/admin/users",
-      { q, role, status, per, ...patch },
+      { q, per: perInitial, ...patch },
       { preserveScroll: true, preserveState: true, replace: true }
     );
   };
 
+  const handlePrev = () => {
+    if (!meta || (meta.current_page || 1) <= 1) return;
+    pushQuery({ page: (meta.current_page || 1) - 1 });
+  };
+
+  const handleNext = () => {
+    if (!meta || (meta.current_page || 1) >= (meta.last_page || 1)) return;
+    pushQuery({ page: (meta.current_page || 1) + 1 });
+  };
+
   const loading = Boolean(page.props?.loading);
 
-  const fillerRows = useMemo(
-    () =>
-      Array.from({ length: per }).map((_, i) => ({
-        id: `__filler__${i}`,
-        __filler: true,
-      })),
-    [per]
-  );
+  const fillerRows = useMemo(() => {
+    return Array.from({ length: perInitial }).map((_, i) => ({
+      id: `__filler__${i}`,
+      __filler: true,
+    }));
+  }, [perInitial]);
 
   const tableRows = loading ? fillerRows : rows;
 
   const [createOpen, setCreateOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [createError, setCreateError] = useState("");
+
+  const [reset, setReset] = useState({ open: false, user: null });
+  const [resetSuccess, setResetSuccess] = useState(false);
+  const [resetError, setResetError] = useState("");
 
   const createUser = (payload) => {
     if (submitting) return;
@@ -115,52 +140,66 @@ export default function Users() {
         setCreateError("");
       },
       onError: (errors) => {
-        setCreateError(errors?.email || errors?.name || errors?.password || errors?.role || "Failed to create user.");
+        setCreateError(errors?.email || errors?.name || "Failed to create user.");
       },
     });
   };
 
+  const openReset = (user) => {
+    if (!user || user.__filler) return;
+    setReset({ open: true, user });
+    setResetSuccess(false);
+    setResetError("");
+  };
+
+  const doResetPassword = (userId) => {
+    if (!userId || submitting) return;
+    setSubmitting(true);
+    setResetError("");
+    setResetSuccess(false);
+
+    router.post(`/dashboard/admin/users/${userId}/reset-password`, {}, {
+      preserveScroll: true,
+      onFinish: () => setSubmitting(false),
+      onSuccess: () => {
+        setResetSuccess(true);
+      },
+      onError: (errors) => {
+        setResetError(errors?.message || "Failed to reset password.");
+      },
+    });
+  };
 
   const columns = useMemo(
     () => [
       {
         key: "name",
-        label: "User",
+        label: "Name",
         render: (u) =>
           u?.__filler ? (
             <SkeletonLine w="w-40" />
           ) : (
-            <div>
-              <div className="font-extrabold text-slate-900">{u.name}</div>
-              <div className="text-xs text-slate-500">{u.email}</div>
-            </div>
+            <div className="font-extrabold text-slate-900">{niceText(u.name)}</div>
           ),
       },
       {
-        key: "role",
-        label: "Role",
+        key: "email",
+        label: "Email",
         render: (u) =>
           u?.__filler ? (
-            <SkeletonLine w="w-24" />
+            <SkeletonLine w="w-48" />
           ) : (
-            <span className="text-sm text-slate-700">{u.role || "None"}</span>
+            <div className="text-sm text-slate-700">{niceText(u.email)}</div>
           ),
       },
       {
-        key: "status",
-        label: "Status",
-        render: (u) => (u?.__filler ? <SkeletonPill w="w-20" /> : <StatusPill active={u.is_active} />),
-      },
-      {
-        key: "employee",
-        label: "Employee",
+        key: "created_at",
+        label: "Created",
         render: (u) =>
           u?.__filler ? (
-            <SkeletonLine w="w-32" />
-          ) : u.employee ? (
-            <span className="text-sm text-slate-700">{u.employee.name}</span>
+            <SkeletonLine w="w-28" />
           ) : (
-            <span className="text-xs text-slate-400">Not linked</span>
+            <div className="text-sm text-slate-600">{formatDate(u.created_at)}</div>
           ),
       },
     ],
@@ -190,26 +229,6 @@ export default function Users() {
           onQ={setQ}
           onQDebounced={(v) => pushQuery({ q: v, page: 1 })}
           placeholder="Search name or email..."
-          filters={[
-            {
-              key: "role",
-              value: role,
-              onChange: (v) => {
-                setRole(v);
-                pushQuery({ role: v, page: 1 });
-              },
-              options: roleOptions,
-            },
-            {
-              key: "status",
-              value: status,
-              onChange: (v) => {
-                setStatus(v);
-                pushQuery({ status: v, page: 1 });
-              },
-              options: statusOptions,
-            },
-          ]}
         />
 
         <DataTable
@@ -219,16 +238,33 @@ export default function Users() {
           searchQuery={q}
           emptyTitle="No users found"
           emptyHint="Add a user or adjust filters."
+          renderActions={(u) =>
+            u?.__filler ? (
+              <div className="flex items-center justify-end gap-2">
+                <SkeletonButton w="w-28" />
+              </div>
+            ) : (
+              <div className="flex items-center justify-end gap-2">
+                <TableActionButton
+                  icon={RefreshCw}
+                  onClick={() => openReset(u)}
+                  title="Reset password"
+                >
+                  Reset Password
+                </TableActionButton>
+              </div>
+            )
+          }
         />
 
         <DataTablePagination
           meta={meta}
-          perPage={per}
+          perPage={perInitial}
           onPerPage={(n) => pushQuery({ per: n, page: 1 })}
-          onPrev={() => meta?.current_page > 1 && pushQuery({ page: meta.current_page - 1 })}
-          onNext={() => meta?.current_page < meta?.last_page && pushQuery({ page: meta.current_page + 1 })}
-          disablePrev={!meta || meta.current_page <= 1}
-          disableNext={!meta || meta.current_page >= meta.last_page}
+          onPrev={handlePrev}
+          onNext={handleNext}
+          disablePrev={!meta || (meta.current_page || 1) <= 1}
+          disableNext={!meta || (meta.current_page || 1) >= (meta.last_page || 1)}
         />
       </div>
 
@@ -240,8 +276,17 @@ export default function Users() {
         }}
         onSubmit={createUser}
         loading={submitting}
-        roles={roles}
         serverError={createError}
+      />
+
+      <ResetPasswordConfirmModal
+        open={reset.open}
+        user={reset.user}
+        loading={submitting}
+        success={resetSuccess}
+        error={resetError}
+        onClose={() => setReset({ open: false, user: null })}
+        onConfirm={() => doResetPassword(reset.user?.id)}
       />
     </Layout>
   );
