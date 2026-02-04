@@ -55,6 +55,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/users', [UserController::class, 'store'])
             ->middleware('permission:admin.users.create')
             ->name('dash.admin.users.store');
+        Route::post('/password/confirm', [UserController::class, 'confirmPassword'])
+            ->middleware(['permission:admin.users.update', 'throttle:10,1'])
+            ->name('dash.admin.password.confirm');
         Route::get('/employees', [EmployeeController::class, 'index'])
             ->middleware('permission:admin.employees.view')
             ->name('dash.admin.employees');

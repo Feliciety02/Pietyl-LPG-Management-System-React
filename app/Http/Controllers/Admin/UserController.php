@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 
@@ -84,19 +84,49 @@ class UserController extends Controller
 
     public function resetPassword(Request $request, User $target)
     {
+        $admin = $request->user();
+        if (!$admin || !$admin->can('admin.users.update')) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'admin_password' => 'required|string',
+            'new_password' => 'required|string|min:8|confirmed',
+        ]);
+
+        if (!Hash::check($validated['admin_password'], $admin->password)) {
+            return response()->json(['message' => 'Incorrect password.'], 422);
+        }
+
+        $target->password = Hash::make($validated['new_password']);
+        $target->save();
+
+        DB::table('password_reset_audits')->insert([
+            'admin_user_id' => $admin->id,
+            'target_user_id' => $target->id,
+            'ip_address' => $request->ip(),
+            'user_agent' => Str::limit($request->userAgent() ?? '', 255),
+            'created_at' => now(),
+        ]);
+
+        return response()->json(['message' => 'Password reset successfully.']);
+    }
+
+    public function confirmPassword(Request $request)
+    {
         $user = $request->user();
         if (!$user || !$user->can('admin.users.update')) {
             abort(403);
         }
 
-        $status = Password::sendResetLink(['email' => $target->email]);
+        $validated = $request->validate([
+            'password' => 'required|string',
+        ]);
 
-        if ($status !== Password::RESET_LINK_SENT) {
-            return redirect()->back()->withErrors([
-                'message' => __($status),
-            ]);
+        if (!Hash::check($validated['password'], $user->password)) {
+            return response()->json(['message' => 'Incorrect password.'], 422);
         }
 
-        return redirect()->back()->with('success', 'Password reset link sent.');
+        return response()->json(['message' => 'Confirmed.']);
     }
 }

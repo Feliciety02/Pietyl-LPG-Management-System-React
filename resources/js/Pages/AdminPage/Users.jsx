@@ -136,9 +136,8 @@ export default function Users() {
   const [submitting, setSubmitting] = useState(false);
   const [createError, setCreateError] = useState("");
 
-  const [reset, setReset] = useState({ open: false, user: null });
-  const [resetSuccess, setResetSuccess] = useState(false);
-  const [resetError, setResetError] = useState("");
+  const [resetTarget, setResetTarget] = useState(null);
+  const [resetOpen, setResetOpen] = useState(false);
 
   const createUser = (payload) => {
     if (submitting) return;
@@ -160,27 +159,13 @@ export default function Users() {
 
   const openReset = (user) => {
     if (!user || user.__filler) return;
-    setReset({ open: true, user });
-    setResetSuccess(false);
-    setResetError("");
+    setResetTarget(user);
+    setResetOpen(true);
   };
 
-  const doResetPassword = (userId) => {
-    if (!userId || submitting) return;
-    setSubmitting(true);
-    setResetError("");
-    setResetSuccess(false);
-
-    router.post(`/dashboard/admin/users/${userId}/reset-password`, {}, {
-      preserveScroll: true,
-      onFinish: () => setSubmitting(false),
-      onSuccess: () => {
-        setResetSuccess(true);
-      },
-      onError: (errors) => {
-        setResetError(errors?.message || "Failed to reset password.");
-      },
-    });
+  const handleResetClose = () => {
+    setResetOpen(false);
+    setResetTarget(null);
   };
 
   const columns = useMemo(
@@ -293,13 +278,10 @@ export default function Users() {
       />
 
       <ResetPasswordConfirmModal
-        open={reset.open}
-        user={reset.user}
-        loading={submitting}
-        success={resetSuccess}
-        error={resetError}
-        onClose={() => setReset({ open: false, user: null })}
-        onConfirm={() => doResetPassword(reset.user?.id)}
+        open={resetOpen}
+        user={resetTarget}
+        onClose={handleResetClose}
+        onSuccess={handleResetClose}
       />
     </Layout>
   );
