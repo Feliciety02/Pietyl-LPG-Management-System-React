@@ -32,14 +32,20 @@ function SectionTitle({ title, right, icon: Icon }) {
   );
 }
 
-function Pill({ active, onClick, children }) {
+function Pill({ active, onClick, children, disabled }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={cx(
         "rounded-2xl px-3 py-2 text-xs font-extrabold ring-1 transition whitespace-nowrap",
-        active ? "bg-teal-600 text-white ring-teal-600 teal-breathe" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
+        disabled ? "bg-slate-100 text-slate-400 ring-slate-200 cursor-not-allowed" : "",
+        !disabled && active
+          ? "bg-teal-600 text-white ring-teal-600 teal-breathe"
+          : !disabled
+          ? "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
+          : ""
       )}
     >
       {children}
@@ -47,17 +53,23 @@ function Pill({ active, onClick, children }) {
   );
 }
 
-function IconPill({ active, onClick, icon: Icon, label }) {
+function IconPill({ active, onClick, icon: Icon, label, disabled }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={cx(
         "flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-extrabold ring-1 transition whitespace-nowrap",
-        active ? "bg-teal-600 text-white ring-teal-600 teal-breathe" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
+        disabled ? "bg-slate-100 text-slate-400 ring-slate-200 cursor-not-allowed" : "",
+        !disabled && active
+          ? "bg-teal-600 text-white ring-teal-600 teal-breathe"
+          : !disabled
+          ? "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
+          : ""
       )}
     >
-      <Icon className={cx("h-4 w-4", active ? "text-white" : "text-slate-600")} />
+      <Icon className={cx("h-4 w-4", disabled ? "text-slate-400" : active ? "text-white" : "text-slate-600")} />
       {label}
     </button>
   );
@@ -86,10 +98,18 @@ function EmptyState({ title, desc, icon: Icon }) {
   );
 }
 
+// CHANGED: StockBadge now always renders "stocks: {number}"
+function StockBadge({ value }) {
+  return (
+    <span className="inline-flex items-center text-[11px] font-semibold text-slate-500">
+      stocks: {Number(value ?? 0)}
+    </span>
+  );
+}
+
 function PesoAmountInput({ value, onValueChange, disabled, placeholder = "0.00" }) {
   const sanitize = (raw) => {
     let s = String(raw ?? "");
-
     s = s.replace(/[^\d.]/g, "");
 
     const firstDot = s.indexOf(".");
@@ -107,14 +127,10 @@ function PesoAmountInput({ value, onValueChange, disabled, placeholder = "0.00" 
     return s;
   };
 
-  const handleChange = (e) => {
-    onValueChange(sanitize(e.target.value));
-  };
+  const handleChange = (e) => onValueChange(sanitize(e.target.value));
 
   const handleKeyDown = (e) => {
-    if (e.key === "-" || e.key === "+" || e.key === "e" || e.key === "E") {
-      e.preventDefault();
-    }
+    if (e.key === "-" || e.key === "+" || e.key === "e" || e.key === "E") e.preventDefault();
   };
 
   const handlePaste = (e) => {
@@ -189,20 +205,52 @@ export default function POS() {
 
   const [cashTendered, setCashTendered] = useState("");
 
+  const normalizeCategory = (raw) => {
+    const s = String(raw || "").toLowerCase();
+    if (s === "accesories") return "accessories";
+    return s;
+  };
+
+  const isLpg = (p) => normalizeCategory(p?.category) === "lpg";
+
+  const availableForProduct = (p) => {
+    if (!p) return 0;
+    if (isLpg(p)) return Math.max(0, Number(p.stock_filled ?? p.qty_filled ?? 0));
+    return Math.max(0, Number(p.stock_qty ?? p.current_qty ?? p.qty_on_hand ?? 0));
+  };
+
+  const qtyInCartForProduct = (productId) => {
+    const key = `${productId}:swap`;
+    return cart.reduce((sum, x) => (x._key === key ? sum + Number(x.qty || 0) : sum), 0);
+  };
+
   const filteredProducts = useMemo(() => {
     const s = String(q || "").toLowerCase().trim();
     return products
       .filter((p) => {
         if (category === "all") return true;
-        const raw = String(p.category || "").toLowerCase();
-        const normalized = raw === "accesories" ? "accessories" : raw;
-        return normalized === category;
+        return normalizeCategory(p.category) === category;
       })
       .filter((p) => (!s ? true : `${p.name} ${p.variant}`.toLowerCase().includes(s)));
   }, [products, q, category]);
 
   const addToCart = (p) => {
     if (readOnly) return;
+
+    const avail = availableForProduct(p);
+    const inCart = qtyInCartForProduct(p.id);
+
+    if (avail <= 0 || inCart >= avail) {
+      setResultModal({
+        open: true,
+        status: "error",
+        title: "Out of stock",
+        message: isLpg(p)
+          ? "No filled stock remaining for this LPG item."
+          : "No remaining stock for this item.",
+      });
+      return;
+    }
 
     const price = Number(p.price_swap || 0);
     const key = `${p.id}:swap`;
@@ -211,15 +259,36 @@ export default function POS() {
       const idx = prev.findIndex((x) => x._key === key);
       if (idx >= 0) {
         const copy = [...prev];
-        copy[idx] = { ...copy[idx], qty: copy[idx].qty + 1 };
+        const nextQty = copy[idx].qty + 1;
+        if (nextQty > avail) return copy;
+        copy[idx] = { ...copy[idx], qty: nextQty };
         return copy;
       }
-      return [...prev, { _key: key, product_id: p.id, name: p.name, variant: p.variant, mode: "swap", unit_price: price, qty: 1 }];
+      return [
+        ...prev,
+        { _key: key, product_id: p.id, name: p.name, variant: p.variant, mode: "swap", unit_price: price, qty: 1 },
+      ];
     });
   };
 
   const inc = (k) => {
     if (readOnly) return;
+
+    const item = cart.find((x) => x._key === k);
+    if (!item) return;
+
+    const p = products.find((pp) => String(pp.id) === String(item.product_id));
+    const avail = availableForProduct(p);
+    if (item.qty >= avail) {
+      setResultModal({
+        open: true,
+        status: "error",
+        title: "Max stock reached",
+        message: "You cannot add more than the remaining stock.",
+      });
+      return;
+    }
+
     setCart((prev) => prev.map((x) => (x._key === k ? { ...x, qty: x.qty + 1 } : x)));
   };
 
@@ -250,7 +319,15 @@ export default function POS() {
   const change = useMemo(() => (isCash ? Math.max(0, tenderedNumber - total) : 0), [isCash, tenderedNumber, total]);
   const cashEnough = !isCash || tenderedNumber >= total;
 
-  const canCheckout = cart.length > 0 && !readOnly && validRef && !isSubmitting && cashEnough;
+  const cartHasOverStock = useMemo(() => {
+    return cart.some((x) => {
+      const p = products.find((pp) => String(pp.id) === String(x.product_id));
+      const avail = availableForProduct(p);
+      return Number(x.qty || 0) > avail;
+    });
+  }, [cart, products]);
+
+  const canCheckout = cart.length > 0 && !readOnly && validRef && !isSubmitting && cashEnough && !cartHasOverStock;
 
   const checkout = () => {
     if (!canCheckout) return;
@@ -264,9 +341,7 @@ export default function POS() {
         is_delivery: delivery,
         payment_method: payment,
         payment_ref: needsRef ? String(paymentRef || "").trim() : null,
-
         cash_tendered: payment === "cash" ? tenderedNumber : null,
-
         lines: cart.map((x) => ({
           product_id: x.product_id,
           qty: x.qty,
@@ -282,7 +357,16 @@ export default function POS() {
           setPaymentRef("");
           setCashTendered("");
 
-          setResultModal({ open: true, status: "success", title: "Payment complete", message: "Sale was recorded successfully." });
+          setResultModal({
+            open: true,
+            status: "success",
+            title: delivery ? "Delivery created" : "Payment complete",
+            message: delivery
+              ? "Sale was recorded and a delivery was created for the rider."
+              : "Sale was recorded successfully.",
+          });
+
+          router.reload({ only: ["products", "customers"] });
         },
         onError: (errs) => {
           const msg =
@@ -347,6 +431,12 @@ export default function POS() {
                   className="w-full min-w-0 bg-transparent text-sm font-semibold text-slate-700 outline-none placeholder:text-slate-400"
                 />
               </div>
+
+              {!readOnly ? (
+                <div className="mt-2 text-[11px] text-slate-500">
+                  Stock shown is remaining on hand. Delivery sales create a rider task, stock will update when delivery is completed.
+                </div>
+              ) : null}
             </div>
 
             <div className="p-4 flex-1 min-h-0 overflow-y-auto no-scrollbar">
@@ -358,22 +448,43 @@ export default function POS() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   {filteredProducts.map((p) => {
                     const price = Number(p.price_swap || 0);
+                    const avail = availableForProduct(p);
+                    const inCart = qtyInCartForProduct(p.id);
+                    const outOfStock = avail <= 0;
+                    const cannotAddMore = inCart >= avail;
 
                     return (
                       <button
                         key={p.id}
                         type="button"
                         onClick={() => addToCart(p)}
-                        disabled={readOnly}
+                        disabled={readOnly || outOfStock || cannotAddMore}
                         className={cx(
                           "text-left rounded-3xl p-4 ring-1 transition hover:ring-teal-300/60 hover:shadow-[0_10px_22px_rgba(13,148,136,0.12)]",
-                          readOnly ? "bg-slate-50 ring-slate-200 cursor-not-allowed" : "bg-white ring-slate-200 hover:bg-slate-50"
+                          readOnly || outOfStock || cannotAddMore
+                            ? "bg-slate-50 ring-slate-200 cursor-not-allowed"
+                            : "bg-white ring-slate-200 hover:bg-slate-50"
                         )}
+                        title={outOfStock ? "Out of stock" : cannotAddMore ? "Reached remaining stock" : "Add to cart"}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <div className="text-sm font-extrabold text-slate-800 truncate">{p.name}</div>
                             <div className="mt-1 text-xs text-slate-500">{String(p.category || "").toUpperCase() || "—"}</div>
+
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              {/* CHANGED: only show "stocks: {avail}" */}
+                              <StockBadge value={avail} />
+
+                              {/* keep this as-is, but now it's just plain text so StockBadge doesn't override it */}
+                              {inCart > 0 ? (
+                                <span className="inline-flex items-center text-[11px] font-semibold text-slate-500">
+                                  in cart: {Number(inCart)}
+                                </span>
+                              ) : null}
+                            </div>
+
+                            {/* CHANGED: removed the Out of stock / Reached remaining stock text */}
                           </div>
 
                           <div className="shrink-0 rounded-2xl bg-teal-600/10 ring-1 ring-teal-700/10 px-3 py-2 text-xs font-extrabold text-teal-900 teal-float">
@@ -397,7 +508,7 @@ export default function POS() {
                 icon={SlidersHorizontal}
                 right={
                   <div className="flex flex-wrap items-center gap-2">
-                    <Pill active={delivery} onClick={() => setDelivery((v) => !v)}>
+                    <Pill active={delivery} onClick={() => setDelivery((v) => !v)} disabled={readOnly}>
                       <span className="inline-flex items-center gap-2">
                         <Truck className="h-4 w-4" />
                         Delivery
@@ -452,6 +563,12 @@ export default function POS() {
                   </button>
                 </div>
 
+                {delivery ? (
+                  <div className="rounded-2xl bg-teal-600/10 text-teal-900 ring-1 ring-teal-700/10 px-3 py-2 text-xs">
+                    Delivery sale will create a rider task. Stock will update when delivery is marked delivered.
+                  </div>
+                ) : null}
+
                 {isAdmin ? (
                   <div className="rounded-2xl bg-slate-50 ring-1 ring-slate-200 px-3 py-2 text-xs text-slate-600">
                     Admin view only mode. To test cashier actions, log in as cashier.
@@ -467,62 +584,81 @@ export default function POS() {
                 {cart.length === 0 ? (
                   <EmptyState icon={ShoppingCart} title="Cart is empty" desc="Add products from the catalog." />
                 ) : (
-                  cart.map((x) => (
-                    <div key={x._key} className="rounded-3xl bg-white ring-1 ring-slate-200 p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-sm font-extrabold text-slate-800 truncate">{x.name}</div>
+                  <>
+                    {cart.map((x) => {
+                      const p = products.find((pp) => String(pp.id) === String(x.product_id));
+                      const avail = availableForProduct(p);
+                      const over = Number(x.qty || 0) > avail;
+
+                      return (
+                        <div key={x._key} className={cx("rounded-3xl ring-1 p-4", over ? "bg-rose-50 ring-rose-200" : "bg-white ring-slate-200")}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="text-sm font-extrabold text-slate-800 truncate">{x.name}</div>
+                              <div className="mt-1 flex items-center gap-2 text-[11px]">
+                                <span className="text-slate-500">Remaining</span>
+                                <span className={cx("font-extrabold", over ? "text-rose-700" : "text-slate-800")}>{Number(avail)}</span>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => remove(x._key)}
+                              disabled={readOnly}
+                              className={cx(
+                                "rounded-2xl p-2 ring-1 transition",
+                                readOnly ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed" : "bg-white ring-slate-200 hover:bg-slate-50"
+                              )}
+                              title="Remove"
+                            >
+                              <PosRemove className="h-4 w-4" />
+                            </button>
+                          </div>
+
+                          <div className="mt-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => dec(x._key)}
+                                disabled={readOnly}
+                                className={cx(
+                                  "rounded-2xl p-2 ring-1 transition",
+                                  readOnly ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed" : "bg-white ring-slate-200 hover:bg-slate-50"
+                                )}
+                                aria-label="Decrease quantity"
+                              >
+                                <PosMinus className="h-4 w-4" />
+                              </button>
+
+                              <div className="min-w-[44px] text-center text-sm font-extrabold text-slate-800">{x.qty}</div>
+
+                              <button
+                                type="button"
+                                onClick={() => inc(x._key)}
+                                disabled={readOnly}
+                                className={cx(
+                                  "rounded-2xl p-2 ring-1 transition",
+                                  readOnly ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed" : "bg-white ring-slate-200 hover:bg-slate-50"
+                                )}
+                                aria-label="Increase quantity"
+                              >
+                                <PosAdd className="h-4 w-4" />
+                              </button>
+                            </div>
+
+                            <div className="text-sm font-extrabold text-slate-800">{formatPeso(Number(x.unit_price) * Number(x.qty))}</div>
+                          </div>
+
+                          {over ? (
+                            <div className="mt-2 flex items-start gap-2 text-xs text-rose-700">
+                              <Info className="mt-0.5 h-4 w-4 text-rose-600" />
+                              <div className="leading-relaxed">Cart quantity is higher than remaining stock. Reduce qty to continue.</div>
+                            </div>
+                          ) : null}
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => remove(x._key)}
-                          disabled={readOnly}
-                          className={cx(
-                            "rounded-2xl p-2 ring-1 transition",
-                            readOnly ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed" : "bg-white ring-slate-200 hover:bg-slate-50"
-                          )}
-                          title="Remove"
-                        >
-                          <PosRemove className="h-4 w-4" />
-                        </button>
-                      </div>
-
-                      <div className="mt-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => dec(x._key)}
-                            disabled={readOnly}
-                            className={cx(
-                              "rounded-2xl p-2 ring-1 transition",
-                              readOnly ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed" : "bg-white ring-slate-200 hover:bg-slate-50"
-                            )}
-                            aria-label="Decrease quantity"
-                          >
-                            <PosMinus className="h-4 w-4" />
-                          </button>
-
-                          <div className="min-w-[44px] text-center text-sm font-extrabold text-slate-800">{x.qty}</div>
-
-                          <button
-                            type="button"
-                            onClick={() => inc(x._key)}
-                            disabled={readOnly}
-                            className={cx(
-                              "rounded-2xl p-2 ring-1 transition",
-                              readOnly ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed" : "bg-white ring-slate-200 hover:bg-slate-50"
-                            )}
-                            aria-label="Increase quantity"
-                          >
-                            <PosAdd className="h-4 w-4" />
-                          </button>
-                        </div>
-
-                        <div className="text-sm font-extrabold text-slate-800">{formatPeso(Number(x.unit_price) * Number(x.qty))}</div>
-                      </div>
-                    </div>
-                  ))
+                      );
+                    })}
+                  </>
                 )}
               </div>
             </Card>
@@ -540,6 +676,7 @@ export default function POS() {
                     }}
                     icon={PosCash}
                     label="Cash"
+                    disabled={readOnly}
                   />
                   <IconPill
                     active={payment === "gcash"}
@@ -549,6 +686,7 @@ export default function POS() {
                     }}
                     icon={PosGcash}
                     label="GCash"
+                    disabled={readOnly}
                   />
                   <IconPill
                     active={payment === "card"}
@@ -558,6 +696,7 @@ export default function POS() {
                     }}
                     icon={PosCard}
                     label="Card"
+                    disabled={readOnly}
                   />
                 </div>
 
@@ -637,7 +776,7 @@ export default function POS() {
                     canCheckout ? "bg-teal-600 text-white ring-teal-600 hover:bg-teal-700 teal-breathe" : "bg-slate-200 text-slate-500 ring-slate-200 cursor-not-allowed"
                   )}
                 >
-                  {isSubmitting ? "Processing..." : "Confirm payment"}
+                  {isSubmitting ? "Processing..." : delivery ? "Confirm and create delivery" : "Confirm payment"}
                   <PosNext className="h-4 w-4" />
                 </button>
 
@@ -649,12 +788,16 @@ export default function POS() {
                         Back to dashboard
                       </Link>
                     </span>
+                  ) : cartHasOverStock ? (
+                    <span>Reduce cart quantities that exceed remaining stock.</span>
                   ) : needsRef && !validRef ? (
                     <span>Please enter a valid reference number to continue.</span>
                   ) : payment === "cash" && !cashEnough ? (
                     <span>Please enter amount received that covers the total.</span>
+                  ) : delivery ? (
+                    <span>Delivery will appear on the rider page after this is confirmed.</span>
                   ) : (
-                    <span>Payment is recorded first, delivery is dispatched after.</span>
+                    <span>Payment is recorded first. Stock movements update after.</span>
                   )}
                 </div>
               </div>

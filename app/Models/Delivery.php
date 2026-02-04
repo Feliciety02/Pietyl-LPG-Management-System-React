@@ -30,57 +30,36 @@ class Delivery extends Model
         'delivered_at' => 'datetime',
     ];
 
-    /**
-     * Get the sale.
-     */
     public function sale()
     {
         return $this->belongsTo(Sale::class);
     }
 
-    /**
-     * Get the customer.
-     */
     public function customer()
     {
         return $this->belongsTo(Customer::class);
     }
 
-    /**
-     * Get the delivery address.
-     */
     public function address()
     {
         return $this->belongsTo(CustomerAddress::class, 'address_id');
     }
 
-    /**
-     * Get the assigned rider.
-     */
     public function rider()
     {
         return $this->belongsTo(User::class, 'assigned_rider_user_id');
     }
 
-    /**
-     * Get the status logs for the delivery.
-     */
-    //public function statusLogs()
-    //{
-        //return $this->hasMany(DeliveryStatusLog::class);
-    //}
+    public function items()
+    {
+        return $this->hasMany(DeliveryItem::class);
+    }
 
-    /**
-     * Scope a query to only include deliveries with a given status.
-     */
     public function scopeStatus($query, $status)
     {
         return $query->where('status', $status);
     }
 
-    /**
-     * Scope a query to search deliveries.
-     */
     public function scopeSearch($query, $search)
     {
         return $query->where(function ($q) use ($search) {
@@ -91,21 +70,15 @@ class Delivery extends Model
         });
     }
 
-    /**
-     * Generate a unique delivery number.
-     */
     public static function generateDeliveryNumber()
     {
         $prefix = 'D-';
         $lastDelivery = self::latest('id')->first();
         $number = $lastDelivery ? intval(substr($lastDelivery->delivery_number, strlen($prefix))) + 1 : 1;
-        
+
         return $prefix . str_pad($number, 6, '0', STR_PAD_LEFT);
     }
 
-    /**
-     * Common delivery statuses
-     */
     const STATUS_PENDING = 'pending';
     const STATUS_ASSIGNED = 'assigned';
     const STATUS_DISPATCHED = 'dispatched';
