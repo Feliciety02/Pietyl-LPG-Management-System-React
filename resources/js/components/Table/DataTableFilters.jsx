@@ -19,11 +19,13 @@ export default function DataTableFilters({
 }) {
   const [localQ, setLocalQ] = useState(q || "");
   const skipRef = useRef(false);
+  const typedRef = useRef(false);
   const onQDebouncedRef = useRef(onQDebounced);
 
   useEffect(() => {
     skipRef.current = true;
     setLocalQ(q || "");
+    typedRef.current = false;
   }, [q]);
 
   useEffect(() => {
@@ -35,6 +37,9 @@ export default function DataTableFilters({
     if (!callback) return;
     if (skipRef.current) {
       skipRef.current = false;
+      return;
+    }
+    if (!typedRef.current) {
       return;
     }
     if (debounceMs <= 0) {
@@ -66,8 +71,9 @@ export default function DataTableFilters({
               onChange={(e) => {
                 const next = e.target.value;
                 setLocalQ(next);
-                onQ?.(next);
-              }}
+            typedRef.current = true;
+            onQ?.(next);
+          }}
               className={cx(
                 "bg-transparent text-sm outline-none placeholder:text-slate-400",
                 isInline ? "w-56" : "w-64"

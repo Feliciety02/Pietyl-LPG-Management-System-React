@@ -8,6 +8,7 @@ use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Arr;
 
 class EmployeeController extends Controller
 {
@@ -141,6 +142,8 @@ class EmployeeController extends Controller
             'phone' => 'nullable|string|max:50',
             'notes' => 'nullable|string',
             'hired_at' => 'nullable|date',
+            'user' => 'nullable|array',
+            'user.name' => 'nullable|string|max:255',
         ]);
 
         $employeeNo = $validated['employee_no'] ?? $employee->employee_no;
@@ -161,6 +164,14 @@ class EmployeeController extends Controller
             $roleName = $this->roleFromPosition($employee->position);
             if ($roleName && Role::where('name', $roleName)->exists()) {
                 $employee->user->syncRoles([$roleName]);
+            }
+        }
+
+        $userName = Arr::get($validated, 'user.name');
+        if ($employee->user && $userName !== null) {
+            $userName = trim($userName);
+            if ($userName !== '') {
+                $employee->user->update(['name' => $userName]);
             }
         }
 
