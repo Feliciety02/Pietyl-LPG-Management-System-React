@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('sale_items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('sale_id')->constrained()->onDelete('cascade');
-            $table->foreignId('product_variant_id')->constrained()->onDelete('restrict');
+            $table->foreignId('product_variant_id')->constrained()->onDelete('cascade');
             $table->decimal('qty', 12, 3)->default(0);
             $table->decimal('unit_price', 12, 2)->default(0);
             $table->decimal('line_total', 12, 2)->default(0);

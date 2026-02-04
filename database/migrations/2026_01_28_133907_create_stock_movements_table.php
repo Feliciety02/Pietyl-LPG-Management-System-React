@@ -27,15 +27,15 @@ return new class extends Migration
             // Foreign keys
             $table->foreign('location_id', 'fk_stock_movements_location')
                   ->references('id')->on('locations')
-                  ->onDelete('restrict');
+                  ->onDelete('cascade');
             
             $table->foreign('product_variant_id', 'fk_stock_movements_variant')
                   ->references('id')->on('product_variants')
-                  ->onDelete('restrict');
+                  ->onDelete('cascade');
             
             $table->foreign('performed_by_user_id', 'fk_stock_movements_user')
                   ->references('id')->on('users')
-                  ->onDelete('restrict');
+                  ->onDelete('cascade');
 
             // Indexes
             $table->index(['location_id', 'moved_at'], 'idx_stock_movements_loc_time');
