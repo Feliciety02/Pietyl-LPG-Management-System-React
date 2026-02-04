@@ -68,6 +68,12 @@ function normalizePaginator(p) {
   return { data, meta };
 }
 
+const DEFAULT_CATEGORY_OPTIONS = [
+  { value: "lpg", label: "LPG" },
+  { value: "stove", label: "Stove" },
+  { value: "accessories", label: "Accessories" },
+];
+
 const PESO_FORMATTER = new Intl.NumberFormat("en-PH", {
   style: "currency",
   currency: "PHP",
@@ -284,15 +290,6 @@ export default function Products() {
     });
   };
 
-  const statusOptions = useMemo(
-    () => [
-      { value: "all", label: "All status" },
-      { value: "active", label: "Active" },
-      { value: "archived", label: "Archived" },
-    ],
-    []
-  );
-
   const statusTabs = [
     { value: "active", label: "Active" },
     { value: "archived", label: "Archived" },
@@ -310,17 +307,38 @@ export default function Products() {
     ];
   }, [suppliers]);
 
-  const typeOptions = useMemo(() => {
-    const set = new Set();
-    rows.forEach((p) => {
-      if (p?.type) set.add(String(p.type));
+  const backendCategories = page.props?.product_categories;
+
+  const categoryOptions = useMemo(() => {
+    const source = Array.isArray(backendCategories) ? backendCategories : [];
+    const normalized =
+      source.length > 0
+        ? source
+            .map((item) => {
+              if (typeof item === "object" && item !== null) {
+                return {
+                  value: String(item.value || "").trim(),
+                  label: String(item.label || "").trim() || titleCase(String(item.value || "")),
+                };
+              }
+              const value = String(item || "").trim();
+              return { value, label: titleCase(value) };
+            })
+            .filter((item) => item.value)
+        : DEFAULT_CATEGORY_OPTIONS;
+    const unique = [];
+    const seen = new Set();
+    normalized.forEach((item) => {
+      if (!seen.has(item.value)) {
+        seen.add(item.value);
+        unique.push(item);
+      }
     });
-    const types = Array.from(set).sort();
     return [
-      { value: "all", label: "All types" },
-      ...types.map((t) => ({ value: t, label: titleCase(t) })),
+      { value: "all", label: "All categories" },
+      ...unique,
     ];
-  }, [rows]);
+  }, [backendCategories]);
 
   const handlePrev = () => {
     if (!meta) return;
@@ -486,18 +504,22 @@ export default function Products() {
         render: (p) =>
           p?.__filler ? <SkeletonPill w="w-20" /> : <TypePill value={p?.type} />,
       },
-      {
-        key: "size",
-        label: "Size",
-        render: (p) =>
-          p?.__filler ? (
-            <SkeletonLine w="w-16" />
-          ) : (
-            <span className="text-sm font-semibold text-slate-800">
-              {p?.size_label || "—"}
-            </span>
-          ),
-      },
+        {
+          key: "size",
+          label: "Size",
+          render: (p) =>
+            p?.__filler ? (
+              <SkeletonLine w="w-16" />
+            ) : (
+              <span className="text-sm font-semibold text-slate-800">
+                {(() => {
+                  if (!p) return "—";
+                  if (p.type === "lpg") return p?.size_label || "—";
+                  return p?.size_label || p?.size || "—";
+                })()}
+              </span>
+            ),
+        },
       {
         key: "supplier",
         label: "Supplier",
@@ -583,15 +605,6 @@ export default function Products() {
             placeholder="Search product name, brand, sku..."
             filters={[
               {
-                key: "status",
-                value: status,
-                onChange: (v) => {
-                  setStatus(v);
-                  pushQuery({ status: v, page: 1 });
-                },
-                options: statusOptions,
-              },
-              {
                 key: "supplier",
                 value: supplierId,
                 onChange: (v) => {
@@ -607,7 +620,7 @@ export default function Products() {
                   setType(v);
                   pushQuery({ type: v, page: 1 });
                 },
-                options: typeOptions,
+                options: categoryOptions,
               },
             ]}
           />

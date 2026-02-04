@@ -170,7 +170,7 @@ export default function EditProductModal({
     const nextType = product?.type || "lpg";
     setName(product?.name || "");
     setType(nextType);
-    setSize(nextType === "lpg" ? product?.size_label || "" : "");
+    setSize(nextType === "lpg" ? decimalOnly(product?.size_label || "") : "");
     setPrice(safeMoney(product?.price));
     setNegativePrice(false);
     setSupplierId(product?.supplier?.id ? String(product.supplier.id) : "");
@@ -223,16 +223,27 @@ export default function EditProductModal({
   const submit = () => {
     if (!canSubmit || loading) return;
 
-    onSubmit?.({
+    const payload = {
       id: product.id,
       name: name.trim(),
       sku: sku.trim(),
       type,
-      size_label: type === "lpg" ? String(sizeClean || "").trim() || null : null,
+      size_label:
+        type === "lpg"
+          ? sizeClean
+            ? `${sizeClean}kg`
+            : null
+          : null,
       price: String(priceClean || "").trim(),
       supplier_id: supplierId,
       stove_type: type === "stove" ? stoveType : null,
-    });
+    };
+
+    if (import.meta.env.DEV) {
+      console.debug("Editing product payload", payload);
+    }
+
+    onSubmit?.(payload);
   };
 
   return (
