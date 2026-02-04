@@ -263,24 +263,22 @@ class POSController extends Controller
                         'notes' => 'Sale via POS',
                     ]);
 
-                    $balance = InventoryBalance::firstOrCreate(
-                        [
-                            'location_id' => $location->id,
-                            'product_variant_id' => $line['product_id'],
-                        ],
-                        [
-                            'qty_filled' => 0,
-                            'qty_empty' => 0,
-                            'qty_reserved' => 0,
-                            'reorder_level' => 0,
-                        ]
-                    );
+                    $balance = InventoryBalance::where('location_id', $location->id)
+                        ->where('product_variant_id', $line['product_id'])
+                        ->where('qty_filled', '>', 0)
+                        ->first();
 
-                    $balance->qty_filled = (int) $balance->qty_filled - (int) $qty;
-                    $balance->save();
+                    if ($balance) {
+                        // Deduct filled, add empty
+                        $balance->qty_filled = $balance->qty_filled - (int) $qty;
+                        $balance->qty_empty = $balance->qty_empty + (int) $qty;
+                        $balance->save();
+                    } else {
+                        throw new \Exception("No stock available for product variant ID: {$line['product_id']}");
+                    }
 
 
-                    deductOne($location, \App\Models\ProductVariant::find($line['product_id']), (int) $qty);
+                   
                 }
             }
 
