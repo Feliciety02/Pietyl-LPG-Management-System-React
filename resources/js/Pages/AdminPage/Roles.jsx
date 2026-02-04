@@ -244,6 +244,21 @@ export default function Roles() {
     setActiveRole(null);
   };
 
+  const refreshList = (options = {}) => {
+    const nextScope = options.scope ?? scope;
+    setScope(nextScope);
+    const patch = { ...options, scope: nextScope };
+    if (!("page" in patch)) {
+      patch.page = 1;
+    }
+    pushQuery(patch);
+  };
+
+  const handleActionSuccess = (options = {}) => {
+    closeModals();
+    refreshList(options);
+  };
+
   const createRole = (payload) => {
     if (submitting) return;
     setSubmitting(true);
@@ -251,7 +266,7 @@ export default function Roles() {
     router.post("/dashboard/admin/roles", payload, {
       preserveScroll: true,
       onFinish: () => setSubmitting(false),
-      onSuccess: () => closeModals(),
+      onSuccess: () => handleActionSuccess(),
     });
   };
 
@@ -262,7 +277,7 @@ export default function Roles() {
     router.put(`/dashboard/admin/roles/${activeRole.id}`, payload, {
       preserveScroll: true,
       onFinish: () => setSubmitting(false),
-      onSuccess: () => closeModals(),
+      onSuccess: () => handleActionSuccess(),
     });
   };
 
@@ -276,7 +291,7 @@ export default function Roles() {
       {
         preserveScroll: true,
         onFinish: () => setSubmitting(false),
-        onSuccess: () => closeModals(),
+        onSuccess: () => handleActionSuccess(),
       }
     );
   };
@@ -288,7 +303,7 @@ export default function Roles() {
     router.post(`/dashboard/admin/roles/${activeRole.id}/archive`, {}, {
       preserveScroll: true,
       onFinish: () => setSubmitting(false),
-      onSuccess: () => closeModals(),
+      onSuccess: () => handleActionSuccess(),
     });
   };
 
@@ -299,7 +314,7 @@ export default function Roles() {
     router.put(`/dashboard/admin/roles/${activeRole.id}/restore`, {}, {
       preserveScroll: true,
       onFinish: () => setSubmitting(false),
-      onSuccess: () => closeModals(),
+      onSuccess: () => handleActionSuccess({ scope: "all" }),
     });
   };
 
@@ -310,7 +325,7 @@ export default function Roles() {
     router.put(`/dashboard/admin/roles/${activeRole.id}/permissions`, payload, {
       preserveScroll: true,
       onFinish: () => setSubmitting(false),
-      onSuccess: () => closeModals(),
+      onSuccess: () => handleActionSuccess(),
     });
   };
 
@@ -484,13 +499,15 @@ export default function Roles() {
                   </TableActionButton>
                 )}
 
-                <TableActionMenu
-                  onClick={() => {
-                    setActiveRole(r);
-                    setModal("actions");
-                  }}
-                  title="More actions"
-                />
+                {!r.is_archived ? (
+                  <TableActionMenu
+                    onClick={() => {
+                      setActiveRole(r);
+                      setModal("actions");
+                    }}
+                    title="More actions"
+                  />
+                ) : null}
               </div>
             )
           }
