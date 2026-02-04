@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { UserPlus, Mail, User } from "lucide-react";
+import { Eye, EyeOff, UserPlus, Mail, User } from "lucide-react";
 import ModalShell from "../ModalShell";
 
 function cx(...classes) {
@@ -25,7 +25,7 @@ function Field({ label, hint, required = false, children }) {
   );
 }
 
-function InputRow({ icon: Icon, ...props }) {
+function InputRow({ icon: Icon, suffix, ...props }) {
   return (
     <div className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-slate-200 px-3 py-2.5 focus-within:ring-4 focus-within:ring-teal-500/15">
       {Icon ? <Icon className="h-4 w-4 text-slate-500" /> : null}
@@ -33,6 +33,7 @@ function InputRow({ icon: Icon, ...props }) {
         {...props}
         className="w-full bg-transparent text-sm font-semibold text-slate-800 outline-none placeholder:text-slate-400"
       />
+      {suffix ? <div className="flex-shrink-0">{suffix}</div> : null}
     </div>
   );
 }
@@ -45,22 +46,29 @@ export default function CreateUserModal({
   roles,
   serverError = "",
 }) {
-  const defaultRoleName = (Array.isArray(roles) && roles.length > 0 && roles[0]?.name) ? roles[0].name : "cashier";
+  const getDefaultRoleName = () =>
+    Array.isArray(roles) && roles.length > 0 && roles[0]?.name ? roles[0].name : "cashier";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState(defaultRoleName);
+  const [role, setRole] = useState(() => getDefaultRoleName());
   const [status, setStatus] = useState("active");
   const [err, setErr] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setName("");
     setEmail("");
     setPassword("");
-    setRole(roles?.[0]?.name || "cashier");
     setStatus("active");
     setErr("");
+    setShowPassword(false);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    setRole(getDefaultRoleName());
   }, [open, roles]);
 
   const canSubmit = useMemo(() => {
@@ -148,6 +156,7 @@ export default function CreateUserModal({
             onChange={(e) => setEmail(e.target.value)}
             placeholder="user@company.com"
             inputMode="email"
+            autoComplete="off"
           />
         </Field>
 
@@ -156,7 +165,18 @@ export default function CreateUserModal({
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="At least 8 characters"
-            type="password"
+            type={showPassword ? "text" : "password"}
+            autoComplete="new-password"
+            suffix={
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/50"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            }
           />
         </Field>
 
