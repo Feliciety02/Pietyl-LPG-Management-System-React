@@ -38,8 +38,8 @@ class InventoryBalanceSeeder extends Seeder
                 }
 
                 $totalQty = rand(10, 100);
-                $filledQty = rand(5, $totalQty);
-                $emptyQty = $totalQty - $filledQty;
+                $filledQty = $totalQty; // All filled, no empties (swap model)
+                $emptyQty = 0; // No empty tracking since everything is swapped
 
                 $existing = InventoryBalance::firstOrNew([
                     'location_id' => $location->id,
@@ -52,7 +52,7 @@ class InventoryBalanceSeeder extends Seeder
                     $existing->qty_empty = $emptyQty;
                 }
 
-                $existing->qty_reserved = $existing->qty_reserved ?? rand(0, 10);
+                $existing->qty_reserved = 0; // Always 0
                 $existing->reorder_level = $existing->reorder_level ?? rand(10, 30);
                 $existing->save();
 

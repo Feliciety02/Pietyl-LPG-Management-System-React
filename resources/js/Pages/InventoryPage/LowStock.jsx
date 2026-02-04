@@ -284,12 +284,9 @@ export default function LowStock() {
   ];
 
   const filteredRows = useMemo(() => {
-    if (!isAdmin) return localRows;
-    return localRows.filter((r) => {
-      const status = String(r.purchase_request_status || "none");
-      return status !== "none" && status !== "null" && status !== "";
-    });
-  }, [isAdmin, localRows]);
+  // Don't filter by purchase request status - show all low stock items
+  return localRows;
+}, [localRows]);
 
   const urgentCount = useMemo(
     () => filteredRows.filter((r) => String(r.risk_level) === "critical").length,

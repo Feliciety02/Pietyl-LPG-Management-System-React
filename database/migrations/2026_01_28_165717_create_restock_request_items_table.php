@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('restock_request_items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('restock_request_id')->constrained()->onDelete('cascade');
-            $table->foreignId('product_variant_id')->constrained()->onDelete('restrict');
+            $table->foreignId('product_variant_id')->constrained()->onDelete('cascade');
             $table->decimal('current_qty', 12, 3)->default(0);
             $table->decimal('reorder_level', 12, 3)->default(0);
             $table->decimal('requested_qty', 12, 3)->default(0);
