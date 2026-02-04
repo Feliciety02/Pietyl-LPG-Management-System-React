@@ -14,9 +14,10 @@ import {
   ShoppingCart,
   Boxes,
   Banknote,
-  Printer,
+  Download,
 } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
+import * as XLSX from "xlsx";
 
 import { TableActionButton } from "@/components/Table/ActionTableButton";
 import AuditDetailsModal from "@/components/modals/AuditLogModals/AuditDetailsModal";
@@ -50,6 +51,67 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;");
 }
 
+function collectStrings(value, out, depth) {
+  if (value == null || depth > 2) return;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    out.push(String(value));
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectStrings(item, out, depth + 1));
+    return;
+  }
+  if (typeof value === "object") {
+    Object.values(value).forEach((item) => collectStrings(item, out, depth + 1));
+  }
+}
+
+function buildRowSearchText(row) {
+  const parts = [];
+  collectStrings(row, parts, 0);
+  return parts.join(" ").toLowerCase();
+}
+
+function parseDateString(value) {
+  if (!value) return null;
+  const normalized = String(value).includes("T") ? String(value) : String(value).replace(/\s+/, "T");
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function padNumber(value) {
+  return String(value).padStart(2, "0");
+}
+
+function formatDateTime(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${padNumber(date.getMonth() + 1)}-${padNumber(date.getDate())} ${padNumber(
+    date.getHours()
+  )}:${padNumber(date.getMinutes())}`;
+}
+
+function formatFileTimestamp(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}${padNumber(date.getMonth() + 1)}${padNumber(date.getDate())}_${padNumber(
+    date.getHours()
+  )}${padNumber(date.getMinutes())}`;
+}
+
+function sanitizeSheetName(name) {
+  const cleaned = String(name || "Audit Logs")
+    .replace(/[\[\]\:\*\?\\\/]/g, "")
+    .trim();
+  return cleaned.substring(0, 31) || "Audit Logs";
+}
+
+function slugify(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 function TonePill(props) {
   const tone = props.tone;
   const label = props.label;
@@ -362,6 +424,12 @@ export default function AuditLogs() {
             if (a && a.__filler) return <SkeletonLine w="w-24" />;
             return <div className="text-sm font-semibold text-slate-900">{a.created_at}</div>;
           },
+          exportValue: function (a) {
+            if (!a || a.__filler) return "";
+            const parsed = parseDateString(a.created_at);
+            return parsed || a.created_at || "";
+          },
+          excelType: "datetime",
         },
         {
           key: "actor",
@@ -375,6 +443,12 @@ export default function AuditLogs() {
               </div>
             );
           },
+          exportValue: function (a) {
+            if (!a || a.__filler) return "";
+            const name = a.actor_name || "System";
+            const roleLabel = titleCase(a.actor_role || "system");
+            return roleLabel ? `${name} (${roleLabel})` : name;
+          },
         },
         {
           key: "event",
@@ -382,6 +456,10 @@ export default function AuditLogs() {
           render: function (a) {
             if (a && a.__filler) return <SkeletonPill w="w-28" />;
             return <TonePill tone={eventTone(a.event)} label={a.event} />;
+          },
+          exportValue: function (a) {
+            if (!a || a.__filler) return "";
+            return String(a.event || "").replace(/\s+/g, " ").trim();
           },
         },
         {
@@ -396,6 +474,13 @@ export default function AuditLogs() {
               </div>
             );
           },
+          exportValue: function (a) {
+            if (!a || a.__filler) return "";
+            const parts = [];
+            if (a.entity_type) parts.push(a.entity_type);
+            if (a.entity_id) parts.push(`#${a.entity_id}`);
+            return parts.join(" ");
+          },
         },
         {
           key: "message",
@@ -403,6 +488,10 @@ export default function AuditLogs() {
           render: function (a) {
             if (a && a.__filler) return <SkeletonLine w="w-48" />;
             return <div className="text-sm text-slate-700">{a.message || "—"}</div>;
+          },
+          exportValue: function (a) {
+            if (!a || a.__filler) return "—";
+            return String(a.message || "—").trim();
           },
         },
       ];
@@ -412,8 +501,9 @@ export default function AuditLogs() {
 
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [activeAudit, setActiveAudit] = useState(null);
+  const [isExporting, setIsExporting] = useState(false);
 
-  const canPrint = !loading && rows.length > 0;
+  const canExport = !loading && rows.length > 0;
 
   function openDetails(a) {
     setActiveAudit(a || null);
@@ -425,92 +515,180 @@ export default function AuditLogs() {
     setActiveAudit(null);
   }
 
-  function printCurrentTab() {
-    if (!canPrint) {
-      window.alert("No audit logs to print for this tab.");
+  function getFilteredRows() {
+    const normalizedQuery = String(q || "").trim().toLowerCase();
+    return rows
+      .filter(function (row) {
+        return row && !row.__filler;
+      })
+      .filter(function (row) {
+        if (!normalizedQuery) return true;
+        return buildRowSearchText(row).includes(normalizedQuery);
+      });
+  }
+
+  function exportCurrentTab() {
+    if (!canExport) {
+      window.alert("No audit logs to export for this tab.");
+      return;
+    }
+
+    if (isExporting) return;
+
+    const activeRows = getFilteredRows();
+    if (activeRows.length === 0) {
+      window.alert("No audit logs match the current search or filters.");
       return;
     }
 
     const sectorLabel = findLabel(sectorTabs, sector, titleCase(sector));
-    const eventLabel = findLabel(eventOptions, event, titleCase(event));
-    const entityLabel = findLabel(entityOptions, entityType, titleCase(entityType));
-    const generatedAt = new Date().toLocaleString("en-US");
+    const now = new Date();
+    const titleText = `Audit Logs — ${sectorLabel}`;
+    const metaText = `Exported on: ${formatDateTime(now)}`;
+    const fileTimestamp = formatFileTimestamp(now);
+    const sheetName = sanitizeSheetName(sectorLabel);
+    const fileSlug = slugify(sectorLabel) || slugify(sector) || "tab";
 
-    const rowsHtml = rows
-      .map(function (a) {
-        return `
-          <tr>
-            <td>${escapeHtml(a.created_at)}</td>
-            <td>${escapeHtml(a.actor_name || "System")}<br/><span class="muted">${escapeHtml(
-          titleCase(a.actor_role || "system")
-        )}</span></td>
-            <td>${escapeHtml(a.event)}</td>
-            <td>${escapeHtml(a.entity_type)}${
-          a.entity_id ? ` <span class="muted">#${escapeHtml(a.entity_id)}</span>` : ""
-        }</td>
-            <td>${escapeHtml(a.message || "-")}</td>
-          </tr>
-        `;
-      })
-      .join("");
+    setIsExporting(true);
 
-    const html = `
-      <!doctype html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>Audit Logs - ${escapeHtml(sectorLabel)}</title>
-          <style>
-            :root { color-scheme: light; }
-            body { font-family: "Segoe UI", Arial, sans-serif; margin: 24px; color: #0f172a; }
-            h1 { font-size: 20px; margin: 0 0 6px; }
-            .meta { font-size: 12px; color: #475569; margin-bottom: 16px; }
-            table { width: 100%; border-collapse: collapse; font-size: 12px; }
-            th, td { border: 1px solid #e2e8f0; padding: 8px; text-align: left; vertical-align: top; }
-            th { background: #f1f5f9; font-weight: 700; }
-            .muted { color: #64748b; }
-            @media print { body { margin: 10mm; } }
-          </style>
-        </head>
-        <body>
-          <h1>Audit Logs - ${escapeHtml(sectorLabel)}</h1>
-          <div class="meta">
-            Generated at: ${escapeHtml(generatedAt)}<br/>
-            Filters: Event = ${escapeHtml(eventLabel)}, Entity = ${escapeHtml(entityLabel)}, Search = ${escapeHtml(
-      q || "-"
-    )}
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>When</th>
-                <th>Actor</th>
-                <th>Event</th>
-                <th>Entity</th>
-                <th>Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rowsHtml}
-            </tbody>
-          </table>
-        </body>
-      </html>
-    `;
+    try {
+      const columnCount = columns.length;
+      const headers = columns.map(function (col) {
+        return col.label;
+      });
 
-    const printWindow = window.open("", "_blank", "noopener,noreferrer");
-    if (!printWindow) {
-      window.alert("Popup blocked. Please allow popups to print.");
-      return;
+      const dataRows = activeRows.map(function (row) {
+        return columns.map(function (col) {
+          const raw = col.exportValue ? col.exportValue(row) : row[col.key];
+          return raw == null ? "" : raw;
+        });
+      });
+
+      const padRow = function (text) {
+        const rest = Array(columnCount).fill("");
+        rest[0] = text;
+        return rest;
+      };
+
+      const sheetMatrix = [
+        padRow(titleText),
+        padRow(metaText),
+        Array(columnCount).fill(""),
+        headers,
+        ...dataRows,
+      ];
+
+      const worksheet = XLSX.utils.aoa_to_sheet(sheetMatrix);
+      worksheet["!merges"] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: columnCount - 1 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: columnCount - 1 } },
+      ];
+
+      const thinBorder = { style: "thin", color: { rgb: "CBD5F5" } };
+
+      const titleCell = worksheet[XLSX.utils.encode_cell({ r: 0, c: 0 })];
+      if (titleCell) {
+        titleCell.s = {
+          font: { bold: true, sz: 16, color: { rgb: "0F172A" } },
+          alignment: { horizontal: "center", vertical: "center" },
+        };
+      }
+
+      const metaCell = worksheet[XLSX.utils.encode_cell({ r: 1, c: 0 })];
+      if (metaCell) {
+        metaCell.s = {
+          font: { sz: 12, color: { rgb: "475569" } },
+          alignment: { horizontal: "center", vertical: "center" },
+        };
+      }
+
+      const headerRowIndex = 3;
+      for (let colIndex = 0; colIndex < columnCount; colIndex += 1) {
+        const cellRef = XLSX.utils.encode_cell({ r: headerRowIndex, c: colIndex });
+        const cell = worksheet[cellRef];
+        if (!cell) continue;
+        cell.s = {
+          font: { bold: true, color: { rgb: "0F172A" } },
+          alignment: { horizontal: "center", vertical: "center" },
+          fill: { fgColor: { rgb: "F1F5F9" } },
+          border: {
+            top: thinBorder,
+            bottom: thinBorder,
+            left: thinBorder,
+            right: thinBorder,
+          },
+        };
+      }
+
+      const dataStartRow = headerRowIndex + 1;
+      for (let rowIndex = dataStartRow; rowIndex < sheetMatrix.length; rowIndex += 1) {
+        for (let colIndex = 0; colIndex < columnCount; colIndex += 1) {
+          const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+          const cell = worksheet[cellRef];
+          if (!cell) continue;
+
+          cell.s = {
+            font: { color: { rgb: "0F172A" } },
+            alignment: { vertical: "top", wrapText: true },
+            border: {
+              top: thinBorder,
+              bottom: thinBorder,
+              left: thinBorder,
+              right: thinBorder,
+            },
+          };
+
+          const colMeta = columns[colIndex];
+          if (colMeta && colMeta.excelType === "datetime") {
+            if (cell.v instanceof Date) {
+              cell.t = "d";
+              cell.z = "yyyy-mm-dd hh:mm";
+            } else {
+              const parsed = parseDateString(cell.v);
+              if (parsed) {
+                cell.v = parsed;
+                cell.t = "d";
+                cell.z = "yyyy-mm-dd hh:mm";
+              }
+            }
+          }
+        }
+      }
+
+      worksheet["!cols"] = columns.map(function (col, colIndex) {
+        const headerLen = String(col.label || "").length;
+        const dataLengths = dataRows.map(function (row) {
+          const value = row[colIndex];
+          if (value instanceof Date) return 20;
+          return String(value || "").length;
+        });
+        const maxLen = Math.max(headerLen, ...dataLengths);
+        const width = Math.min(Math.max(maxLen + 6, 12), 30);
+        return { wch: width };
+      });
+
+      worksheet["!freeze"] = { ySplit: 4 };
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+
+      const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+      const blob = new Blob([buffer], { type: "application/octet-stream" });
+      const exportName = `AuditLogs_${fileSlug || "tab"}_${fileTimestamp || formatFileTimestamp(new Date())}.xlsx`;
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = exportName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(error);
+      window.alert("Unable to generate the Excel export. Please try again.");
+    } finally {
+      setIsExporting(false);
     }
-
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(function () {
-      printWindow.print();
-    }, 250);
   }
 
   return (
@@ -539,17 +717,17 @@ export default function AuditLogs() {
           rightSlot={
             <button
               type="button"
-              onClick={printCurrentTab}
-              disabled={!canPrint}
+              onClick={exportCurrentTab}
+              disabled={!canExport || isExporting}
               className={cx(
-                "inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-extrabold ring-1 transition",
-                canPrint
-                  ? "bg-slate-900 text-white ring-slate-900 hover:bg-slate-800"
-                  : "bg-slate-100 text-slate-400 ring-slate-200 cursor-not-allowed"
+                "inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-xs font-extrabold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-500/25 focus-visible:ring-offset-1",
+                isExporting || !canExport
+                  ? "bg-slate-100 text-slate-400 ring-slate-200 cursor-not-allowed"
+                  : "bg-teal-600 text-white ring-teal-600 hover:bg-teal-700 active:bg-teal-800"
               )}
             >
-              <Printer className="h-4 w-4" />
-              Print tab
+              <Download className={cx("h-4 w-4", isExporting ? "text-slate-400" : "text-white")} />
+              {isExporting ? "Exporting…" : "Export Excel"}
             </button>
           }
           filters={[
