@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { router } from "@inertiajs/react";
 import HeaderLogo from "../../../images/Header_Logo.png";
 import ModalShell from "./ModalShell";
@@ -7,6 +8,7 @@ export default function LoginModal({ open, onClose }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [processing, setProcessing] = useState(false);
   const [errors, setErrors] = useState({ email: "", password: "", general: "" });
@@ -105,19 +107,27 @@ export default function LoginModal({ open, onClose }) {
           <div className="relative">
             <input
               id="password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
               placeholder="Password"
               className={[
-                "peer w-full rounded-2xl bg-slate-50/80 px-5 pb-3.5 pt-8 text-sm text-slate-900 ring-1 outline-none transition focus:bg-white",
+                "peer w-full rounded-2xl bg-slate-50/80 px-5 pb-3.5 pt-8 pr-12 text-sm text-slate-900 ring-1 outline-none transition focus:bg-white",
                 errors.password
                   ? "ring-rose-300 focus:ring-rose-400"
                   : "ring-slate-200 focus:ring-teal-400",
               ].join(" ")}
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
             <label
               htmlFor="password"
               className="pointer-events-none absolute left-5 top-3.5 text-xs font-extrabold tracking-wide text-slate-600/90 transition
