@@ -173,7 +173,7 @@ export default function EditProductModal({
     setSize(nextType === "lpg" ? product?.size_label || "" : "");
     setPrice(safeMoney(product?.price));
     setNegativePrice(false);
-    setSupplierId(product?.supplier?.id != null ? String(product.supplier.id) : "");
+    setSupplierId(product?.supplier?.id ? String(product.supplier.id) : "");
     setStoveType(product?.stove_type || "single");
   }, [open, product]);
 
@@ -193,6 +193,11 @@ export default function EditProductModal({
     if (type === "stove") {
       const stoveCode = stoveType === "double" ? "DBL" : "SNG";
       const base = nameCode ? `STV-${stoveCode}-${nameCode}` : "";
+      return nextSequence(base, skuPool);
+    }
+
+    if (type === "accessories") {
+      const base = nameCode ? `ACC-${nameCode}` : "";
       return nextSequence(base, skuPool);
     }
 

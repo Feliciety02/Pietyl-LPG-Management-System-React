@@ -149,6 +149,8 @@ class ProductController extends Controller
 
     public function update(Request $request, Product $product)
     {
+
+      
         $priceRaw = (string) $request->input('price', '');
         $supplierCostRaw = (string) $request->input('supplier_cost', '');
         $request->merge([
@@ -182,7 +184,7 @@ class ProductController extends Controller
                 'name' => $validated['name'],
                 'category' => $validated['type'],
                 'supplier_id' => $validated['supplier_id'],
-                'supplier_cost' => $validated['supplier_cost'] ?? 0,
+                'supplier_cost' => !empty($validated['supplier_cost']) ? $validated['supplier_cost'] : 0,
                 'price' => $validated['price'],
             ]);
 

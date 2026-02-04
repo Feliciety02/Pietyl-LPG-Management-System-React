@@ -622,6 +622,7 @@ export default function Products() {
         open={editOpen}
         onClose={() => setEditOpen(false)}
         product={activeProduct}
+        suppliers={suppliers}
         onSubmit={(payload) => saveEdit(payload)}
         existingSkus={existingSkus}
       />
