@@ -21,14 +21,22 @@ class InventoryBalanceSeeder extends Seeder
                 ]),
             ]);
         }
+        
         $productVariants = ProductVariant::all();
 
         if ($locations->isEmpty() || $productVariants->isEmpty()) {
             return;
         }
 
+        $count = 0;
+        $maxRecords = 50;
+
         foreach ($locations as $location) {
             foreach ($productVariants as $variant) {
+                if ($count >= $maxRecords) {
+                    break 2; // Break out of both loops
+                }
+
                 $totalQty = rand(10, 100);
                 $filledQty = rand(5, $totalQty);
                 $emptyQty = $totalQty - $filledQty;
@@ -47,6 +55,8 @@ class InventoryBalanceSeeder extends Seeder
                 $existing->qty_reserved = $existing->qty_reserved ?? rand(0, 10);
                 $existing->reorder_level = $existing->reorder_level ?? rand(10, 30);
                 $existing->save();
+
+                $count++;
             }
         }
     }

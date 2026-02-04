@@ -28,7 +28,7 @@ return new class extends Migration
             
             $table->foreign('product_variant_id', 'fk_purchase_items_variant')
                   ->references('id')->on('product_variants')
-                  ->onDelete('restrict');
+                  ->onDelete('cascade');
 
             // Indexes
             $table->index('purchase_id', 'idx_purchase_items_purchase');
