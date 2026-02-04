@@ -193,7 +193,7 @@ export default function ResetPasswordConfirmModal({
               type={showAdminPassword ? "text" : "password"}
               value={adminPassword}
               onChange={(e) => setAdminPassword(e.target.value)}
-              autoComplete="current-password"
+              autoComplete="off"
               placeholder="••••••••"
               suffix={
                 <button
@@ -212,13 +212,13 @@ export default function ResetPasswordConfirmModal({
         {phase === "reset" && (
           <>
             <Field label="New password" required>
-              <InputRow
-                icon={Eye}
-                type={showNewPassword ? "text" : "password"}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="At least 8 characters"
-                autoComplete="new-password"
+            <InputRow
+              icon={Eye}
+              type={showNewPassword ? "text" : "password"}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="At least 8 characters"
+              autoComplete="off"
                 suffix={
                   <button
                     type="button"
@@ -233,13 +233,13 @@ export default function ResetPasswordConfirmModal({
             </Field>
 
             <Field label="Confirm password" required>
-              <InputRow
-                icon={Eye}
-                type={showConfirmPassword ? "text" : "password"}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Repeat password"
-                autoComplete="new-password"
+            <InputRow
+              icon={Eye}
+              type={showConfirmPassword ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Repeat password"
+              autoComplete="off"
                 suffix={
                   <button
                     type="button"
