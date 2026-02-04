@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { router, usePage } from "@inertiajs/react";
 import { UserPlus, RefreshCw } from "lucide-react";
 import Layout from "../Dashboard/Layout";
@@ -86,16 +86,29 @@ export default function Users() {
 
   const filters = page.props?.filters || {};
   const qInitial = filters?.q || "";
-  const perInitial = Number(filters?.per || 10) || 10;
+  const initialPerPage = Number(filters?.per || 10) || 10;
 
   const [q, setQ] = useState(qInitial);
+  const [perPage, setPerPage] = useState(initialPerPage);
+
+  useEffect(() => {
+    setPerPage(initialPerPage);
+  }, [initialPerPage]);
 
   const pushQuery = (patch = {}) => {
+    const { per: perOverride, ...rest } = patch;
+    const per = perOverride ?? perPage;
     router.get(
       "/dashboard/admin/users",
-      { q, per: perInitial, ...patch },
+      { q, per, ...rest },
       { preserveScroll: true, preserveState: true, replace: true }
     );
+  };
+
+  const handlePerPage = (value) => {
+    if (value === perPage) return;
+    setPerPage(value);
+    pushQuery({ per: value, page: 1 });
   };
 
   const handlePrev = () => {
@@ -111,11 +124,11 @@ export default function Users() {
   const loading = Boolean(page.props?.loading);
 
   const fillerRows = useMemo(() => {
-    return Array.from({ length: perInitial }).map((_, i) => ({
+    return Array.from({ length: perPage }).map((_, i) => ({
       id: `__filler__${i}`,
       __filler: true,
     }));
-  }, [perInitial]);
+  }, [perPage]);
 
   const tableRows = loading ? fillerRows : rows;
 
@@ -259,8 +272,8 @@ export default function Users() {
 
         <DataTablePagination
           meta={meta}
-          perPage={perInitial}
-          onPerPage={(n) => pushQuery({ per: n, page: 1 })}
+          perPage={perPage}
+          onPerPage={handlePerPage}
           onPrev={handlePrev}
           onNext={handleNext}
           disablePrev={!meta || (meta.current_page || 1) <= 1}
