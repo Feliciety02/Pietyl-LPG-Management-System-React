@@ -68,6 +68,26 @@ function normalizePaginator(p) {
   return { data, meta };
 }
 
+const PESO_FORMATTER = new Intl.NumberFormat("en-PH", {
+  style: "currency",
+  currency: "PHP",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+function parseNumericValue(value) {
+  if (value == null || value === "") return null;
+  const cleaned = String(value).replace(/[^0-9.-]/g, "");
+  const number = Number(cleaned);
+  return Number.isFinite(number) ? number : null;
+}
+
+function formatPesoDisplay(value) {
+  const numeric = parseNumericValue(value);
+  if (numeric == null) return "—";
+  return PESO_FORMATTER.format(numeric);
+}
+
 function StatusPill({ active }) {
   return (
     <span
@@ -241,12 +261,27 @@ export default function Products() {
 
   const loading = Boolean(page.props?.loading);
 
+  const buildQueryPayload = (patch = {}) => {
+    const finalStatus = patch.status ?? status;
+    const finalSupplierId = patch.supplier_id ?? supplierId;
+    const finalType = patch.type ?? type;
+
+    return {
+      q,
+      status: finalStatus,
+      supplier_id: finalSupplierId,
+      type: finalType,
+      per: patch.per ?? perInitial,
+      ...patch,
+    };
+  };
+
   const pushQuery = (patch = {}) => {
-    router.get(
-      "/dashboard/admin/products",
-      { q, status, supplier_id: supplierId, type, per: perInitial, ...patch },
-      { preserveScroll: true, preserveState: true, replace: true }
-    );
+    router.get("/dashboard/admin/products", buildQueryPayload(patch), {
+      preserveScroll: true,
+      preserveState: true,
+      replace: true,
+    });
   };
 
   const statusOptions = useMemo(
@@ -337,11 +372,38 @@ export default function Products() {
     setRestoreOpen(true);
   };
 
+  const closeProductModals = () => {
+    setAddOpen(false);
+    setEditOpen(false);
+    setArchiveOpen(false);
+    setRestoreOpen(false);
+  };
+
+  const handleActionSuccess = (options = {}) => {
+    closeProductModals();
+    setActiveProduct(null);
+
+    if (options.status != null) {
+      setStatus(options.status);
+    }
+    if (options.supplier_id != null) {
+      setSupplierId(String(options.supplier_id));
+    }
+    if (options.type != null) {
+      setType(options.type);
+    }
+
+    const patch = { ...options };
+    if (!("page" in patch)) patch.page = 1;
+
+    pushQuery(patch);
+  };
+
   const createProduct = (payload) => {
     router.post("/dashboard/admin/products", payload, {
       preserveScroll: true,
       onSuccess: () => {
-        setAddOpen(false);
+        handleActionSuccess();
       },
     });
   };
@@ -353,7 +415,7 @@ export default function Products() {
       router.put(`/dashboard/admin/products/${activeProduct.id}`, payload, {
         preserveScroll: true,
         onSuccess: () => {
-          setEditOpen(false);
+          handleActionSuccess();
         },
         onFinish: () => resolve(),
       });
@@ -369,7 +431,7 @@ export default function Products() {
       {
         preserveScroll: true,
         onSuccess: () => {
-          setArchiveOpen(false);
+          handleActionSuccess();
         },
       }
     );
@@ -384,7 +446,7 @@ export default function Products() {
       {
         preserveScroll: true,
         onSuccess: () => {
-          setRestoreOpen(false);
+          handleActionSuccess({ status: "active" });
         },
       }
     );
@@ -456,7 +518,7 @@ export default function Products() {
             <SkeletonLine w="w-20" />
           ) : (
             <span className="text-sm font-semibold text-slate-800">
-              {p?.price ?? "—"}
+              {formatPesoDisplay(p?.price)}
             </span>
           ),
       },
