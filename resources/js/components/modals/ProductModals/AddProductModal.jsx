@@ -187,10 +187,16 @@ export default function AddProductModal({
       return nextSequence(base, existingSkus);
     }
 
+    
+    if (type === "accessories") {
+      const base = nameCode ? `ACC-${nameCode}` : "";
+      return nextSequence(base, existingSkus);
+    }
+
     return "";
   }, [type, sizeClean, stoveType, name, existingSkus]);
 
-  const canSubmit = useMemo(() => {
+    const canSubmit = useMemo(() => {
     if (!name.trim()) return false;
     if (!sku.trim()) return false;
     if (!supplierId) return false;
@@ -199,11 +205,15 @@ export default function AddProductModal({
     const n = Number(String(priceClean || "").replace(/,/g, ""));
     if (!Number.isFinite(n) || n <= 0) return false;
 
+    
     if (type === "lpg" && !String(sizeClean || "").trim()) return false;
+    
+  
     if (type === "stove" && !stoveType) return false;
 
+    
     return true;
-  }, [name, sku, priceClean, supplierId, type, sizeClean, stoveType, negativePrice]);
+  }, [name, sku, priceClean, supplierId, type, sizeClean, stoveType, negativePrice])
 
   const submit = () => {
     if (!canSubmit || loading) return;

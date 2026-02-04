@@ -79,6 +79,7 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
+        
         $priceRaw = (string) $request->input('price', '');
         $supplierCostRaw = (string) $request->input('supplier_cost', '');
         $request->merge([
@@ -104,7 +105,7 @@ class ProductController extends Controller
                 'name' => $validated['name'],
                 'category' => $validated['type'],
                 'supplier_id' => $validated['supplier_id'],
-                'supplier_cost' => $validated['supplier_cost'] ?? 0,
+                'supplier_cost' => !empty($validated['supplier_cost']) ? $validated['supplier_cost'] : 0,
                 'price' => $validated['price'],
                 'created_by_user_id' => $userId,
             ]);
@@ -121,11 +122,23 @@ class ProductController extends Controller
                 $variantName = trim($validated['name'] . ' ' . $validated['size_label']);
             }
 
+            if ($validated['type'] === 'lpg' && !empty($validated['size_label'])) {
+                $variantName = $validated['size_label']; 
+                
+                preg_match('/([0-9.]+)/', $validated['size_label'], $matches);
+                $sizeValue = isset($matches[1]) ? (float)$matches[1] : null;
+                $sizeUnit = 'kg';
+            } else {
+                $variantName = $validated['name'];
+                [$sizeValue, $sizeUnit] = $this->parseSize($validated['size_label'] ?? null);
+                [$sizeValue, $sizeUnit] = $this->applySizeDefaults($validated['type'], $sizeValue, $sizeUnit);
+            }
+
             $variant = ProductVariant::create([
                 'product_id' => $product->id,
                 'variant_name' => $variantName,
                 'size_value' => $sizeValue,
-                'size_unit' => $sizeUnit,
+                'size_unit' => $sizeUnit, 
                 'container_type' => $validated['type'],
                 'is_active' => true,
             ]);
