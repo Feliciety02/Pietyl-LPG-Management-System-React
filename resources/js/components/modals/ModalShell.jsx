@@ -97,7 +97,8 @@ export default function ModalShell({
           <button
             type="button"
             aria-label="Close modal backdrop"
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            tabIndex={-1}
+            className="absolute inset-0 z-0 bg-slate-900/40 backdrop-blur-sm"
             onClick={() => {
               if (closeOnBackdrop) onClose?.();
             }}
@@ -105,7 +106,7 @@ export default function ModalShell({
 
           <motion.div
             className={cx(
-              "relative w-full",
+              "relative w-full z-10",
               maxWidthClass,
               "rounded-3xl bg-white shadow-[0_26px_80px_-32px_rgba(15,23,42,0.55)] ring-1 ring-slate-900/10 overflow-hidden"
             )}

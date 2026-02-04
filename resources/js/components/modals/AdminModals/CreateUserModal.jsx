@@ -42,13 +42,14 @@ export default function CreateUserModal({
   onClose,
   onSubmit,
   loading = false,
-  roles = [],
+  roles,
   serverError = "",
 }) {
+  const defaultRoleName = (Array.isArray(roles) && roles.length > 0 && roles[0]?.name) ? roles[0].name : "cashier";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState(roles?.[0]?.name || "cashier");
+  const [role, setRole] = useState(defaultRoleName);
   const [status, setStatus] = useState("active");
   const [err, setErr] = useState("");
 
