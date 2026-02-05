@@ -66,7 +66,7 @@ export default function RolePermissionsModal({
     setSelected((prev) => prev.filter((name) => !remove.has(name)));
   };
 
-  const canSubmit = Boolean(role?.id) && !loading && !isAdmin;
+  const canSubmit = Boolean(role?.id) && !loading;
 
   const submit = () => {
     if (!canSubmit) return;

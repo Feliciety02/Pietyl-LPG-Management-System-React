@@ -116,11 +116,11 @@ export default function RoleActionsModal({
           title="Manage permissions"
           hint={
             isAdmin
-              ? "Admin permissions are locked and synchronized automatically."
+              ? "Admin permissions are locked to the full set but still visible here."
               : "Assign or remove permissions for this role."
           }
           onClick={() => canAct && onPermissions?.()}
-          disabled={!role?.id || loading || isArchived || isAdmin}
+          disabled={!role?.id || loading || isArchived}
           tone={isAdmin ? "locked" : undefined}
         />
 

@@ -25,12 +25,13 @@ class SupplierService
                 return [
                     'id'             => $s->id,
                     'name'           => $s->name,
-                    'contact_name'   => null, // you can extend this if needed
+                    'contact_name'   => $s->contact_name,
                     'phone'          => $s->phone,
                     'email'          => $s->email,
                     'address'        => $s->address,
+                    'notes'          => $s->notes,
                     'is_active'      => $s->is_active,
-                    'products_count' => $s->supplier_products_count ?? 0,
+                    'products_count' => $s->products_count ?? 0,
                 ];
             }),
             'meta' => [

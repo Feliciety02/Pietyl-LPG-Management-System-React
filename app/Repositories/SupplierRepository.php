@@ -44,7 +44,7 @@ class SupplierRepository
         $this->applyFilters($filters);
 
         return $this->query
-            ->withCount('supplierProducts')
+            ->withCount('products')
             ->latest()
             ->paginate($perPage)
             ->withQueryString();

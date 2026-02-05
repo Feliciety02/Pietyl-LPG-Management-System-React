@@ -152,6 +152,8 @@ export default function Suppliers() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
+  const [supplierDetails, setSupplierDetails] = useState(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const loading = Boolean(page.props?.loading);
@@ -174,6 +176,45 @@ export default function Suppliers() {
       { q, status, per, ...patch },
       { preserveScroll: true, preserveState: true, replace: true }
     );
+  };
+
+  const clearActiveContext = () => {
+    setActiveSupplier(null);
+    setSupplierDetails(null);
+    setDetailsLoading(false);
+  };
+
+  const refreshList = (options = {}) => {
+    const nextStatus = options.status ?? status;
+    setStatus(nextStatus);
+    setSupplierDetails(null);
+    setActiveSupplier(null);
+    pushQuery({ status: nextStatus, page: options.page ?? 1, ...options });
+  };
+
+  const fetchSupplierDetails = async (supplierId) => {
+    if (!supplierId) return;
+    setDetailsLoading(true);
+    setSupplierDetails(null);
+    try {
+      const response = await fetch(`${basePath}/${supplierId}/details`, {
+        headers: { Accept: "application/json" },
+        credentials: "same-origin",
+      });
+      if (response.ok) {
+        setSupplierDetails(await response.json());
+      }
+    } catch (error) {
+      console.error("Failed to load supplier details", error);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  const handleViewSupplier = (supplierRow) => {
+    setActiveSupplier(supplierRow);
+    setDetailsOpen(true);
+    fetchSupplierDetails(supplierRow.id);
   };
 
   /* ----------------------- Table data ------------------------------------- */
@@ -257,6 +298,7 @@ export default function Suppliers() {
       onFinish: () => setSubmitting(false),
       onSuccess: () => {
         setAddOpen(false);
+        refreshList();
       },
     });
   };
@@ -270,6 +312,7 @@ export default function Suppliers() {
       onFinish: () => setSubmitting(false),
       onSuccess: () => {
         setEditOpen(false);
+        refreshList();
       },
     });
   };
@@ -278,34 +321,36 @@ export default function Suppliers() {
     if (!activeSupplier?.id || submitting) return;
     setSubmitting(true);
 
-    router.post(
-      `${basePath}/${activeSupplier.id}/archive`,
-      {},
-      {
-        preserveScroll: true,
-        onFinish: () => setSubmitting(false),
-        onSuccess: () => {
-          setArchiveOpen(false);
-        },
-      }
-    );
+      router.post(
+        `${basePath}/${activeSupplier.id}/archive`,
+        {},
+        {
+          preserveScroll: true,
+          onFinish: () => setSubmitting(false),
+          onSuccess: () => {
+            setArchiveOpen(false);
+            refreshList();
+          },
+        }
+      );
   };
 
   const restoreSupplier = () => {
     if (!activeSupplier?.id || submitting) return;
     setSubmitting(true);
 
-    router.put(
-      `${basePath}/${activeSupplier.id}/restore`,
-      {},
-      {
-        preserveScroll: true,
-        onFinish: () => setSubmitting(false),
-        onSuccess: () => {
-          setRestoreOpen(false);
-        },
-      }
-    );
+      router.put(
+        `${basePath}/${activeSupplier.id}/restore`,
+        {},
+        {
+          preserveScroll: true,
+          onFinish: () => setSubmitting(false),
+          onSuccess: () => {
+            setRestoreOpen(false);
+            refreshList({ status: "active" });
+          },
+        }
+      );
   };
 
   /* ----------------------- Render ----------------------------------------- */
@@ -383,10 +428,7 @@ export default function Suppliers() {
                 <div className="flex items-center justify-end gap-2">
                   <TableActionButton
                     icon={Package}
-                    onClick={() => {
-                      setActiveSupplier(s);
-                      setDetailsOpen(true);
-                    }}
+                    onClick={() => handleViewSupplier(s)}
                     title="View supplier"
                   >
                     View
@@ -462,13 +504,21 @@ export default function Suppliers() {
 
       <SupplierDetailsModal
         open={detailsOpen}
-        onClose={() => setDetailsOpen(false)}
-        supplier={activeSupplier}
+        onClose={() => {
+          setDetailsOpen(false);
+          clearActiveContext();
+        }}
+        supplier={supplierDetails?.supplier ?? activeSupplier}
+        loading={detailsLoading}
+        items={supplierDetails?.items ?? []}
       />
 
       <EditSupplierModal
         open={editOpen}
-        onClose={() => setEditOpen(false)}
+        onClose={() => {
+          setEditOpen(false);
+          clearActiveContext();
+        }}
         supplier={activeSupplier}
         onSubmit={updateSupplier}
         loading={submitting}
@@ -476,7 +526,10 @@ export default function Suppliers() {
 
       <ConfirmArchiveSupplierModal
         open={archiveOpen}
-        onClose={() => setArchiveOpen(false)}
+        onClose={() => {
+          setArchiveOpen(false);
+          clearActiveContext();
+        }}
         supplier={activeSupplier}
         onConfirm={archiveSupplier}
         loading={submitting}
@@ -484,7 +537,10 @@ export default function Suppliers() {
 
       <ConfirmRestoreSupplierModal
         open={restoreOpen}
-        onClose={() => setRestoreOpen(false)}
+        onClose={() => {
+          setRestoreOpen(false);
+          clearActiveContext();
+        }}
         supplier={activeSupplier}
         onConfirm={restoreSupplier}
         loading={submitting}

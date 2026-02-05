@@ -8,14 +8,18 @@ class Supplier extends Model
 {
     protected $fillable = [
         'name',
+        'contact_name',
         'phone',
         'email',
         'address',
+        'notes',
         'is_active',
+        'archived_at',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'archived_at' => 'datetime',
     ];
 
     public function supplierProducts()

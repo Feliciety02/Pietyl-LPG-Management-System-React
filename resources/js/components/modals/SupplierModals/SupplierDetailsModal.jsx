@@ -21,14 +21,23 @@ function Item({ icon: Icon, label, value, right }) {
   );
 }
 
+function formatCurrency(value) {
+  if (value == null) return "—";
+  return new Intl.NumberFormat("en-PH", {
+    style: "currency",
+    currency: "PHP",
+    minimumFractionDigits: 2,
+  }).format(Number(value));
+}
+
 export default function SupplierDetailsModal({
   open,
   onClose,
   supplier,
+  loading = false,
+  items = [],
 }) {
   const [copied, setCopied] = useState(false);
-
-  if (!supplier) return null;
 
   const canCopy = Boolean(supplier?.phone);
 
@@ -43,11 +52,16 @@ export default function SupplierDetailsModal({
     }
   };
 
+  if (!supplier) return null;
+
+  const displaySupplier = supplier;
+  const displayItems = Array.isArray(items) ? items : [];
+
   return (
     <ModalShell
       open={open}
       onClose={onClose}
-      maxWidthClass="max-w-md"
+      maxWidthClass="max-w-3xl"
       layout="compact"
       title="Supplier"
       subtitle="Quick view"
@@ -66,16 +80,16 @@ export default function SupplierDetailsModal({
     >
       <div className="grid gap-4">
         <div className="text-center">
-          <div className="text-lg font-extrabold text-slate-900">{supplier.name}</div>
-          <div className="mt-1 text-xs text-slate-500">Supplier ID {supplier.id}</div>
+          <div className="text-lg font-extrabold text-slate-900">{displaySupplier.name}</div>
+          <div className="mt-1 text-xs text-slate-500">Supplier ID {displaySupplier.id}</div>
         </div>
 
         <div className="rounded-3xl bg-white ring-1 ring-slate-200 p-5 grid gap-4">
-          <Item icon={UserRound} label="Contact" value={supplier.contact_name || "No contact"} />
+          <Item icon={UserRound} label="Contact" value={displaySupplier.contact_name || "No contact"} />
           <Item
             icon={Phone}
             label="Phone"
-            value={supplier.phone || "No phone"}
+            value={displaySupplier.phone || "No phone"}
             right={
               canCopy ? (
                 <button
@@ -97,8 +111,59 @@ export default function SupplierDetailsModal({
               ) : null
             }
           />
-          <Item icon={Mail} label="Email" value={supplier.email || "—"} />
-          <Item icon={MapPin} label="Address" value={supplier.address || "—"} />
+          <Item icon={Mail} label="Email" value={displaySupplier.email || "—"} />
+          <Item icon={MapPin} label="Address" value={displaySupplier.address || "—"} />
+          {displaySupplier.notes ? (
+            <div className="rounded-2xl bg-slate-50 ring-1 ring-slate-200 p-4 text-sm text-slate-700">
+              <div className="text-xs font-semibold text-slate-500 mb-1">Notes</div>
+              <div>{displaySupplier.notes}</div>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="rounded-3xl bg-white ring-1 ring-slate-200 p-5 space-y-3">
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              Items supplied ({loading ? "Loading…" : displayItems.length})
+            </div>
+          {loading ? (
+            <div className="text-center text-sm text-slate-500">Loading supplier items…</div>
+          ) : displayItems.length === 0 ? (
+            <div className="rounded-2xl bg-slate-50 ring-1 ring-slate-200 px-4 py-6 text-center text-sm text-slate-500">
+              No items linked to this supplier yet.
+            </div>
+          ) : (
+            <div className="grid gap-2">
+              <div className="grid grid-cols-[2fr,1fr,1fr,1fr,1fr,1fr] gap-2 text-[11px] uppercase tracking-wide text-slate-500">
+                <span>Item</span>
+                <span>Category</span>
+                <span>SKU</span>
+                <span>Price</span>
+                <span>Stock</span>
+                <span>Status</span>
+              </div>
+              {displayItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="grid grid-cols-[2fr,1fr,1fr,1fr,1fr,1fr] gap-2 text-sm text-slate-700"
+                >
+                  <span className="font-semibold text-slate-900">
+                    {item.product_name || "Item"} {item.variant_name ? `· ${item.variant_name}` : ""}
+                  </span>
+                  <span>{item.category || "General"}</span>
+                  <span>{item.sku || "—"}</span>
+                  <span>{formatCurrency(item.price)}</span>
+                  <span>
+                    {typeof item.stock === "number"
+                      ? item.stock.toLocaleString()
+                      : item.stock ?? "0"}
+                  </span>
+                  <span className="text-xs font-bold uppercase text-slate-500">
+                    {item.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </ModalShell>

@@ -40,6 +40,7 @@ export default function EditSupplierModal({
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
+  const [notes, setNotes] = useState("");
   const [localError, setLocalError] = useState("");
 
   useEffect(() => {
@@ -49,6 +50,7 @@ export default function EditSupplierModal({
     setPhone(supplier?.phone || "");
     setEmail(supplier?.email || "");
     setAddress(supplier?.address || "");
+    setNotes(supplier?.notes || "");
     setLocalError("");
   }, [open, supplier]);
 
@@ -73,12 +75,13 @@ export default function EditSupplierModal({
     }
 
     setLocalError("");
-    onSubmit?.(supplier.id, {
+    onSubmit?.({
       name: name.trim(),
       contact_name: contactName.trim() || null,
       phone: phone.trim() || null,
       email: email.trim() || null,
       address: address.trim() || null,
+      notes: notes.trim() || null,
     });
   };
 
@@ -171,6 +174,16 @@ export default function EditSupplierModal({
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             placeholder="City, Barangay..."
+          />
+        </Field>
+
+        <Field label="Notes (optional)">
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Any special instructions, terms, or reminders..."
+            rows={3}
+            className="w-full rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none ring-1 ring-slate-200 focus:ring-2 focus:ring-teal-500/40"
           />
         </Field>
       </div>

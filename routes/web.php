@@ -116,6 +116,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/suppliers', [SupplierController::class, 'index'])
             ->middleware('permission:admin.suppliers.view')
             ->name('dash.admin.suppliers');
+        Route::get('/suppliers/{supplier}/details', [SupplierController::class, 'details'])
+            ->middleware('permission:admin.suppliers.view')
+            ->name('dash.admin.suppliers.details');
         Route::post('/suppliers', [SupplierController::class, 'store'])
             ->middleware('permission:admin.suppliers.create')
             ->name('dash.admin.suppliers.store');
@@ -308,6 +311,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/suppliers', [SupplierController::class, 'index'])
             ->middleware('permission:inventory.suppliers.view')
             ->name('dash.inventory.suppliers');
+        Route::get('/suppliers/{supplier}/details', [SupplierController::class, 'details'])
+            ->middleware('permission:inventory.suppliers.view')
+            ->name('dash.inventory.suppliers.details');
 
         Route::get('/audit', [AuditLogController::class, 'index'])
             ->middleware('permission:inventory.audit.view')

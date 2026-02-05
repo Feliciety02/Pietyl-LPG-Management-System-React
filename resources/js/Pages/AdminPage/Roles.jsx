@@ -475,7 +475,18 @@ export default function Roles() {
                   View
                 </TableActionButton>
 
-                {r.is_archived ? (
+                {!r.is_archived ? (
+                  <TableActionButton
+                    icon={Pencil}
+                    onClick={() => {
+                      setActiveRole(r);
+                      setModal("edit");
+                    }}
+                    title="Edit role"
+                  >
+                    Edit
+                  </TableActionButton>
+                ) : (
                   <TableActionButton
                     icon={RotateCcw}
                     onClick={() => {
@@ -486,27 +497,9 @@ export default function Roles() {
                   >
                     Restore
                   </TableActionButton>
-                ) : (
-                  <TableActionButton
-                    icon={Pencil}
-                    onClick={() => {
-                      setActiveRole(r);
-                      setModal("edit");
-                    }}
-                    title={
-                      r.name === "admin"
-                        ? "Admin role is protected"
-                        : r.is_system
-                        ? "System roles cannot be edited"
-                        : "Edit role"
-                    }
-                    disabled={r.is_system || r.name === "admin"}
-                  >
-                    Edit
-                  </TableActionButton>
                 )}
 
-                {!r.is_archived && r.name !== "admin" ? (
+                {!r.is_archived ? (
                   <TableActionMenu
                     onClick={() => {
                       setActiveRole(r);
