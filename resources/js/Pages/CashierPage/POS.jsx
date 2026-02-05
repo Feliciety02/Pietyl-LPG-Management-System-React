@@ -257,42 +257,51 @@ export default function POS() {
 
     setIsSubmitting(true);
 
-    router.post(
-      "/dashboard/cashier/POS",
-      {
-        customer_id: customerId,
-        is_delivery: delivery,
-        payment_method: payment,
-        payment_ref: needsRef ? String(paymentRef || "").trim() : null,
+        router.post(
+          "/dashboard/cashier/POS",
+          {
+            customer_id: customerId,
+            is_delivery: delivery,
+            payment_method: payment,
+            payment_ref: needsRef ? String(paymentRef || "").trim() : null,
 
-        cash_tendered: payment === "cash" ? tenderedNumber : null,
+            cash_tendered: payment === "cash" ? tenderedNumber : null,
 
-        lines: cart.map((x) => ({
-          product_id: x.product_id,
-          qty: x.qty,
-          mode: "swap",
-          unit_price: x.unit_price,
-        })),
-      },
-      {
-        preserveScroll: true,
-        onSuccess: () => {
-          setCart([]);
-          setQ("");
-          setPaymentRef("");
-          setCashTendered("");
+            lines: cart.map((x) => ({
+              product_id: x.product_id,
+              qty: x.qty,
+              mode: "swap",
+              unit_price: x.unit_price,
+            })),
+          },
+          {
+            preserveScroll: true,
+            onSuccess: () => {
+              setCart([]);
+              setQ("");
+              setPaymentRef("");
+              setCashTendered("");
 
-          setResultModal({ open: true, status: "success", title: "Payment complete", message: "Sale was recorded successfully." });
-        },
-        onError: (errs) => {
-          const msg =
-            errs?.message ||
-            errs?.cash_tendered ||
-            errs?.payment_ref ||
-            errs?.customer_id ||
-            (typeof errs === "object" ? "Please review the form and try again." : "Something went wrong.");
+              setResultModal({ open: true, status: "success", title: "Payment complete", message: "Sale was recorded successfully." });
+            },
+            onError: (errs) => {
+              const validationError =
+                errs?.errors &&
+                typeof errs.errors === "object" &&
+                Object.values(errs.errors).find((value) => Array.isArray(value) && value.length);
+              const validationMessage = Array.isArray(validationError) ? validationError[0] : null;
+              const lockedMessage = errs?.errors?.locked?.[0];
 
-          setResultModal({ open: true, status: "error", title: "Payment failed", message: String(msg) });
+              const msg =
+                errs?.message ||
+                lockedMessage ||
+                validationMessage ||
+                errs?.cash_tendered ||
+                errs?.payment_ref ||
+                errs?.customer_id ||
+                (typeof errs === "object" ? "Please review the form and try again." : "Something went wrong.");
+
+              setResultModal({ open: true, status: "error", title: "Payment failed", message: String(msg) });
         },
         onFinish: () => setIsSubmitting(false),
       }

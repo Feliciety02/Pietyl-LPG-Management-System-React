@@ -1,14 +1,14 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
+import axios from "axios";
 
 import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
 
 import { posIcons } from "@/components/ui/Icons";
-import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
-
+import { SkeletonLine, SkeletonButton } from "@/components/ui/Skeleton";
 import { TableActionButton } from "@/components/Table/ActionTableButton";
 
 import SaleDetailsModal from "@/components/modals/CashierModals/SaleDetailsModal";
@@ -16,62 +16,6 @@ import ReprintReceiptModal from "@/components/modals/CashierModals/ReprintReceip
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
-}
-
-function TopCard({ title, subtitle, right }) {
-  return (
-    <div className="rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm">
-      <div className="p-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="text-lg font-extrabold text-slate-900">{title}</div>
-          <div className="mt-1 text-sm text-slate-600">{subtitle}</div>
-        </div>
-        {right}
-      </div>
-    </div>
-  );
-}
-
-function MethodPill({ method }) {
-  const m = String(method || "cash").toLowerCase();
-  const tone =
-    m === "gcash"
-      ? "bg-teal-600/10 text-teal-900 ring-teal-700/10"
-      : m === "card"
-      ? "bg-slate-100 text-slate-700 ring-slate-200"
-      : "bg-amber-600/10 text-amber-900 ring-amber-700/10";
-
-  return (
-    <span
-      className={cx(
-        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1",
-        tone
-      )}
-    >
-      {m.toUpperCase()}
-    </span>
-  );
-}
-
-function StatusPill({ status }) {
-  const s = String(status || "paid").toLowerCase();
-  const tone =
-    s === "paid"
-      ? "bg-teal-600/10 text-teal-900 ring-teal-700/10"
-      : s === "failed"
-      ? "bg-rose-600/10 text-rose-900 ring-rose-700/10"
-      : "bg-amber-600/10 text-amber-900 ring-amber-700/10";
-
-  return (
-    <span
-      className={cx(
-        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1",
-        tone
-      )}
-    >
-      {s.toUpperCase()}
-    </span>
-  );
 }
 
 function money(n) {
@@ -83,9 +27,72 @@ function safeText(v) {
   return String(v ?? "").trim();
 }
 
+/* -------------------------------------------------------------------------- */
+/* Small UI blocks                                                            */
+/* -------------------------------------------------------------------------- */
+
+function TopCard({ title, subtitle, right }) {
+  return (
+    <div className="rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm">
+      <div className="p-6 flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="text-lg font-extrabold text-slate-900">{title}</div>
+          <div className="mt-1 text-sm text-slate-600">{subtitle}</div>
+        </div>
+        {right}
+      </div>
+    </div>
+  );
+}
+
+function Pill({ tone = "slate", children }) {
+  const map = {
+    slate: "bg-slate-100 text-slate-700 ring-slate-200",
+    teal: "bg-teal-600/10 text-teal-900 ring-teal-700/10",
+    amber: "bg-amber-600/10 text-amber-900 ring-amber-700/10",
+    rose: "bg-rose-600/10 text-rose-900 ring-rose-700/10",
+  };
+
+  return (
+    <span
+      className={cx(
+        "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-extrabold ring-1",
+        map[tone] || map.slate
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+function MethodPill({ method }) {
+  const m = String(method || "cash").toLowerCase();
+  const tone =
+    m === "gcash"
+      ? "teal"
+      : m === "card"
+      ? "slate"
+      : "amber";
+
+  return <Pill tone={tone}>{m.toUpperCase()}</Pill>;
+}
+
+function StatusPill({ status }) {
+  const s = String(status || "paid").toLowerCase();
+  const tone =
+    s === "paid"
+      ? "teal"
+      : s === "failed"
+      ? "rose"
+      : "amber";
+
+  return <Pill tone={tone}>{s.toUpperCase()}</Pill>;
+}
+
 function SaleAvatar({ ref }) {
   const t = safeText(ref);
   const seed = t.replace(/\s+/g, "").slice(-2).toUpperCase() || "TX";
+
   return (
     <div className="h-9 w-9 rounded-2xl bg-teal-600/10 ring-1 ring-teal-700/10 flex items-center justify-center">
       <span className="text-[11px] font-extrabold text-teal-900">{seed}</span>
@@ -93,11 +100,19 @@ function SaleAvatar({ ref }) {
   );
 }
 
-function MiniStat({ label, value }) {
+function StatCard({ label, value, hint, tone = "slate" }) {
+  const toneMap = {
+    slate: "bg-white ring-slate-200",
+    teal: "bg-teal-600/10 ring-teal-700/10",
+    amber: "bg-amber-600/10 ring-amber-700/10",
+    rose: "bg-rose-600/10 ring-rose-700/10",
+  };
+
   return (
-    <div className="inline-flex items-center gap-2 rounded-2xl bg-slate-50 px-2.5 py-1 ring-1 ring-slate-200">
-      <span className="text-[11px] font-extrabold text-slate-600">{label}</span>
-      <span className="text-[11px] font-extrabold text-slate-900">{value}</span>
+    <div className={cx("rounded-3xl p-4 ring-1", toneMap[tone] || toneMap.slate)}>
+      <div className="text-[11px] font-extrabold text-slate-500">{label}</div>
+      <div className="mt-1 text-base font-extrabold text-slate-900 tabular-nums">{value}</div>
+      {hint ? <div className="mt-1 text-[11px] text-slate-500">{hint}</div> : null}
     </div>
   );
 }
@@ -114,7 +129,7 @@ function LineSummary({ lines }) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs font-extrabold text-slate-700 truncate max-w-[240px]">
+      <span className="text-xs font-extrabold text-slate-700 truncate max-w-[260px]">
         {name}
         {variant ? <span className="text-slate-500"> · {variant}</span> : null}
       </span>
@@ -130,12 +145,17 @@ function LineSummary({ lines }) {
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/* Page                                                                       */
+/* -------------------------------------------------------------------------- */
+
 export default function Sales() {
   const page = usePage();
 
   const role = page.props?.auth?.user?.role || "cashier";
   const isAdmin = role === "admin";
   const isCashier = role === "cashier";
+  const readOnly = !(isAdmin || isCashier);
 
   const query = page.props?.filters || {};
   const per = Number(query?.per || 10);
@@ -144,13 +164,26 @@ export default function Sales() {
   const [q, setQ] = useState(query?.q || "");
   const [status, setStatus] = useState(query?.status || "all");
 
+  const summaryDateFromProps =
+    page.props?.filters?.summary_date || new Date().toISOString().slice(0, 10);
+
+  const [summaryDate, setSummaryDate] = useState(summaryDateFromProps);
+  const [dailySummary, setDailySummary] = useState(page.props?.daily_summary ?? null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState("");
+  const [summaryMessage, setSummaryMessage] = useState("");
+  const [finalizing, setFinalizing] = useState(false);
+  const [reopening, setReopening] = useState(false);
+
   const [activeSale, setActiveSale] = useState(null);
   const [viewOpen, setViewOpen] = useState(false);
   const [reprintOpen, setReprintOpen] = useState(false);
-  const sales = page.props?.sales ?? { data: [], meta: null };
 
+  const sales = page.props?.sales ?? { data: [], meta: null };
   const rows = sales?.data ?? [];
   const meta = sales?.meta ?? null;
+
+  const loading = Boolean(page.props?.loading);
 
   const statusOptions = [
     { value: "all", label: "All status" },
@@ -161,15 +194,13 @@ export default function Sales() {
 
   const pushQuery = (patch) => {
     const newPage = patch.page !== undefined ? patch.page : currentPage;
-    
+
     router.get(
       "/dashboard/cashier/sales",
       { q, status, per, page: newPage, ...patch },
       { preserveScroll: true, preserveState: true, replace: true }
     );
   };
-
-  const loading = Boolean(page.props?.loading);
 
   const fillerRows = useMemo(
     () =>
@@ -181,6 +212,84 @@ export default function Sales() {
   );
 
   const tableRows = loading ? fillerRows : rows;
+
+  const extractSummaryError = (error) => {
+    const response = error?.response;
+    if (response?.data?.message) return response.data.message;
+
+    const validation = response?.data?.errors;
+    if (validation) {
+      const first = Object.values(validation).flat().find((value) => Boolean(value));
+      if (first) return first;
+    }
+    return "Unable to load summary. Try again.";
+  };
+
+  const loadSummary = async (targetDate) => {
+    if (!targetDate) return;
+    setSummaryLoading(true);
+    setSummaryError("");
+    setSummaryMessage("");
+
+    try {
+      const { data } = await axios.get("/dashboard/cashier/sales/summary", {
+        params: { date: targetDate },
+      });
+      setDailySummary(data.summary);
+    } catch (error) {
+      setSummaryError(extractSummaryError(error));
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!dailySummary && summaryDate) {
+      loadSummary(summaryDate);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSummaryDateChange = (event) => {
+    const nextDate = event.target.value;
+    if (!nextDate) return;
+    setSummaryDate(nextDate);
+    loadSummary(nextDate);
+  };
+
+  const finalizeBusinessDate = async () => {
+    if (!dailySummary) return;
+    setFinalizing(true);
+    setSummaryError("");
+    setSummaryMessage("");
+
+    try {
+      await axios.post("/dashboard/cashier/sales/summary/finalize", { date: summaryDate });
+      await loadSummary(summaryDate);
+      setSummaryMessage("Business date closed. New POS sales will be blocked until it is reopened.");
+    } catch (error) {
+      setSummaryError(extractSummaryError(error));
+    } finally {
+      setFinalizing(false);
+    }
+  };
+
+  const reopenBusinessDate = async () => {
+    if (!dailySummary) return;
+    setReopening(true);
+    setSummaryError("");
+    setSummaryMessage("");
+
+    try {
+      await axios.post("/dashboard/cashier/sales/summary/reopen", { date: summaryDate });
+      await loadSummary(summaryDate);
+      setSummaryMessage("Business date reopened. POS transactions are now allowed again.");
+    } catch (error) {
+      setSummaryError(extractSummaryError(error));
+    } finally {
+      setReopening(false);
+    }
+  };
 
   const openView = (row) => {
     setActiveSale(row);
@@ -194,6 +303,21 @@ export default function Sales() {
 
   const ReceiptIcon = posIcons.receipt;
   const ViewIcon = posIcons.search;
+
+  const summaryVariance = Number(dailySummary?.variance ?? 0);
+  const isFinalized = dailySummary?.status === "finalized";
+
+  const canFinalizeDate =
+    dailySummary &&
+    Math.abs(summaryVariance) < 0.01 &&
+    !isFinalized;
+
+  const varianceTone =
+    Math.abs(summaryVariance) < 0.01
+      ? "teal"
+      : summaryVariance < 0
+      ? "rose"
+      : "amber";
 
   const columns = useMemo(
     () => [
@@ -242,15 +366,16 @@ export default function Sales() {
             <SkeletonLine w="w-20" />
           ) : (
             <div className="flex justify-start">
-              <MiniStat label="Total" value={money(x.total)} />
+              <span className="inline-flex items-center rounded-2xl bg-slate-50 px-3 py-2 ring-1 ring-slate-200">
+                <span className="text-[11px] font-extrabold text-slate-600 mr-2">Total</span>
+                <span className="text-[11px] font-extrabold text-slate-900">{money(x.total)}</span>
+              </span>
             </div>
           ),
       },
     ],
     []
   );
-
-  const readOnly = !(isAdmin || isCashier);
 
   return (
     <Layout title="Sales">
@@ -260,9 +385,7 @@ export default function Sales() {
           subtitle="View sales records and reprint receipts."
           right={
             readOnly ? (
-              <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[11px] font-extrabold text-slate-700 ring-1 ring-slate-200">
-                READ ONLY
-              </span>
+              <Pill tone="slate">READ ONLY</Pill>
             ) : (
               <Link
                 href="/dashboard/cashier/POS"
@@ -273,6 +396,116 @@ export default function Sales() {
             )
           }
         />
+
+        <div className="rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm">
+          <div className="p-5 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-sm font-extrabold text-slate-900">Daily summary</div>
+                <div className="mt-1 text-xs text-slate-500">
+                  Quick overview for the selected business date
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="date"
+                  value={summaryDate}
+                  onChange={handleSummaryDateChange}
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/40"
+                />
+
+                <Pill tone={isFinalized ? "teal" : "amber"}>
+                  {isFinalized ? "FINALIZED" : "OPEN"}
+                </Pill>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <StatCard
+                label="Total sales"
+                value={summaryLoading ? "Loading..." : money(dailySummary?.sales_total ?? 0)}
+                hint="All completed sales"
+              />
+              <StatCard
+                label="Cash expected"
+                value={summaryLoading ? "Loading..." : money(dailySummary?.cash_expected ?? 0)}
+                hint="Should be in drawer"
+              />
+              <StatCard
+                label="Cash turned over"
+                value={summaryLoading ? "Loading..." : money(dailySummary?.cash_counted ?? 0)}
+                hint="Counted and submitted"
+              />
+              <StatCard
+                label="Non cash total"
+                value={summaryLoading ? "Loading..." : money(dailySummary?.non_cash_total ?? 0)}
+                hint="GCash, bank, card"
+              />
+              <StatCard
+                label="Variance"
+                value={summaryLoading ? "Loading..." : money(summaryVariance)}
+                hint="Must be zero to close"
+                tone={varianceTone}
+              />
+            </div>
+
+            {(summaryMessage || summaryError) && (
+              <div
+                className={cx(
+                  "mt-4 rounded-2xl px-4 py-3 ring-1 text-sm font-semibold",
+                  summaryError
+                    ? "bg-rose-600/10 text-rose-800 ring-rose-700/10"
+                    : "bg-teal-600/10 text-teal-800 ring-teal-700/10"
+                )}
+              >
+                {summaryError || summaryMessage}
+              </div>
+            )}
+
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+              <div className="text-xs text-slate-500">
+                {isFinalized
+                  ? `Finalized at ${dailySummary?.finalized_at || "—"}`
+                  : Math.abs(summaryVariance) >= 0.01
+                  ? "Variance must be zero before closing."
+                  : "Ready to close when variance is zero."}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {isFinalized ? (
+                  <button
+                    type="button"
+                    onClick={reopenBusinessDate}
+                    disabled={reopening || summaryLoading}
+                    className={cx(
+                      "inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-extrabold ring-1 transition focus:outline-none",
+                      reopening || summaryLoading
+                        ? "bg-slate-200 text-slate-500 ring-slate-200 cursor-not-allowed"
+                        : "bg-white text-slate-800 ring-slate-300 hover:bg-slate-50 focus:ring-4 focus:ring-teal-500/15"
+                    )}
+                  >
+                    {reopening ? "Reopening..." : "Reopen business date"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={finalizeBusinessDate}
+                    disabled={!canFinalizeDate || finalizing || summaryLoading}
+                    className={cx(
+                      "inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-extrabold transition focus:outline-none focus:ring-4",
+                      !canFinalizeDate || finalizing || summaryLoading
+                        ? "bg-slate-200 text-slate-500 ring-slate-200 cursor-not-allowed"
+                        : "bg-teal-600 text-white ring-teal-600 hover:bg-teal-700 focus:ring-teal-500/25"
+                    )}
+                  >
+                    {finalizing ? "Closing..." : "Close business date"}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
 
         <DataTableFilters
           q={q}
@@ -340,7 +573,11 @@ export default function Sales() {
         />
       </div>
 
-      <SaleDetailsModal open={viewOpen} onClose={() => setViewOpen(false)} sale={activeSale} />
+      <SaleDetailsModal
+        open={viewOpen}
+        onClose={() => setViewOpen(false)}
+        sale={activeSale}
+      />
 
       <ReprintReceiptModal
         open={reprintOpen}

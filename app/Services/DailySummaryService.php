@@ -1,22 +1,16 @@
 <?php
 
-namespace App\Http\Controllers\Accountant;
+namespace App\Services;
 
-use App\Http\Controllers\Controller;
-use App\Models\AuditLog;
 use App\Models\DailyClose;
 use App\Models\Remittance;
 use Carbon\Carbon;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Inertia\Inertia;
 
-class DailySummaryController extends Controller
+class DailySummaryService
 {
-    public function index(Request $request)
+    public function getSummary(string $date): array
     {
-        $date = $request->input('date', now()->toDateString());
-
         $salesTotals = DB::table('sales as s')
             ->whereDate('s.sale_datetime', $date)
             ->where('s.status', 'paid')
@@ -32,7 +26,7 @@ class DailySummaryController extends Controller
             ->first();
 
         $remittanceTotals = Remittance::where('business_date', $date)
-            ->selectRaw('SUM(expected_amount) as expected_cash, SUM(COALESCE(remitted_amount, 0)) as remitted_cash, SUM(COALESCE(variance_amount, 0)) as variance_cash')
+            ->selectRaw('SUM(expected_amount) as expected_amount, SUM(COALESCE(remitted_amount, 0)) as remitted_amount, SUM(COALESCE(variance_amount, 0)) as variance_amount')
             ->first();
 
         $expectedSalesByCashier = DB::table('sales as s')
@@ -75,7 +69,7 @@ class DailySummaryController extends Controller
 
         $cashExpectedTotal = (float) ($cashTotals->cash_total ?? 0);
         $nonCashTotal = (float) ($cashTotals->non_cash_total ?? 0);
-        $cashCountedTotal = (float) ($remittanceTotals->remitted_cash ?? 0);
+        $cashCountedTotal = (float) ($remittanceTotals->remitted_amount ?? 0);
         $varianceTotal = $cashCountedTotal - $cashExpectedTotal;
 
         $close = DailyClose::with('finalizedBy')->where('business_date', $date)->first();
@@ -93,63 +87,10 @@ class DailySummaryController extends Controller
             'finalized_by' => $close?->finalizedBy?->name,
         ];
 
-        return Inertia::render('AccountantPage/DailySummary', [
+        return [
             'summary' => $summary,
             'cashier_turnover' => $cashierTurnover,
-            'filters' => ['date' => $date],
-        ]);
-    }
-
-    public function finalize(Request $request)
-    {
-        $user = $request->user();
-        if (!$user || !$user->can('accountant.daily.view')) {
-            abort(403);
-        }
-
-        $validated = $request->validate([
-            'date' => 'required|date',
-        ]);
-
-        $date = $validated['date'];
-
-        if (DailyClose::where('business_date', $date)->exists()) {
-            return back()->with('error', 'This business date is already finalized.');
-        }
-
-        $cashTotals = Remittance::where('business_date', $date)
-            ->selectRaw('SUM(COALESCE(expected_amount, 0)) as expected_cash, SUM(COALESCE(remitted_amount, 0)) as remitted_cash')
-            ->first();
-
-        $cashExpected = (float) ($cashTotals->expected_cash ?? 0);
-        $cashCounted = (float) ($cashTotals->remitted_cash ?? 0);
-        $variance = round($cashCounted - $cashExpected, 2);
-
-        if ($variance !== 0.0) {
-            return back()->with('error', 'Cannot finalize while variance is not zero.');
-        }
-
-        $close = DailyClose::create([
-            'business_date' => $date,
-            'finalized_by_user_id' => $user->id,
-            'finalized_at' => now(),
-        ]);
-
-        AuditLog::create([
-            'actor_user_id' => $user->id,
-            'action' => 'daily_summary.finalize',
-            'entity_type' => DailyClose::class,
-            'entity_id' => $close->id,
-            'message' => "Finalized daily summary for {$date}",
-            'after_json' => [
-                'status' => 'finalized',
-                'business_date' => $date,
-            ],
-            'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-        ]);
-
-        return to_route('dash.accountant.daily', ['date' => $date])->with('success', 'Daily summary finalized.');
+        ];
     }
 
     private function determineShift(?Carbon $recordedAt): string

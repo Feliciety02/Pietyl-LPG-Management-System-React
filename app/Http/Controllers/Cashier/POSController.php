@@ -109,7 +109,9 @@ class POSController extends Controller
         }
 
         if (DailyClose::where('business_date', now()->toDateString())->exists()) {
-            return redirect()->back()->with('error', 'Sales are locked for this business date.');
+            throw ValidationException::withMessages([
+                'locked' => 'Sales are locked for this business date.',
+            ]);
         }
 
         $request->validate([

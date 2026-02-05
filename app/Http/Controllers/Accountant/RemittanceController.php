@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Accountant;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\DailyClose;
+use App\Models\Payment;
 use App\Models\Remittance;
 use App\Services\Accounting\LedgerService;
 use Illuminate\Http\Request;
@@ -166,7 +167,7 @@ class RemittanceController extends Controller
                 'variance_amount' => $variance,
                 'cash_variance' => $variance,
                 'status' => $status,
-                'note' => $note->whenEmpty(null),
+                'note' => $note->length() ? $note->toString() : null,
                 'recorded_at' => now(),
             ]
         );
@@ -218,7 +219,29 @@ class RemittanceController extends Controller
         return back()->with('success', 'Cash turnover recorded.');
     }
 
-    public function verifyNonCash(Request $request)
+    public function cashlessTransactions(Request $request)
+    {
+        $user = $request->user();
+        if (!$user || !$user->can('accountant.remittances.view')) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'business_date' => 'required|date',
+            'cashier_user_id' => 'required|exists:users,id',
+        ]);
+
+        $transactions = $this->cashlessTransactionsFor(
+            $validated['business_date'],
+            $validated['cashier_user_id']
+        );
+
+        return response()->json([
+            'transactions' => $transactions,
+        ]);
+    }
+
+    public function verifyCashlessTransactions(Request $request)
     {
         $user = $request->user();
         if (!$user || !$user->can('accountant.remittances.verify')) {
@@ -228,46 +251,51 @@ class RemittanceController extends Controller
         $validated = $request->validate([
             'business_date' => 'required|date',
             'cashier_user_id' => 'required|exists:users,id',
-            'verification' => 'required|array|min:1',
-            'verification.*.method_key' => 'required|string',
-            'verification.*.confirmed' => 'required|boolean',
-            'verification.*.proof_count' => 'nullable|numeric|min:0',
-            'verification.*.note' => 'nullable|string',
+            'transaction_ids' => 'required|array|min:1',
+            'transaction_ids.*' => 'required|integer|distinct',
         ]);
 
         if (DailyClose::where('business_date', $validated['business_date'])->exists()) {
-            return back()->with('error', 'This business date is already finalized.');
+            return response()->json([
+                'message' => 'This business date is already finalized.',
+            ], 422);
         }
 
-        $expected = $this->expectedForRow($validated['business_date'], $validated['cashier_user_id']);
-        $nonCashEntries = collect($validated['verification']);
+        $payments = $this->cashlessPaymentsQuery(
+            $validated['business_date'],
+            $validated['cashier_user_id']
+        )
+            ->whereIn('payments.id', $validated['transaction_ids'])
+            ->get();
 
-        $allConfirmed = $nonCashEntries->every(fn ($item) => (bool) $item['confirmed']);
-        $flaggingIssue = $nonCashEntries->filter(fn ($item) => !$item['confirmed'])->every(function ($item) {
-            return Str::of($item['note'] ?? '')->trim()->length() >= 3;
-        });
-
-        if (!$allConfirmed && !$flaggingIssue) {
-            return back()->with('error', 'Add a short note for any non cash method that is not confirmed.');
+        if ($payments->count() !== count($validated['transaction_ids'])) {
+            return response()->json([
+                'message' => 'Some transactions are no longer available. Refresh and try again.',
+            ], 422);
         }
 
-        $verificationPayload = $nonCashEntries->map(function ($item) use ($expected) {
-            $expectedAmount = $expected['expected_by_method'][$item['method_key']] ?? 0;
-            return [
-                'method_key' => $item['method_key'],
-                'expected_amount' => (float) $expectedAmount,
-                'proof_count' => isset($item['proof_count']) ? (int) $item['proof_count'] : 0,
-                'confirmed' => (bool) $item['confirmed'],
-                'confirmed_at' => $item['confirmed'] ? now()->toDateTimeString() : null,
-                'note' => Str::of($item['note'] ?? '')->trim()->whenEmpty(null),
-            ];
-        })->toArray();
+        $alreadyVerifiedIds = $payments
+            ->filter(fn ($payment) => $payment->noncash_verified_at)
+            ->pluck('id')
+            ->all();
 
-        $status = $allConfirmed ? 'verified' : 'flagged';
+        if (!empty($alreadyVerifiedIds)) {
+            return response()->json([
+                'message' => 'Some selected transactions have already been verified.',
+                'already_verified_ids' => $alreadyVerifiedIds,
+            ], 409);
+        }
 
-        $existing = Remittance::where('business_date', $validated['business_date'])
-            ->where('cashier_user_id', $validated['cashier_user_id'])
-            ->first();
+        if ($payments->isEmpty()) {
+            return response()->json([
+                'message' => 'No transactions to verify.',
+            ], 422);
+        }
+
+        $expected = $this->expectedForRow(
+            $validated['business_date'],
+            $validated['cashier_user_id']
+        );
 
         $remittance = Remittance::updateOrCreate(
             [
@@ -281,26 +309,87 @@ class RemittanceController extends Controller
                 'expected_by_method' => $expected['expected_by_method'],
                 'noncash_verified_at' => now(),
                 'noncash_verified_by_user_id' => $user->id,
-                'noncash_verification' => $verificationPayload,
-                'status' => $existing?->status ?? 'pending',
+                'noncash_verification' => [
+                    'transaction_ids' => $payments->pluck('id')->all(),
+                    'amount' => round($payments->sum('amount'), 2),
+                ],
+                'status' => 'verified',
             ]
         );
 
+        $totalAmount = 0.0;
+        foreach ($payments as $payment) {
+            $totalAmount += (float) $payment->amount;
+            $payment->noncash_verified_at = now();
+            $payment->noncash_verified_by_user_id = $user->id;
+            $payment->noncash_verified_business_date = $validated['business_date'];
+            $payment->noncash_remittance_id = $remittance->id;
+            $payment->save();
+        }
+
         AuditLog::create([
             'actor_user_id' => $user->id,
-            'action' => 'remittance.noncash.verified',
+            'action' => 'remittance.noncash_transactions.verified',
             'entity_type' => Remittance::class,
             'entity_id' => $remittance->id,
-            'message' => "Non cash verification for {$validated['business_date']} marked as {$status}",
+            'message' => "Verified {$payments->count()} cashless transactions for {$validated['business_date']} totaling " . number_format($totalAmount, 2),
             'after_json' => [
-                'noncash_status' => $status,
-                'verification' => $verificationPayload,
+                'verified_count' => $payments->count(),
+                'verified_amount' => round($totalAmount, 2),
             ],
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
         ]);
 
-        return back()->with('success', 'Non cash verification saved.');
+        return response()->json([
+            'transactions' => $this->cashlessTransactionsFor(
+                $validated['business_date'],
+                $validated['cashier_user_id']
+            ),
+            'verified_count' => $payments->count(),
+            'verified_amount' => round($totalAmount, 2),
+            'message' => 'Cashless transactions confirmed.',
+        ]);
+    }
+
+    private function cashlessPaymentsQuery(string $businessDate, int $cashierId)
+    {
+        return Payment::with(['paymentMethod', 'sale.receipt', 'sale.customer', 'receivedBy', 'noncashVerifier'])
+            ->whereHas('sale', function ($query) use ($businessDate, $cashierId) {
+                $query->whereDate('sale_datetime', $businessDate)
+                    ->where('cashier_user_id', $cashierId)
+                    ->where('status', 'paid');
+            })
+            ->whereHas('paymentMethod', function ($query) {
+                $query->where('is_cashless', true);
+            });
+    }
+
+    private function cashlessTransactionsFor(string $businessDate, int $cashierId): array
+    {
+        $payments = $this->cashlessPaymentsQuery($businessDate, $cashierId)
+            ->orderBy('paid_at')
+            ->get();
+
+        return $payments->map(function (Payment $payment) use ($businessDate) {
+            return [
+                'id' => $payment->id,
+                'amount' => (float) $payment->amount,
+                'reference' => $payment->reference_no,
+                'paid_at' => $payment->paid_at?->toDateTimeString(),
+                'method_key' => $payment->paymentMethod?->method_key,
+                'method_name' => $payment->paymentMethod?->name,
+                'sale_number' => $payment->sale?->sale_number,
+                'receipt_number' => $payment->sale?->receipt?->receipt_number,
+                'customer' => $payment->sale?->customer?->name ?? 'Walk in',
+                'recorded_by' => $payment->receivedBy?->name,
+                'verified' => (bool) $payment->noncash_verified_at,
+                'verified_at' => $payment->noncash_verified_at?->toDateTimeString(),
+                'verified_by' => $payment->noncashVerifier?->name,
+                'status' => $payment->noncash_verified_at ? 'verified' : 'pending',
+                'business_date' => $businessDate,
+            ];
+        })->toArray();
     }
 
     private function getPaymentMethods(): Collection

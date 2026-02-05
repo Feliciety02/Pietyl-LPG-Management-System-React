@@ -18,9 +18,9 @@ use App\Http\Controllers\Admin\ReportsController;
 use App\Http\Controllers\Inventory\PurchaseController;
 use App\Http\Controllers\Inventory\RestockRequestController;
 use App\Http\Controllers\Accountant\RemittanceController as AccountantRemittanceController;
-use App\Http\Controllers\Accountant\DailySummaryController as AccountantDailySummaryController;
 use App\Http\Controllers\Accountant\LedgerController as AccountantLedgerController;
 use App\Http\Controllers\Accountant\ReportController as AccountantReportController;
+use App\Http\Controllers\Cashier\DailySummaryController as CashierDailySummaryController;
 use App\Http\Controllers\Rider\RiderDeliveryController;
 
 Route::get('/', function () {
@@ -182,6 +182,16 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('permission:cashier.sales.view')
             ->name('dash.cashier.sales.latest');
 
+        Route::get('/sales/summary', [CashierDailySummaryController::class, 'summary'])
+            ->middleware('permission:cashier.sales.view')
+            ->name('dash.cashier.sales.summary');
+        Route::post('/sales/summary/finalize', [CashierDailySummaryController::class, 'finalize'])
+            ->middleware('permission:cashier.sales.create')
+            ->name('dash.cashier.sales.summary.finalize');
+        Route::post('/sales/summary/reopen', [CashierDailySummaryController::class, 'reopen'])
+            ->middleware('permission:cashier.sales.create')
+            ->name('dash.cashier.sales.summary.reopen');
+
         Route::get('/audit', [AuditLogController::class, 'index'])
             ->middleware('permission:cashier.audit.view')
             ->name('dash.cashier.audit');
@@ -215,16 +225,12 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/remittances/record', [AccountantRemittanceController::class, 'recordCash'])
             ->middleware('permission:accountant.remittances.verify')
             ->name('dash.accountant.remittances.record');
-        Route::post('/remittances/verify-noncash', [AccountantRemittanceController::class, 'verifyNonCash'])
+        Route::get('/remittances/cashless-transactions', [AccountantRemittanceController::class, 'cashlessTransactions'])
+            ->middleware('permission:accountant.remittances.view')
+            ->name('dash.accountant.remittances.cashless-transactions');
+        Route::post('/remittances/cashless-transactions/verify', [AccountantRemittanceController::class, 'verifyCashlessTransactions'])
             ->middleware('permission:accountant.remittances.verify')
-            ->name('dash.accountant.remittances.verify-noncash');
-
-        Route::get('/daily', [AccountantDailySummaryController::class, 'index'])
-            ->middleware('permission:accountant.daily.view')
-            ->name('dash.accountant.daily');
-        Route::post('/daily/finalize', [AccountantDailySummaryController::class, 'finalize'])
-            ->middleware('permission:accountant.daily.view')
-            ->name('dash.accountant.daily.finalize');
+            ->name('dash.accountant.remittances.cashless-verify');
 
         Route::get('/payroll', fn () => Inertia::render('AccountantPage/Payroll'))
             ->middleware('permission:accountant.payroll.view')

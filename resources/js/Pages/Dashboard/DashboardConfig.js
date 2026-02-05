@@ -35,7 +35,6 @@ export const DASHBOARD_CONFIG = {
     title: "Accountant",
     actions: [
       { label: "Remittances", href: "/dashboard/accountant/remittances", permission: "accountant.remittances.view" },
-      { label: "Daily Summary", href: "/dashboard/accountant/daily", permission: "accountant.daily.view" },
       { label: "Ledger", href: "/dashboard/accountant/ledger", permission: "accountant.ledger.view" },
       { label: "Payroll", href: "/dashboard/accountant/payroll", permission: "accountant.payroll.view" },
       { label: "Reports", href: "/dashboard/accountant/reports", permission: "accountant.reports.view" },

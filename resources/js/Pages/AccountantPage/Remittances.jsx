@@ -132,7 +132,6 @@ export default function Remittances() {
 
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [activeNonCashRow, setActiveNonCashRow] = useState(null);
-  const [loadingVerify, setLoadingVerify] = useState(false);
 
   useEffect(() => {
     setTab(tabInitial || "cash");
@@ -388,27 +387,6 @@ export default function Remittances() {
     setActiveNonCashRow(null);
   };
 
-  const submitNonCash = (payload) => {
-    if (!activeNonCashRow || loadingVerify) return;
-    setLoadingVerify(true);
-
-    router.post(
-      "/dashboard/accountant/remittances/verify-noncash",
-      {
-        business_date: activeNonCashRow.business_date,
-        cashier_user_id: activeNonCashRow.cashier_user_id,
-        verification: payload.verification,
-      },
-      {
-        preserveScroll: true,
-        onFinish: () => setLoadingVerify(false),
-        onSuccess: () => {
-          closeVerifyModal();
-        },
-      }
-    );
-  };
-
   return (
     <Layout title="Turnover">
       <div className="grid gap-6">
@@ -534,9 +512,10 @@ export default function Remittances() {
         open={verifyOpen}
         onClose={closeVerifyModal}
         row={activeNonCashRow}
-        loading={loadingVerify}
-        methods={nonCashMethods}
-        onSubmit={(payload) => submitNonCash(payload)}
+        onSuccess={() => {
+          closeVerifyModal();
+          router.reload({ only: ["remittances"], preserveState: true });
+        }}
       />
     </Layout>
   );
