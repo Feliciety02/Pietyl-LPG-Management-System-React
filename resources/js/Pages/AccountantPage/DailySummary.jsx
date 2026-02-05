@@ -12,6 +12,15 @@ function money(v) {
   return n.toLocaleString("en-PH", { style: "currency", currency: "PHP" });
 }
 
+function titleCase(value = "") {
+  return String(value || "")
+    .replace(/_/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
 function Card({ children }) {
   return <div className="rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm">{children}</div>;
 }
@@ -78,31 +87,33 @@ export default function DailySummary() {
   const page = usePage();
 
   /*
-    Updated assumption:
-    No rider remittances because the system is pay first before release and delivery.
-
     Expected Inertia props from backend:
 
     summary: {
-      business_date: "YYYY-MM-DD",
-      sales: {
-        total: number,
-        cash: number,
-        non_cash: number,
-        transactions_count: number
-      },
-      cashier_turnover: {
-        expected_cash: number,     // usually equals sales.cash
-        remitted_cash: number,     // actual cash turned over by cashier
-        variance_cash: number,     // remitted_cash - expected_cash
-        pending_count: number,
-        verified_count: number,
-        flagged_count: number
-      },
+      date: "YYYY-MM-DD",
+      sales_total: number,
+      sales_count: number,
+      cash_expected: number,
+      non_cash_total: number,
+      cash_counted: number,
+      variance: number,
       status: "open" | "finalized",
       finalized_at: string|null,
       finalized_by: string|null
     }
+
+    cashier_turnover: [
+      {
+        id,
+        cashier_name,
+        shift,
+        cash_expected,
+        cash_counted,
+        variance,
+        status,
+        recorded_at
+      }
+    ]
 
     filters: { date }
     loading: boolean (optional)
@@ -110,26 +121,17 @@ export default function DailySummary() {
 
   const query = page.props?.filters || {};
   const dateInitial = query?.date || "";
-
   const [date, setDate] = useState(dateInitial);
 
-  const sample = useMemo(
+  const sampleSummary = useMemo(
     () => ({
-      business_date: "2026-01-19",
-      sales: {
-        total: 7850,
-        cash: 5200,
-        non_cash: 2650,
-        transactions_count: 18,
-      },
-      cashier_turnover: {
-        expected_cash: 5200,
-        remitted_cash: 5000,
-        variance_cash: -200,
-        pending_count: 1,
-        verified_count: 2,
-        flagged_count: 0,
-      },
+      date: "2026-01-19",
+      sales_total: 7850,
+      sales_count: 18,
+      cash_expected: 5200,
+      non_cash_total: 2650,
+      cash_counted: 5000,
+      variance: -200,
       status: "open",
       finalized_at: null,
       finalized_by: null,
@@ -137,23 +139,63 @@ export default function DailySummary() {
     []
   );
 
-  const summary = page.props?.summary || sample;
-
-  const expectedCash =
-    Number(summary?.cashier_turnover?.expected_cash ?? summary?.sales?.cash ?? 0);
-
-  const remittedCash = Number(summary?.cashier_turnover?.remitted_cash || 0);
-
-  const variance = Number(
-    summary?.cashier_turnover?.variance_cash ?? remittedCash - expectedCash
+  const sampleTurnover = useMemo(
+    () => [
+      {
+        id: 1,
+        cashier_name: "Maria Santos",
+        shift: "Morning",
+        cash_expected: 2500,
+        cash_counted: 2500,
+        variance: 0,
+        status: "verified",
+        recorded_at: "2026-01-19 18:12",
+      },
+      {
+        id: 2,
+        cashier_name: "Juan Dela Cruz",
+        shift: "Afternoon",
+        cash_expected: 2700,
+        cash_counted: 2600,
+        variance: -100,
+        status: "flagged",
+        recorded_at: "2026-01-19 19:03",
+      },
+    ],
+    []
   );
 
-  const ok = variance === 0;
+  const summary = page.props?.summary || sampleSummary;
+  const turnoverRows = page.props?.cashier_turnover || sampleTurnover;
+
+  const expectedCash = Number(summary?.cash_expected || 0);
+  const remittedCash = Number(summary?.cash_counted || 0);
+  const variance = Number(summary?.variance ?? remittedCash - expectedCash);
+  const ok = Math.abs(variance) < 0.01;
+
+  const turnoverCounts = useMemo(() => {
+    const counts = { pending: 0, verified: 0, flagged: 0 };
+    turnoverRows.forEach((row) => {
+      const status = String(row?.status || "pending").toLowerCase();
+      counts[status] = (counts[status] ?? 0) + 1;
+    });
+    return counts;
+  }, [turnoverRows]);
+
+  const salesTotal = Number(summary?.sales_total || 0);
+  const salesCount = Number(summary?.sales_count || 0);
+  const nonCashSales = Number(
+    summary?.non_cash_total ?? Math.max(0, salesTotal - expectedCash)
+  );
 
   const handleDateChange = (e) => {
     const v = e.target.value;
     setDate(v);
-    router.get("/dashboard/accountant/daily", { date: v }, { preserveScroll: true, preserveState: true, replace: true });
+    router.get(
+      "/dashboard/accountant/daily",
+      { date: v },
+      { preserveScroll: true, preserveState: true, replace: true }
+    );
   };
 
   return (
@@ -173,7 +215,7 @@ export default function DailySummary() {
                 <CalendarDays className="h-4 w-4 text-slate-500" />
                 <input
                   type="date"
-                  value={date || summary?.business_date || ""}
+                  value={date || summary?.date || ""}
                   onChange={handleDateChange}
                   className="bg-transparent text-sm outline-none text-slate-800"
                 />
@@ -194,19 +236,19 @@ export default function DailySummary() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Stat
             label="Total Sales"
-            value={money(summary?.sales?.total || 0)}
-            hint={`${summary?.sales?.transactions_count || 0} transactions recorded`}
+            value={money(salesTotal)}
+            hint={`${salesCount} transactions recorded`}
             tone="slate"
           />
           <Stat
             label="Cash Sales"
-            value={money(summary?.sales?.cash || 0)}
+            value={money(expectedCash)}
             hint="Expected to be turned over as cash"
             tone="teal"
           />
           <Stat
             label="Non Cash Sales"
-            value={money(summary?.sales?.non_cash || 0)}
+            value={money(nonCashSales)}
             hint="GCash, bank transfer, card"
             tone="slate"
           />
@@ -252,9 +294,9 @@ export default function DailySummary() {
               <div className="mt-1 text-xs text-slate-500">Counts for the selected day</div>
 
               <div className="mt-4 divide-y divide-slate-200">
-                <Row label="Pending" value={summary?.cashier_turnover?.pending_count ?? 0} />
-                <Row label="Verified" value={summary?.cashier_turnover?.verified_count ?? 0} />
-                <Row label="Flagged" value={summary?.cashier_turnover?.flagged_count ?? 0} />
+                <Row label="Pending" value={turnoverCounts.pending} />
+                <Row label="Verified" value={turnoverCounts.verified} />
+                <Row label="Flagged" value={turnoverCounts.flagged} />
               </div>
 
               <div className="mt-4">
@@ -299,7 +341,7 @@ export default function DailySummary() {
                     onClick={() => {
                       router.post(
                         "/dashboard/accountant/daily/finalize",
-                        { date: summary?.business_date },
+                        { date: summary?.date },
                         { preserveScroll: true }
                       );
                     }}
@@ -331,6 +373,84 @@ export default function DailySummary() {
             </div>
           </Card>
         </div>
+
+        <Card>
+          <div className="p-6 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div className="text-sm font-extrabold text-slate-900">Cashier remittances</div>
+                <div className="mt-1 text-xs text-slate-500">
+                  Expected versus counted cash per cashier for {summary?.date}.
+                </div>
+              </div>
+              <div className="text-xs font-extrabold text-slate-900">{money(salesTotal)} total sales</div>
+            </div>
+
+            <div className="space-y-3">
+              {turnoverRows.length ? (
+                turnoverRows.map((row) => {
+                  const varianceValue = Number(row?.variance || 0);
+                  const varianceTone =
+                    Math.abs(varianceValue) < 0.01
+                      ? "text-teal-700"
+                      : varianceValue < 0
+                      ? "text-rose-700"
+                      : "text-amber-800";
+                  const status = String(row?.status || "pending").toLowerCase();
+                  const statusThemes = {
+                    pending: ["bg-slate-100", "text-slate-700", "ring-slate-200"],
+                    verified: ["bg-teal-50", "text-teal-700", "ring-teal-200"],
+                    flagged: ["bg-amber-50", "text-amber-800", "ring-amber-200"],
+                  };
+                  const [statusBg, statusText, statusRing] = statusThemes[status] || statusThemes.pending;
+
+                  return (
+                    <div
+                      key={`${row?.cashier_name}-${row?.id ?? row?.recorded_at}`}
+                      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-extrabold text-slate-900">{row?.cashier_name || "Cashier"}</div>
+                          <div className="text-xs text-slate-500">
+                            {row?.shift || "Shift unknown"} · {row?.recorded_at || "Not recorded yet"}
+                          </div>
+                        </div>
+                        <span
+                          className={cx(
+                            "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-extrabold ring-1",
+                            statusBg,
+                            statusText,
+                            statusRing
+                          )}
+                        >
+                          {titleCase(status)}
+                        </span>
+                      </div>
+
+                      <div className="mt-4 grid gap-3 md:grid-cols-3">
+                        <div>
+                          <div className="text-xs font-semibold text-slate-500">Expected</div>
+                          <div className="text-sm font-extrabold text-slate-900">{money(row?.cash_expected)}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs font-semibold text-slate-500">Counted</div>
+                          <div className="text-sm font-extrabold text-slate-900">{money(row?.cash_counted)}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs font-semibold text-slate-500">Variance</div>
+                          <div className={cx("text-sm font-extrabold", varianceTone)}>{money(varianceValue)}</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-sm text-slate-500">No turnover records yet for this date.</div>
+              )}
+            </div>
+          </div>
+        </Card>
       </div>
     </Layout>
   );

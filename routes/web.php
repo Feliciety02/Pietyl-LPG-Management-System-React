@@ -209,9 +209,15 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/remittances', [AccountantRemittanceController::class, 'index'])
             ->middleware('permission:accountant.remittances.view')
             ->name('dash.accountant.remittances');
-        Route::post('/remittances/record', [AccountantRemittanceController::class, 'record'])
+        Route::post('/remittances/record-cash', [AccountantRemittanceController::class, 'recordCash'])
+            ->middleware('permission:accountant.remittances.verify')
+            ->name('dash.accountant.remittances.record-cash');
+        Route::post('/remittances/record', [AccountantRemittanceController::class, 'recordCash'])
             ->middleware('permission:accountant.remittances.verify')
             ->name('dash.accountant.remittances.record');
+        Route::post('/remittances/verify-noncash', [AccountantRemittanceController::class, 'verifyNonCash'])
+            ->middleware('permission:accountant.remittances.verify')
+            ->name('dash.accountant.remittances.verify-noncash');
 
         Route::get('/daily', [AccountantDailySummaryController::class, 'index'])
             ->middleware('permission:accountant.daily.view')

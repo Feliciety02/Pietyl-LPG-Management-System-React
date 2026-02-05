@@ -21,6 +21,7 @@ export default function DataTableFilters({
   const skipRef = useRef(false);
   const typedRef = useRef(false);
   const onQDebouncedRef = useRef(onQDebounced);
+  const safeFilters = Array.isArray(filters) ? filters : [];
 
   useEffect(() => {
     skipRef.current = true;
@@ -71,9 +72,9 @@ export default function DataTableFilters({
               onChange={(e) => {
                 const next = e.target.value;
                 setLocalQ(next);
-            typedRef.current = true;
-            onQ?.(next);
-          }}
+                typedRef.current = true;
+                onQ?.(next);
+              }}
               className={cx(
                 "bg-transparent text-sm outline-none placeholder:text-slate-400",
                 isInline ? "w-56" : "w-64"
@@ -82,24 +83,29 @@ export default function DataTableFilters({
             />
           </div>
 
-          {filters.map((f) => (
-            <select
-              key={f.key}
-              value={f.value}
-              onChange={(e) => f.onChange?.(e.target.value)}
-              className={cx(
-                "rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-slate-800",
-                "ring-1 ring-slate-200 outline-none",
-                "focus:ring-4 focus:ring-teal-500/15"
-              )}
-            >
-              {f.options.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          ))}
+          {safeFilters.map((f) => {
+            const safeOptions = Array.isArray(f.options) ? f.options : [];
+            return (
+              <select
+                key={f.key}
+                value={f.value}
+                onChange={(e) => f.onChange?.(e.target.value)}
+                disabled={!safeOptions.length}
+                className={cx(
+                  "rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-slate-800",
+                  "ring-1 ring-slate-200 outline-none",
+                  "focus:ring-4 focus:ring-teal-500/15",
+                  !safeOptions.length && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                {safeOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            );
+          })}
         </div>
 
         {rightSlot ? <div className="flex items-center gap-2">{rightSlot}</div> : null}
