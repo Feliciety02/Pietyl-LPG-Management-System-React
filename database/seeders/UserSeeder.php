@@ -29,7 +29,17 @@ class UserSeeder extends Seeder
             [
                 'email' => 'rider@pietyl.test',
                 'role' => 'rider',
-                'name' => 'Test Rider',
+                'name' => 'Test Rider 1',
+            ],
+            [
+                'email' => 'rider2@pietyl.test',
+                'role' => 'rider',
+                'name' => 'Test Rider 2',
+            ],
+            [
+                'email' => 'rider3@pietyl.test',
+                'role' => 'rider',
+                'name' => 'Test Rider 3',
             ],
             [
                 'email' => 'inventory@pietyl.test',
@@ -38,11 +48,18 @@ class UserSeeder extends Seeder
             ],
         ];
 
-        foreach ($users as $u) {
+        foreach ($users as $index => $u) {
             $employee = DB::table('employees')->where('email', $u['email'])->first();
             if (!$employee) {
+                // Generate unique employee numbers for riders
+                $employeeNo = strtoupper($u['role']) . '-001';
+                if ($u['role'] === 'rider' && $index >= 3) {
+                    $riderNum = $index - 2; // 1, 2, 3
+                    $employeeNo = 'RIDER-' . str_pad($riderNum, 3, '0', STR_PAD_LEFT);
+                }
+                
                 $employeeId = DB::table('employees')->insertGetId([
-                    'employee_no' => strtoupper($u['role']) . '-001',
+                    'employee_no' => $employeeNo,
                     'first_name' => $u['name'],
                     'last_name' => 'User',
                     'email' => $u['email'],
@@ -51,8 +68,14 @@ class UserSeeder extends Seeder
                     'updated_at' => now(),
                 ]);
             } else {
+                $employeeNo = strtoupper($u['role']) . '-001';
+                if ($u['role'] === 'rider' && $index >= 3) {
+                    $riderNum = $index - 2;
+                    $employeeNo = 'RIDER-' . str_pad($riderNum, 3, '0', STR_PAD_LEFT);
+                }
+                
                 DB::table('employees')->where('id', $employee->id)->update([
-                    'employee_no' => strtoupper($u['role']) . '-001',
+                    'employee_no' => $employeeNo,
                     'first_name' => $u['name'],
                     'last_name' => 'User',
                     'status' => 'active',
