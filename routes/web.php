@@ -21,6 +21,7 @@ use App\Http\Controllers\Accountant\RemittanceController as AccountantRemittance
 use App\Http\Controllers\Accountant\DailySummaryController as AccountantDailySummaryController;
 use App\Http\Controllers\Accountant\LedgerController as AccountantLedgerController;
 use App\Http\Controllers\Accountant\ReportController as AccountantReportController;
+use App\Http\Controllers\Rider\RiderDeliveryController;
 
 Route::get('/', function () {
     if (Auth::check()) {
@@ -242,10 +243,19 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('dashboard/rider')->middleware('role:rider')->group(function () {
         Route::get('/', fn () => Inertia::render('Dashboard/Dashboard'))->name('dash.rider');
 
-        Route::get('/deliveries', fn () => Inertia::render('RiderPage/MyDeliveries'))
+        Route::get('/deliveries', [RiderDeliveryController::class, 'index'])
+        ->middleware('permission:rider.deliveries.view')
+        ->name('dash.rider.deliveries');
+    
+        Route::patch('/deliveries/{delivery}', [RiderDeliveryController::class, 'updateStatus'])
             ->middleware('permission:rider.deliveries.view')
-            ->name('dash.rider.deliveries');
-        Route::get('/history', fn () => Inertia::render('RiderPage/History'))
+            ->name('dash.rider.deliveries.update');
+        
+        Route::patch('/deliveries/{delivery}/note', [RiderDeliveryController::class, 'updateNote'])
+            ->middleware('permission:rider.deliveries.view')
+            ->name('dash.rider.deliveries.note');
+
+        Route::get('/history', [RiderDeliveryController::class, 'history'])
             ->middleware('permission:rider.history.view')
             ->name('dash.rider.history');
 

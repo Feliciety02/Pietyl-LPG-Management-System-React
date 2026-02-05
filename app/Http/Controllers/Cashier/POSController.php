@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Cashier;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Models\User;
 use App\Models\DailyClose;
 use App\Models\Delivery;
 use App\Models\Location;
@@ -390,12 +391,47 @@ class POSController extends Controller
                 }
 
                 if ($defaultAddress) {
+                    // Find rider with least active deliveries
+                    $riders = User::whereHas('roles', function($q) {
+                        $q->where('name', 'rider');
+                    })->get();
+
+                    $selectedRiderId = null;
+
+                    if ($riders->isNotEmpty()) {
+                        $riderWorkload = [];
+                        foreach ($riders as $rider) {
+                            $activeCount = Delivery::where('assigned_rider_user_id', $rider->id)
+                                ->whereIn('status', [
+                                    Delivery::STATUS_PENDING,
+                                    Delivery::STATUS_ASSIGNED,
+                                    Delivery::STATUS_IN_TRANSIT,
+                                ])
+                                ->count();
+                            
+                            $riderWorkload[] = [
+                                'id' => $rider->id,
+                                'count' => $activeCount,
+                            ];
+                        }
+
+                        usort($riderWorkload, function($a, $b) {
+                            if ($a['count'] === $b['count']) {
+                                return $a['id'] <=> $b['id'];
+                            }
+                            return $a['count'] <=> $b['count'];
+                        });
+
+                        $selectedRiderId = $riderWorkload[0]['id'] ?? null;
+                    }
+
                     Delivery::create([
                         'delivery_number' => Delivery::generateDeliveryNumber(),
                         'sale_id' => $sale->id,
                         'customer_id' => $request->customer_id,
                         'address_id' => $defaultAddress->id,
-                        'status' => Delivery::STATUS_PENDING,
+                        'assigned_rider_user_id' => $selectedRiderId,
+                        'status' => $selectedRiderId ? Delivery::STATUS_ASSIGNED : Delivery::STATUS_PENDING,
                         'scheduled_at' => Carbon::now()->addHours(2),
                     ]);
                 } else {
@@ -407,8 +443,6 @@ class POSController extends Controller
             }
 
             DB::commit();
-
-            
 
             Log::info('POS store: committed', [
                 'sale_id' => $sale->id,
@@ -430,6 +464,7 @@ class POSController extends Controller
 
             return redirect()->back()->with('error', 'Failed to process sale: ' . $e->getMessage());
         }
+
     }
 
     public function deductOne(Location $location, ProductVariant $variant, int $qty = 1): void
