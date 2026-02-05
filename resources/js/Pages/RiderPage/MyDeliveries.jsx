@@ -45,15 +45,15 @@ function StatusPill({ status }) {
   const s = String(status || "").toLowerCase();
 
   const meta =
-    s === "pending"
-      ? { label: "Pending", cls: "bg-slate-100 text-slate-700 ring-slate-200" }
-      : s === "on_the_way" || s === "on the way"
-      ? { label: "On the way", cls: "bg-teal-50 text-teal-800 ring-teal-200" }
-      : s === "delivered"
-      ? { label: "Delivered", cls: "bg-emerald-50 text-emerald-800 ring-emerald-200" }
-      : s === "failed" || s === "rescheduled"
-      ? { label: s === "failed" ? "Failed" : "Rescheduled", cls: "bg-rose-50 text-rose-800 ring-rose-200" }
-      : { label: status || "Unknown", cls: "bg-slate-100 text-slate-700 ring-slate-200" };
+  s === "pending" || s === "assigned"
+    ? { label: "Pending", cls: "bg-slate-100 text-slate-700 ring-slate-200" }
+    : s === "in_transit" || s === "on_the_way" || s === "on the way"
+    ? { label: "On the way", cls: "bg-teal-50 text-teal-800 ring-teal-200" }
+    : s === "delivered"
+    ? { label: "Delivered", cls: "bg-emerald-50 text-emerald-800 ring-emerald-200" }
+    : s === "failed" || s === "rescheduled"
+    ? { label: s === "failed" ? "Failed" : "Rescheduled", cls: "bg-rose-50 text-rose-800 ring-rose-200" }
+    : { label: status || "Unknown", cls: "bg-slate-100 text-slate-700 ring-slate-200" };
 
   return (
     <span className={cx("inline-flex items-center rounded-full px-3 py-1 text-[11px] font-extrabold ring-1", meta.cls)}>
@@ -70,9 +70,11 @@ function canTransition(from, to) {
   const F = normalize(f);
   const T = normalize(t);
 
-  if (F === "pending" && (T === "on_the_way" || T === "failed" || T === "rescheduled")) return true;
-  if (F === "on_the_way" && (T === "delivered" || T === "failed" || T === "rescheduled")) return true;
-
+  // Allow transitions from pending OR assigned to in_transit
+  if ((F === "pending" || F === "assigned") && (T === "in_transit" || T === "failed")) return true;
+  
+  // Allow transitions from in_transit to delivered or failed
+  if (F === "in_transit" && (T === "delivered" || T === "failed")) return true;
   return false;
 }
 
@@ -467,8 +469,8 @@ export default function MyDeliveries() {
                     <div className="mt-3 flex flex-wrap gap-2">
                       <ActionBtn
                         icon={Navigation}
-                        disabled={!canTransition(selectedStatus, "on_the_way")}
-                        onClick={() => updateStatus("on_the_way")}
+                        disabled={!canTransition(selectedStatus, "in_transit")}
+                        onClick={() => updateStatus("in_transit")}
                       >
                         On the way
                       </ActionBtn>
