@@ -251,7 +251,7 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('permission:rider.deliveries.view')
             ->name('dash.rider.deliveries.note');
 
-        Route::get('/history', fn () => Inertia::render('RiderPage/History'))
+        Route::get('/history', [RiderDeliveryController::class, 'history'])
             ->middleware('permission:rider.history.view')
             ->name('dash.rider.history');
 
