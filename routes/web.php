@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\EmployeeController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\ReportsController;
 use App\Http\Controllers\Inventory\PurchaseController;
 use App\Http\Controllers\Inventory\RestockRequestController;
 use App\Http\Controllers\Accountant\RemittanceController as AccountantRemittanceController;
@@ -109,9 +110,12 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('permission:admin.audit.view')
             ->name('dash.admin.audit');
 
-        Route::get('/reports', fn () => Inertia::render('AdminPage/Reports'))
+        Route::get('/reports', [ReportsController::class, 'index'])
             ->middleware('permission:admin.reports.view')
             ->name('dash.admin.reports');
+        Route::get('/reports/export', [ReportsController::class, 'export'])
+            ->middleware('permission:admin.reports.export')
+            ->name('dash.admin.reports.export');
 
         Route::get('/suppliers', [SupplierController::class, 'index'])
             ->middleware('permission:admin.suppliers.view')
