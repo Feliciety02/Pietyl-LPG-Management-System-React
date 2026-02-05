@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 
 class RoleController extends Controller
 {
@@ -126,6 +127,8 @@ class RoleController extends Controller
             }
         }
 
+        $this->refreshPermissionCache();
+
         return back();
     }
 
@@ -146,6 +149,10 @@ class RoleController extends Controller
             'label' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:255'],
         ]);
+
+        if ($role->isProtectedAdmin()) {
+            return back()->withErrors(['role' => 'The admin role is protected and cannot be modified.']);
+        }
 
         $role->update([
             'name' => $data['name'],
@@ -198,6 +205,11 @@ class RoleController extends Controller
         ]);
 
         $guard = config('auth.defaults.guard', 'web');
+
+        if ($role->isProtectedAdmin()) {
+            abort(403, 'The admin role permissions are protected and cannot be changed.');
+        }
+
         $names = $data['permissions'] ?? [];
 
         $permissions = Permission::query()
@@ -206,7 +218,13 @@ class RoleController extends Controller
             ->get();
 
         $role->syncPermissions($permissions);
+        $this->refreshPermissionCache();
 
         return back();
+    }
+
+    private function refreshPermissionCache(): void
+    {
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 }

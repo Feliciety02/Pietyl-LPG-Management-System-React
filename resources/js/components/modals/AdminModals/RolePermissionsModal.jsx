@@ -27,6 +27,7 @@ export default function RolePermissionsModal({
 }) {
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState([]);
+  const isAdmin = role?.name === "admin";
 
   useEffect(() => {
     if (!open) return;
@@ -65,7 +66,7 @@ export default function RolePermissionsModal({
     setSelected((prev) => prev.filter((name) => !remove.has(name)));
   };
 
-  const canSubmit = Boolean(role?.id) && !loading;
+  const canSubmit = Boolean(role?.id) && !loading && !isAdmin;
 
   const submit = () => {
     if (!canSubmit) return;

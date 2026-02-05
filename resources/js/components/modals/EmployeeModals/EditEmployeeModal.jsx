@@ -108,6 +108,8 @@ export default function EditEmployeeModal({
     lastEmployeeIdRef.current = employee.id;
   }, [open, employee?.id]);
 
+  const isAdminEmployee = Boolean(employee?.user?.role === "admin");
+
   const canSubmit = useMemo(() => {
     if (!employee?.id) return false;
 
@@ -250,8 +252,20 @@ export default function EditEmployeeModal({
             />
           </Field>
 
-          <Field label="Position" hint="Required. Controls role assignment." required>
-            <Select value={position} onChange={(e) => setPosition(e.target.value)} disabled={saving || loading}>
+          <Field
+            label="Position"
+            hint={
+              isAdminEmployee
+                ? "Admin role is locked and cannot be changed."
+                : "Required. Controls role assignment."
+            }
+            required
+          >
+            <Select
+              value={position}
+              onChange={(e) => setPosition(e.target.value)}
+              disabled={saving || loading || isAdminEmployee}
+            >
               <option value="" disabled>
                 Select position
               </option>

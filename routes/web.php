@@ -33,16 +33,23 @@ Route::get('/', function () {
             'accountant' => '/dashboard/accountant',
             'rider' => '/dashboard/rider',
             'inventory_manager' => '/dashboard/inventory',
-            default => '/',
+            default => '/dashboard/admin',
         });
     }
 
     return Inertia::render('LandingPage');
 })->name('home');
 
-Route::post('/login', [LoginController::class, 'store'])->name('login');
+Route::get('/login', function () {
+    if (Auth::check()) {
+        return redirect('/');
+    }
+
+    return Inertia::render('Auth/Login');
+})->name('login');
+
+Route::post('/login', [LoginController::class, 'store'])->name('login.store');
 Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
-Route::get('/login', function () {return redirect('/');});
 
 Route::middleware(['auth'])->group(function () {
 
@@ -58,6 +65,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/password/confirm', [UserController::class, 'confirmPassword'])
             ->middleware(['permission:admin.users.update', 'throttle:10,1'])
             ->name('dash.admin.password.confirm');
+
         Route::get('/employees', [EmployeeController::class, 'index'])
             ->middleware('permission:admin.employees.view')
             ->name('dash.admin.employees');
@@ -73,9 +81,11 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/employees/{employee}/unlink-user', [EmployeeController::class, 'unlinkUser'])
             ->middleware('permission:admin.employees.update')
             ->name('dash.admin.employees.unlink-user');
+
         Route::get('/customers', fn () => Inertia::render('CashierPage/Customers'))
             ->middleware('permission:admin.customers.view')
-            ->name('dash.admin.customer');  
+            ->name('dash.admin.customer');
+
         Route::get('/roles', [RoleController::class, 'index'])
             ->middleware('permission:admin.roles.view')
             ->name('dash.admin.roles');
@@ -94,12 +104,15 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/roles/{role}/restore', [RoleController::class, 'restore'])
             ->middleware('permission:admin.roles.restore')
             ->name('dash.admin.roles.restore');
+
         Route::get('/audit', [AuditLogController::class, 'index'])
             ->middleware('permission:admin.audit.view')
             ->name('dash.admin.audit');
+
         Route::get('/reports', fn () => Inertia::render('AdminPage/Reports'))
             ->middleware('permission:admin.reports.view')
             ->name('dash.admin.reports');
+
         Route::get('/suppliers', [SupplierController::class, 'index'])
             ->middleware('permission:admin.suppliers.view')
             ->name('dash.admin.suppliers');
@@ -115,6 +128,7 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/suppliers/{supplier}/restore', [SupplierController::class, 'restore'])
             ->middleware('permission:admin.suppliers.archive')
             ->name('dash.admin.suppliers.restore');
+
         Route::get('/products', [ProductController::class, 'index'])
             ->middleware('permission:admin.products.view')
             ->name('dash.admin.products');
@@ -146,20 +160,20 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('dashboard/cashier')->middleware('role:cashier')->group(function () {
         Route::get('/', fn () => Inertia::render('Dashboard/Dashboard'))->name('dash.cashier');
 
-        //Route::get('/POS', fn () => Inertia::render('CashierPage/POS'))->name('dash.cashier.POS');
-        
         Route::get('/POS', [POSController::class, 'index'])
             ->middleware('permission:cashier.pos.use')
             ->name('dash.cashier.POS');
         Route::post('/POS', [POSController::class, 'store'])
             ->middleware('permission:cashier.sales.create')
             ->name('dash.cashier.POS.store');
+
         Route::get('/sales', [SaleController::class, 'index'])
             ->middleware('permission:cashier.sales.view')
             ->name('dash.cashier.sales');
         Route::get('/sales/latest', [SaleController::class, 'latest'])
             ->middleware('permission:cashier.sales.view')
             ->name('dash.cashier.sales.latest');
+
         Route::get('/audit', [AuditLogController::class, 'index'])
             ->middleware('permission:cashier.audit.view')
             ->name('dash.cashier.audit');
@@ -179,7 +193,6 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/customers/{customer}', [CustomerController::class, 'destroy'])
             ->middleware('permission:cashier.customers.delete')
             ->name('dash.cashier.customers.destroy');
-        
     });
 
     Route::prefix('dashboard/accountant')->middleware('role:accountant')->group(function () {
@@ -202,15 +215,18 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/payroll', fn () => Inertia::render('AccountantPage/Payroll'))
             ->middleware('permission:accountant.payroll.view')
             ->name('dash.accountant.payroll');
+
         Route::get('/ledger', [AccountantLedgerController::class, 'index'])
             ->middleware('permission:accountant.ledger.view')
             ->name('dash.accountant.ledger');
+
         Route::get('/reports', [AccountantReportController::class, 'index'])
             ->middleware('permission:accountant.reports.view')
             ->name('dash.accountant.reports');
         Route::get('/reports/export', [AccountantReportController::class, 'export'])
             ->middleware('permission:accountant.reports.view')
             ->name('dash.accountant.reports.export');
+
         Route::get('/audit', [AuditLogController::class, 'index'])
             ->middleware('permission:accountant.audit.view')
             ->name('dash.accountant.audit');
@@ -225,6 +241,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/history', fn () => Inertia::render('RiderPage/History'))
             ->middleware('permission:rider.history.view')
             ->name('dash.rider.history');
+
         Route::get('/audit', [AuditLogController::class, 'index'])
             ->middleware('permission:rider.audit.view')
             ->name('dash.rider.audit');
@@ -233,7 +250,6 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('dashboard/inventory')->middleware('role:inventory_manager|admin')->group(function () {
         Route::get('/', fn () => Inertia::render('Dashboard/Dashboard'))->name('dash.inventory');
 
-        // Stock Management
         Route::get('/counts', [StockController::class, 'stockCount'])
             ->middleware('permission:inventory.stock.view')
             ->name('dash.inventory.counts');
@@ -243,22 +259,19 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/counts/{stockCount}/review', [StockController::class, 'reviewCount'])
             ->middleware('permission:inventory.stock.view')
             ->name('dash.inventory.counts.review');
+
         Route::get('/low-stock', [StockController::class, 'lowStock'])
             ->middleware('permission:inventory.stock.low_stock')
             ->name('dash.inventory.lowstock');
 
-        // Purchase Requests (backend = RestockRequest)
-        Route::get('/purchases', [RestockRequestController::class, 'index'])
+        Route::get('/purchases', [PurchaseController::class, 'index'])
             ->middleware('permission:inventory.purchases.view')
             ->name('dash.inventory.purchases');
+
         Route::post('/purchase-requests', [RestockRequestController::class, 'store'])
             ->middleware('permission:inventory.purchases.create')
             ->name('dash.inventory.purchase-requests.store');
 
-
-        Route::get('/purchases', [PurchaseController::class, 'index'])
-        ->middleware('permission:inventory.purchases.view')
-        ->name('dash.inventory.purchases');
         Route::post('/purchases', [PurchaseController::class, 'store'])
             ->middleware('permission:inventory.purchases.create')
             ->name('dash.inventory.purchases.store');
@@ -268,35 +281,37 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/purchases/{purchase}', [PurchaseController::class, 'update'])
             ->middleware('permission:inventory.purchases.update')
             ->name('dash.inventory.purchases.update');
+
         Route::post('/purchases/{purchase}/approve', [PurchaseController::class, 'approve'])
             ->middleware('permission:inventory.purchases.approve')
             ->name('dash.inventory.purchases.approve');
         Route::post('/purchases/{purchase}/reject', [PurchaseController::class, 'reject'])
             ->middleware('permission:inventory.purchases.approve')
             ->name('dash.inventory.purchases.reject');
+
         Route::post('/purchases/{purchase}/mark-delivered', [PurchaseController::class, 'markDelivered'])
             ->middleware('permission:inventory.purchases.mark_delivered')
             ->name('dash.inventory.purchases.mark-delivered');
+
         Route::post('/purchases/{purchase}/confirm', [PurchaseController::class, 'confirm'])
             ->middleware('permission:inventory.purchases.confirm')
             ->name('dash.inventory.purchases.confirm');
+
         Route::post('/purchases/{purchase}/discrepancy', [PurchaseController::class, 'discrepancy'])
             ->middleware('permission:inventory.purchases.confirm')
             ->name('dash.inventory.purchases.discrepancy');
 
-        
-
-        // Other Inventory Pages
         Route::get('/movements', [StockController::class, 'movements'])
             ->middleware('permission:inventory.movements.view')
             ->name('dash.inventory.movements');
+
         Route::get('/suppliers', [SupplierController::class, 'index'])
             ->middleware('permission:inventory.suppliers.view')
             ->name('dash.inventory.suppliers');
+
         Route::get('/audit', [AuditLogController::class, 'index'])
             ->middleware('permission:inventory.audit.view')
             ->name('dash.inventory.audit');
-
     });
 
 });

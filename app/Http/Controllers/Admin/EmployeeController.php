@@ -151,9 +151,18 @@ class EmployeeController extends Controller
             $employeeNo = $this->generateEmployeeNo();
         }
 
+        $newPosition = $validated['position'] ?? $employee->position;
+        $roleName = $this->roleFromPosition($newPosition);
+
+        if ($employee->user && $employee->user->hasRole('admin') && $roleName !== 'admin') {
+            return redirect()->back()->withErrors([
+                'position' => 'Admin role is protected and cannot be changed.',
+            ]);
+        }
+
         $employee->update([
             'employee_no' => $employeeNo,
-            'position' => $validated['position'] ?? $employee->position,
+            'position' => $newPosition,
             'status' => $validated['status'] ?? $employee->status,
             'phone' => $validated['phone'] ?? $employee->phone,
             'notes' => $validated['notes'] ?? $employee->notes,
@@ -161,7 +170,6 @@ class EmployeeController extends Controller
         ]);
 
         if ($employee->user) {
-            $roleName = $this->roleFromPosition($employee->position);
             if ($roleName && Role::where('name', $roleName)->exists()) {
                 $employee->user->syncRoles([$roleName]);
             }

@@ -7,6 +7,10 @@ use App\Models\InventoryBalance;
 use App\Models\StockCount;
 use App\Models\ProductVariant;
 use App\Models\Location;
+use Spatie\Permission\PermissionRegistrar;
+use App\Models\Role;
+use App\Models\User;
+use Spatie\Permission\Models\Permission;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -60,3 +64,33 @@ Artisan::command('inventory:recalculate-balances {--reset-counts}', function () 
 
     $this->info('Inventory balances recalculated from stock movements.');
 })->purpose('Recalculate inventory balances from stock movements (use --reset-counts to clear stock counts).');
+
+Artisan::command('pietyl:ensure-admin-access', function () {
+    $guard = config('auth.defaults.guard', 'web');
+
+    $this->comment('Ensuring admin role and user keep full access.');
+
+    $role = Role::where('name', 'admin')->first();
+    if (!$role) {
+        $this->error('The admin role does not exist.');
+        return;
+    }
+
+    $permissions = Permission::where('guard_name', $guard)->get();
+    if ($permissions->isEmpty()) {
+        $this->warn('No permissions found for guard '.$guard.'.');
+    }
+
+    $role->syncPermissions($permissions);
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+    $this->info(sprintf('Admin role synced with %d permissions.', $permissions->count()));
+
+    $user = User::where('email', 'admin@pietyl.test')->first();
+    if (!$user) {
+        $this->error('admin@pietyl.test user is not present.');
+        return;
+    }
+
+    $user->syncRoles([$role]);
+    $this->info('admin@pietyl.test is confirmed to have the admin role assigned.');
+})->purpose('Restore full permissions to the system admin account and role.');

@@ -39,48 +39,68 @@ class UserSeeder extends Seeder
         ];
 
         foreach ($users as $u) {
-
-            // skip if user already exists
-            if (DB::table('users')->where('email', $u['email'])->exists()) {
-                continue;
+            $employee = DB::table('employees')->where('email', $u['email'])->first();
+            if (!$employee) {
+                $employeeId = DB::table('employees')->insertGetId([
+                    'employee_no' => strtoupper($u['role']) . '-001',
+                    'first_name' => $u['name'],
+                    'last_name' => 'User',
+                    'email' => $u['email'],
+                    'status' => 'active',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            } else {
+                DB::table('employees')->where('id', $employee->id)->update([
+                    'employee_no' => strtoupper($u['role']) . '-001',
+                    'first_name' => $u['name'],
+                    'last_name' => 'User',
+                    'status' => 'active',
+                    'updated_at' => now(),
+                ]);
+                $employeeId = $employee->id;
             }
 
-            // create employee
-            $employeeId = DB::table('employees')->insertGetId([
-                'employee_no' => strtoupper($u['role']) . '-001',
-                'first_name' => $u['name'],
-                'last_name' => 'User',
-                'email' => $u['email'],
-                'status' => 'active',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+            $user = DB::table('users')->where('email', $u['email'])->first();
+            if (!$user) {
+                $userId = DB::table('users')->insertGetId([
+                    'name' => $u['name'],
+                    'email' => $u['email'],
+                    'password' => Hash::make('password'),
+                    'employee_id' => $employeeId,
+                    'is_active' => 1,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            } else {
+                DB::table('users')->where('id', $user->id)->update([
+                    'name' => $u['name'],
+                    'employee_id' => $employeeId,
+                    'is_active' => 1,
+                    'updated_at' => now(),
+                ]);
+                $userId = $user->id;
+            }
 
-            // create user
-            $userId = DB::table('users')->insertGetId([
-                'name' => $u['name'],
-                'email' => $u['email'],
-                'password' => Hash::make('password'),
-                'employee_id' => $employeeId,
-                'is_active' => 1,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            // Link employee back to user
             DB::table('employees')->where('id', $employeeId)->update([
                 'user_id' => $userId,
                 'updated_at' => now(),
             ]);
 
-            // assign role (spatie model_has_roles)
             $roleId = DB::table('roles')->where('name', $u['role'])->value('id');
             if ($roleId) {
-                DB::table('model_has_roles')->insert([
-                    'role_id' => $roleId,
-                    'model_type' => \App\Models\User::class,
-                    'model_id' => $userId,
-                ]);
+                DB::table('model_has_roles')->updateOrInsert(
+                    [
+                        'role_id' => $roleId,
+                        'model_type' => \App\Models\User::class,
+                        'model_id' => $userId,
+                    ],
+                    [
+                        'role_id' => $roleId,
+                        'model_type' => \App\Models\User::class,
+                        'model_id' => $userId,
+                    ]
+                );
             }
         }
     }

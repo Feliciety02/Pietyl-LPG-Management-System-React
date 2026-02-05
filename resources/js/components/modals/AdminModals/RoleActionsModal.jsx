@@ -86,6 +86,7 @@ export default function RoleActionsModal({
 }) {
   const isSystem = Boolean(role?.is_system);
   const isArchived = Boolean(role?.is_archived);
+  const isAdmin = role?.name === "admin";
   const roleLabel = role ? String(role.label || role.name || "role") : "role";
   const canAct = Boolean(role?.id) && !loading;
 
@@ -113,17 +114,26 @@ export default function RoleActionsModal({
         <ActionCard
           icon={KeyRound}
           title="Manage permissions"
-          hint="Assign or remove permissions for this role."
+          hint={
+            isAdmin
+              ? "Admin permissions are locked and synchronized automatically."
+              : "Assign or remove permissions for this role."
+          }
           onClick={() => canAct && onPermissions?.()}
-          disabled={!role?.id || loading || isArchived}
+          disabled={!role?.id || loading || isArchived || isAdmin}
+          tone={isAdmin ? "locked" : undefined}
         />
 
         <ActionCard
           icon={Copy}
           title="Duplicate role"
-          hint="Create a new role with similar access and permissions."
+          hint={
+            isAdmin
+              ? "Admin cannot be duplicated."
+              : "Create a new role with similar access and permissions."
+          }
           onClick={() => canAct && onDuplicate?.()}
-          disabled={!role?.id || loading}
+          disabled={!role?.id || loading || isAdmin}
         />
 
         <ActionCard
