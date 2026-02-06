@@ -181,6 +181,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/sales/latest', [SaleController::class, 'latest'])
             ->middleware('permission:cashier.sales.view')
             ->name('dash.cashier.sales.latest');
+        Route::get('/sales/export', [SaleController::class, 'export'])
+            ->middleware('permission:cashier.sales.view')
+            ->name('dash.cashier.sales.export');
 
         Route::get('/sales/summary', [CashierDailySummaryController::class, 'summary'])
             ->middleware('permission:cashier.sales.view')

@@ -13,6 +13,7 @@ export default function DataTableFilters({
   debounceMs = 300,
   filters = [],
   rightSlot,
+  actions,
   variant = "card",
   containerClass,
   innerClass,
@@ -22,6 +23,7 @@ export default function DataTableFilters({
   const typedRef = useRef(false);
   const onQDebouncedRef = useRef(onQDebounced);
   const safeFilters = Array.isArray(filters) ? filters : [];
+  const actionSlot = actions ?? rightSlot;
 
   useEffect(() => {
     skipRef.current = true;
@@ -57,15 +59,17 @@ export default function DataTableFilters({
     ? cx("flex flex-wrap items-center gap-3 justify-end", containerClass)
     : cx("rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm", containerClass);
 
-  const inner = isInline
-    ? cx("flex flex-wrap items-center gap-3", innerClass)
-    : cx("p-5 flex flex-wrap items-center gap-3 justify-between", innerClass);
+  const inner = cx(
+    "flex flex-wrap items-center gap-3",
+    isInline ? "" : "p-5 justify-between",
+    innerClass
+  );
 
   return (
     <div className={container}>
       <div className={inner}>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 rounded-2xl bg-white px-3 py-2 ring-1 ring-slate-200">
+        <div className="flex flex-1 min-w-0 flex-wrap items-center gap-3">
+          <div className="flex flex-1 min-w-[180px] items-center gap-2 rounded-2xl bg-white px-3 py-2 ring-1 ring-slate-200">
             <Search className="h-4 w-4 text-slate-500" />
             <input
               value={localQ}
@@ -76,8 +80,7 @@ export default function DataTableFilters({
                 onQ?.(next);
               }}
               className={cx(
-                "bg-transparent text-sm outline-none placeholder:text-slate-400",
-                isInline ? "w-56" : "w-64"
+                "flex-1 min-w-0 bg-transparent text-sm outline-none placeholder:text-slate-400"
               )}
               placeholder={placeholder}
             />
@@ -93,8 +96,8 @@ export default function DataTableFilters({
                 disabled={!safeOptions.length}
                 className={cx(
                   "rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-slate-800",
-                  "ring-1 ring-slate-200 outline-none",
-                  "focus:ring-4 focus:ring-teal-500/15",
+                  "ring-1 ring-slate-200 outline-none focus:ring-4 focus:ring-teal-500/15",
+                  "min-w-[140px]",
                   !safeOptions.length && "opacity-50 cursor-not-allowed"
                 )}
               >
@@ -108,7 +111,9 @@ export default function DataTableFilters({
           })}
         </div>
 
-        {rightSlot ? <div className="flex items-center gap-2">{rightSlot}</div> : null}
+        {actionSlot ? (
+          <div className="flex flex-shrink-0 items-center gap-2">{actionSlot}</div>
+        ) : null}
       </div>
     </div>
   );

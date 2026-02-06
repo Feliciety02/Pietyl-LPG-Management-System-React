@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Repositories\SaleRepository;
+use Illuminate\Support\Collection;
 
 class SaleService
 {
@@ -49,5 +50,10 @@ class SaleService
                 'per_page' => $salesPaginated->perPage(),
             ],
         ];
+    }
+
+    public function getSalesForExport(array $filters = []): Collection
+    {
+        return $this->repo->getForExport($filters);
     }
 }

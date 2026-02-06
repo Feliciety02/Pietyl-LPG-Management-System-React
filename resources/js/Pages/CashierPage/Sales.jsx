@@ -13,14 +13,20 @@ import { TableActionButton } from "@/components/Table/ActionTableButton";
 
 import SaleDetailsModal from "@/components/modals/CashierModals/SaleDetailsModal";
 import ReprintReceiptModal from "@/components/modals/CashierModals/ReprintReceiptModal";
+import PrintSalesModal from "@/components/modals/CashierModals/PrintSalesModal";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
+const currencyFormatter = new Intl.NumberFormat("en-PH", {
+  style: "currency",
+  currency: "PHP",
+});
+
 function money(n) {
   const v = Number(n || 0);
-  return `₱${v.toLocaleString()}`;
+  return currencyFormatter.format(v);
 }
 
 function safeText(v) {
@@ -178,6 +184,7 @@ export default function Sales() {
   const [activeSale, setActiveSale] = useState(null);
   const [viewOpen, setViewOpen] = useState(false);
   const [reprintOpen, setReprintOpen] = useState(false);
+  const [printOpen, setPrintOpen] = useState(false);
 
   const sales = page.props?.sales ?? { data: [], meta: null };
   const rows = sales?.data ?? [];
@@ -523,6 +530,17 @@ export default function Sales() {
               options: statusOptions,
             },
           ]}
+          actions={
+            !readOnly && (
+              <button
+                type="button"
+                onClick={() => setPrintOpen(true)}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-extrabold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+              >
+                Print sales
+              </button>
+            )
+          }
         />
 
         <DataTable
@@ -572,6 +590,8 @@ export default function Sales() {
           disableNext={!meta || meta.current_page >= meta.last_page}
         />
       </div>
+
+      <PrintSalesModal open={printOpen} onClose={() => setPrintOpen(false)} />
 
       <SaleDetailsModal
         open={viewOpen}
