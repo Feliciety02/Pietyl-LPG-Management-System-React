@@ -222,6 +222,11 @@ export default function SaleDetailsModal({ open, onClose, sale }) {
           padding: 10px;
           -webkit-overflow-scrolling: touch;
           background: #ffffff !important;
+          scrollbar-width: none;
+        }
+        .receipt-scroll::-webkit-scrollbar {
+          width: 0;
+          background: transparent;
         }
 
         .receipt-card{
