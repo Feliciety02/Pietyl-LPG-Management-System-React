@@ -1,8 +1,10 @@
 // resources/js/Pages/CashierPage/POS.jsx
 import React, { useMemo, useState } from "react";
 import { router, usePage, Link } from "@inertiajs/react";
+import axios from "axios";
 import Layout from "../Dashboard/Layout";
 import AddCustomerModal from "@/components/modals/CustomerModals/AddCustomerModal";
+import SaleDetailsModal from "@/components/modals/CashierModals/SaleDetailsModal";
 import { posIcons, sidebarIconMap } from "@/components/ui/Icons";
 import TransactionResultModal from "@/components/modals/TransactionResultModal";
 
@@ -175,6 +177,8 @@ export default function POS() {
   const customers = Array.isArray(page.props?.customers) ? page.props.customers : [];
 
   const [resultModal, setResultModal] = useState({ open: false, status: "success", title: "", message: "" });
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [receiptSale, setReceiptSale] = useState(null);
 
   const [delivery, setDelivery] = useState(false);
   const [payment, setPayment] = useState("cash");
@@ -252,56 +256,90 @@ export default function POS() {
 
   const canCheckout = cart.length > 0 && !readOnly && validRef && !isSubmitting && cashEnough;
 
+  const openSuccessModal = (message = "Sale was recorded successfully.") => {
+    setResultModal({
+      open: true,
+      status: "success",
+      title: "Payment complete",
+      message,
+    });
+  };
+
+  const handleReceiptClose = () => {
+    setReceiptOpen(false);
+    setReceiptSale(null);
+    openSuccessModal();
+  };
+
+  const loadLatestSaleForReceipt = async () => {
+    setReceiptSale(null);
+    const { data } = await axios.get("/dashboard/cashier/sales/latest", {
+      params: { per: 1, page: 1 },
+    });
+    const latest = Array.isArray(data?.data) ? data.data[0] ?? null : null;
+    if (!latest) {
+      throw new Error("Receipt data is not available yet.");
+    }
+    setReceiptSale(latest);
+    setReceiptOpen(true);
+  };
+
   const checkout = () => {
     if (!canCheckout) return;
 
     setIsSubmitting(true);
 
-        router.post(
-          "/dashboard/cashier/POS",
-          {
-            customer_id: customerId,
-            is_delivery: delivery,
-            payment_method: payment,
-            payment_ref: needsRef ? String(paymentRef || "").trim() : null,
+    router.post(
+      "/dashboard/cashier/POS",
+      {
+        customer_id: customerId,
+        is_delivery: delivery,
+        payment_method: payment,
+        payment_ref: needsRef ? String(paymentRef || "").trim() : null,
 
-            cash_tendered: payment === "cash" ? tenderedNumber : null,
+        cash_tendered: payment === "cash" ? tenderedNumber : null,
 
-            lines: cart.map((x) => ({
-              product_id: x.product_id,
-              qty: x.qty,
-              mode: "swap",
-              unit_price: x.unit_price,
-            })),
-          },
-          {
-            preserveScroll: true,
-            onSuccess: () => {
-              setCart([]);
-              setQ("");
-              setPaymentRef("");
-              setCashTendered("");
+        lines: cart.map((x) => ({
+          product_id: x.product_id,
+          qty: x.qty,
+          mode: "swap",
+          unit_price: x.unit_price,
+        })),
+      },
+      {
+        preserveScroll: true,
+        onSuccess: async () => {
+          setCart([]);
+          setQ("");
+          setPaymentRef("");
+          setCashTendered("");
 
-              setResultModal({ open: true, status: "success", title: "Payment complete", message: "Sale was recorded successfully." });
-            },
-            onError: (errs) => {
-              const validationError =
-                errs?.errors &&
-                typeof errs.errors === "object" &&
-                Object.values(errs.errors).find((value) => Array.isArray(value) && value.length);
-              const validationMessage = Array.isArray(validationError) ? validationError[0] : null;
-              const lockedMessage = errs?.errors?.locked?.[0];
+          try {
+            await loadLatestSaleForReceipt();
+          } catch (error) {
+            openSuccessModal(
+              "Sale was recorded successfully. Receipt may take a moment to appear."
+            );
+          }
+        },
+        onError: (errs) => {
+          const validationError =
+            errs?.errors &&
+            typeof errs.errors === "object" &&
+            Object.values(errs.errors).find((value) => Array.isArray(value) && value.length);
+          const validationMessage = Array.isArray(validationError) ? validationError[0] : null;
+          const lockedMessage = errs?.errors?.locked?.[0];
 
-              const msg =
-                errs?.message ||
-                lockedMessage ||
-                validationMessage ||
-                errs?.cash_tendered ||
-                errs?.payment_ref ||
-                errs?.customer_id ||
-                (typeof errs === "object" ? "Please review the form and try again." : "Something went wrong.");
+          const msg =
+            errs?.message ||
+            lockedMessage ||
+            validationMessage ||
+            errs?.cash_tendered ||
+            errs?.payment_ref ||
+            errs?.customer_id ||
+            (typeof errs === "object" ? "Please review the form and try again." : "Something went wrong.");
 
-              setResultModal({ open: true, status: "error", title: "Payment failed", message: String(msg) });
+          setResultModal({ open: true, status: "error", title: "Payment failed", message: String(msg) });
         },
         onFinish: () => setIsSubmitting(false),
       }
@@ -683,6 +721,8 @@ export default function POS() {
           if (created?.id) setCustomerId(created.id);
         }}
       />
+
+      <SaleDetailsModal open={receiptOpen} onClose={handleReceiptClose} sale={receiptSale} />
 
       <TransactionResultModal
         open={resultModal.open}

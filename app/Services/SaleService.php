@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Repositories\SaleRepository;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
 class SaleService
@@ -21,6 +22,10 @@ class SaleService
         return [
             'data' => collect($salesPaginated->items())->map(function ($sale) {
                 $payment = $sale->payments->first();
+                $saleDatetime = $sale->sale_datetime ? Carbon::parse($sale->sale_datetime) : null;
+
+                $dateLabel = $saleDatetime ? $saleDatetime->format('M d, Y') : null;
+                $timeLabel = $saleDatetime ? $saleDatetime->format('g:i A') : null;
 
                 return [
                     'id' => $sale->id,
@@ -30,6 +35,14 @@ class SaleService
                     'method' => $payment?->paymentMethod?->method_key ?? 'cash',
                     'status' => $sale->status,
                     'created_at' => $sale->created_at->format('M d, Y g:i A'),
+                    'amount_received' => $sale->cash_tendered,
+                    'change' => $sale->cash_change,
+                    'payment_ref' => $payment?->reference_no,
+                    'discount' => $sale->discount_total,
+                    'date' => $dateLabel,
+                    'time' => $timeLabel,
+                    'date_label' => $dateLabel,
+                    'time_label' => $timeLabel,
                     'lines' => $sale->items->map(function ($item) {
                         return [
                             'name' => $item->productVariant->product->name,
