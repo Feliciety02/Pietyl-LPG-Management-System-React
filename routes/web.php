@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\EmployeeController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ReportsController;
+use App\Http\Controllers\Admin\VatSettingsController;
 use App\Http\Controllers\Inventory\PurchaseController;
 use App\Http\Controllers\Inventory\RestockRequestController;
 use App\Http\Controllers\Accountant\RemittanceController as AccountantRemittanceController;
@@ -114,6 +115,12 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/reports', [ReportsController::class, 'index'])
             ->middleware('permission:admin.reports.view')
             ->name('dash.admin.reports');
+        Route::get('/settings/vat', [VatSettingsController::class, 'index'])
+            ->middleware('permission:admin.settings.manage')
+            ->name('dash.admin.settings.vat');
+        Route::post('/settings/vat', [VatSettingsController::class, 'update'])
+            ->middleware('permission:admin.settings.manage')
+            ->name('dash.admin.settings.vat.update');
         Route::get('/reports/export', [ReportsController::class, 'export'])
             ->middleware('permission:admin.reports.export')
             ->name('dash.admin.reports.export');
@@ -222,6 +229,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/remittances', [AccountantRemittanceController::class, 'index'])
             ->middleware('permission:accountant.remittances.view')
             ->name('dash.accountant.remittances');
+        Route::get('/remittances/review', [AccountantRemittanceController::class, 'review'])
+            ->middleware('permission:accountant.remittances.view')
+            ->name('dash.accountant.remittances.review');
         Route::post('/remittances/record-cash', [AccountantRemittanceController::class, 'recordCash'])
             ->middleware('permission:accountant.remittances.verify')
             ->name('dash.accountant.remittances.record-cash');
@@ -234,6 +244,12 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/remittances/cashless-transactions/verify', [AccountantRemittanceController::class, 'verifyCashlessTransactions'])
             ->middleware('permission:accountant.remittances.verify')
             ->name('dash.accountant.remittances.cashless-verify');
+        Route::post('/remittances/cashless-verify', [AccountantRemittanceController::class, 'verifyCashlessTransactions'])
+            ->middleware('permission:accountant.remittances.verify')
+            ->name('dash.accountant.remittances.cashless-verify.alt');
+        Route::post('/remittances/daily-close', [AccountantRemittanceController::class, 'dailyClose'])
+            ->middleware('permission:accountant.remittances.verify')
+            ->name('dash.accountant.remittances.daily-close');
 
         Route::get('/payroll', fn () => Inertia::render('AccountantPage/Payroll'))
             ->middleware('permission:accountant.payroll.view')
@@ -242,6 +258,17 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/ledger', [AccountantLedgerController::class, 'index'])
             ->middleware('permission:accountant.ledger.view')
             ->name('dash.accountant.ledger');
+
+        Route::get('/ledger/export/csv', [AccountantLedgerController::class, 'exportCsv'])
+            ->middleware('permission:accountant.ledger.view')
+            ->name('dash.accountant.ledger.export.csv');
+        Route::get('/ledger/export/pdf', [AccountantLedgerController::class, 'exportPdf'])
+            ->middleware('permission:accountant.ledger.view')
+            ->name('dash.accountant.ledger.export.pdf');
+
+        Route::get('/ledger/reference/{reference}', [AccountantLedgerController::class, 'referenceLines'])
+            ->middleware('permission:accountant.ledger.view')
+            ->name('dash.accountant.ledger.reference');
 
         Route::get('/reports', [AccountantReportController::class, 'index'])
             ->middleware('permission:accountant.reports.view')

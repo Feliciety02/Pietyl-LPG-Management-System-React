@@ -157,6 +157,8 @@ function LineSummary({ lines }) {
 
 export default function Sales() {
   const page = usePage();
+  const vatSettings = page.props?.vat_settings || {};
+  const vatActive = Boolean(vatSettings.vat_active);
 
   const role = page.props?.auth?.user?.role || "cashier";
   const isAdmin = role === "admin";
@@ -313,6 +315,9 @@ export default function Sales() {
 
   const summaryVariance = Number(dailySummary?.variance ?? 0);
   const isFinalized = dailySummary?.status === "finalized";
+  const summaryVatHint = vatActive
+    ? `Net ${money(dailySummary?.net_total ?? 0)} · VAT ${money(dailySummary?.vat_total ?? 0)}`
+    : "VAT disabled";
 
   const canFinalizeDate =
     dailySummary &&
@@ -430,9 +435,9 @@ export default function Sales() {
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               <StatCard
-                label="Total sales"
+                label="Gross sales"
                 value={summaryLoading ? "Loading..." : money(dailySummary?.sales_total ?? 0)}
-                hint="All completed sales"
+                hint={summaryVatHint}
               />
               <StatCard
                 label="Cash expected"

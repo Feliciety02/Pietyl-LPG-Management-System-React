@@ -50,6 +50,8 @@ function TypePill({ type }) {
 
 export default function Reports() {
   const page = usePage();
+  const vatSettings = page.props?.vat_settings || {};
+  const vatActive = Boolean(vatSettings.vat_active);
 
   /*
     Expected Inertia props from backend:
@@ -215,12 +217,26 @@ export default function Reports() {
           r?.__filler ? (
             <SkeletonLine w="w-56" />
           ) : r?.report_type === "sales" ? (
-            <div className="text-sm text-slate-700">
-              <span className="font-semibold text-slate-900">{money(r?.total_sales || 0)}</span>
-              <span className="text-slate-500"> total</span>
-              <span className="mx-2 text-slate-300">•</span>
-              <span className="font-semibold text-slate-900">{money(r?.total_cash || 0)}</span>
-              <span className="text-slate-500"> cash</span>
+            <div className="text-sm text-slate-700 space-y-1">
+              <div>
+                <span className="font-semibold text-slate-900">{money(r?.total_sales || 0)}</span>
+                <span className="text-slate-500"> total</span>
+                <span className="mx-2 text-slate-300">•</span>
+                <span className="font-semibold text-slate-900">{money(r?.total_cash || 0)}</span>
+                <span className="text-slate-500"> cash</span>
+              </div>
+              {vatActive ? (
+                <div className="text-xs text-slate-500">
+                  <span className="font-semibold text-slate-900">{money(r?.total_net_sales || 0)}</span>
+                  <span className="text-slate-500"> net</span>
+                  <span className="mx-2 text-slate-300">&middot;</span>
+                  <span className="font-semibold text-slate-900">{money(r?.total_vat || 0)}</span>
+                  <span className="text-slate-500"> VAT</span>
+                </div>
+              ) : (
+                <div className="text-xs text-slate-500">VAT is disabled for this report range.</div>
+              )}
+
             </div>
           ) : r?.report_type === "remittances" ? (
             <div className="text-sm text-slate-700">
@@ -247,7 +263,7 @@ export default function Reports() {
         render: (r) => (r?.__filler ? <SkeletonLine w="w-28" /> : <span className="text-sm text-slate-700">{r?.generated_at || "—"}</span>),
       },
     ],
-    []
+    [vatActive]
   );
 
   const exportBase = "/dashboard/accountant/reports/export";

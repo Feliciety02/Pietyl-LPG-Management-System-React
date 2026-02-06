@@ -33,6 +33,7 @@ class PermissionSeeder extends Seeder
             'admin.customers.update',
             'admin.customers.delete',
             'admin.audit.view',
+            'admin.settings.manage',
             'admin.reports.view',
             'admin.reports.export',
             'admin.suppliers.view',

@@ -1,7 +1,8 @@
-import React, { useMemo } from "react";
+import React from "react";
 import ModalShell from "../ModalShell";
 import { FileText, Printer } from "lucide-react";
 import HeaderLogo from "../../../../images/Header_Logo.png";
+import { treatmentLabels } from "@/services/vatCalculator";
 
 function formatCurrency(amount) {
   const v = Number(amount || 0);
@@ -14,24 +15,25 @@ function safeText(v) {
   return s;
 }
 
+function toNumber(value) {
+  const n = Number(value || 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export default function SaleDetailsModal({ open, onClose, sale }) {
   if (!sale) return null;
 
   const lines = Array.isArray(sale.lines) ? sale.lines : [];
 
-  const subtotal = useMemo(() => {
-    return lines.reduce(
-      (sum, l) => sum + Number(l.unit_price || 0) * Number(l.qty || 0),
-      0
-    );
-  }, [lines]);
-
-  const discount = Number(sale.discount || 0);
-  const discounted = Math.max(0, subtotal - discount);
-
-  const vatRate = 0.12;
-  const vat = Math.round(discounted * vatRate * 100) / 100;
-  const total = Math.round((discounted + vat) * 100) / 100;
+  const treatmentLabel =
+    treatmentLabels[sale.vat_treatment] || "VAT/Tax";
+  const netAmount = toNumber(sale.net_amount);
+  const vatAmount = toNumber(sale.vat_amount);
+  const grossAmount = toNumber(sale.gross_amount || sale.grand_total);
+  const vatApplied = Boolean(sale.vat_applied);
+  const rawRate = Number.isFinite(Number(sale.vat_rate)) ? Number(sale.vat_rate) * 100 : 0;
+  const displayRate = vatApplied ? rawRate : 0;
+  const rateLabel = `${displayRate.toFixed(2)}%`;
 
   const methodRaw = String(sale.method || "cash").toLowerCase();
   const method =
@@ -154,20 +156,32 @@ export default function SaleDetailsModal({ open, onClose, sale }) {
             </div>
 
             <div className="receipt-totals">
-              <div className="trow">
-                <span className="k">Subtotal:</span>
-                <span className="v">{formatCurrency(discounted)}</span>
+            {vatApplied ? (
+              <>
+                <div className="trow">
+                  <span className="k">Net</span>
+                  <span className="v">{formatCurrency(netAmount)}</span>
+                </div>
+                <div className="trow">
+                  <span className="k">VAT ({rateLabel})</span>
+                  <span className="v">{formatCurrency(vatAmount)}</span>
+                </div>
+                <div className="receipt-divider soft" />
+              </>
+            ) : (
+              <div className="text-xs font-semibold text-slate-500">
+                VAT is not applied for this transaction.
               </div>
-              <div className="trow">
-                <span className="k">VAT (12%):</span>
-                <span className="v">{formatCurrency(vat)}</span>
-              </div>
-
-              <div className="receipt-divider soft" />
+            )}
 
               <div className="trow total">
-                <span className="k">Total:</span>
-                <span className="v">{formatCurrency(total)}</span>
+                <span className="k">Gross</span>
+                <span className="v">{formatCurrency(grossAmount)}</span>
+              </div>
+
+              <div className="mt-2 text-[11px] font-semibold text-slate-500">
+                <div>{treatmentLabel}</div>
+                <div>{sale.vat_inclusive ? "Prices include VAT" : "Prices exclude VAT"}</div>
               </div>
             </div>
 

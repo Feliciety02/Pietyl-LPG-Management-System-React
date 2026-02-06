@@ -26,6 +26,7 @@ use App\Models\SupplierProduct;
 use App\Models\User;
 use App\Models\UserRole;
 use App\Observers\AuditTrailObserver;
+use App\Services\SettingsService;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 use Spatie\Permission\Models\Permission;
@@ -37,7 +38,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(SettingsService::class, function () {
+            return new SettingsService();
+        });
     }
 
     /**

@@ -202,10 +202,25 @@ class SaleSeeder extends Seeder
             ],
         ];
 
+        $vatDefaults = [
+            'vat_treatment' => 'exempt',
+            'vat_rate' => 0.12,
+            'vat_inclusive' => true,
+            'vat_amount' => 0,
+        ];
+
         foreach ($entries as $entry) {
             Sale::updateOrCreate(
                 ['sale_number' => $entry['sale_number']],
-                array_merge($entry, ['cashier_user_id' => $cashier->id])
+                array_merge(
+                    $entry,
+                    $vatDefaults,
+                    [
+                        'net_amount' => $entry['grand_total'],
+                        'gross_amount' => $entry['grand_total'],
+                        'cashier_user_id' => $cashier->id,
+                    ]
+                )
             );
         }
     }

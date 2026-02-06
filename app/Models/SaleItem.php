@@ -17,12 +17,18 @@ class SaleItem extends Model
         'unit_price',
         'line_total',
         'pricing_source',
+        'line_net_amount',
+        'line_vat_amount',
+        'line_gross_amount',
     ];
 
     protected $casts = [
         'qty' => 'decimal:3',
         'unit_price' => 'decimal:2',
         'line_total' => 'decimal:2',
+        'line_net_amount' => 'decimal:2',
+        'line_vat_amount' => 'decimal:2',
+        'line_gross_amount' => 'decimal:2',
     ];
 
     // Relationships

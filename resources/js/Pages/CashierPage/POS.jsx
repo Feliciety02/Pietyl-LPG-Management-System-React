@@ -1,12 +1,13 @@
 // resources/js/Pages/CashierPage/POS.jsx
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { router, usePage, Link } from "@inertiajs/react";
 import axios from "axios";
 import Layout from "../Dashboard/Layout";
 import AddCustomerModal from "@/components/modals/CustomerModals/AddCustomerModal";
 import SaleDetailsModal from "@/components/modals/CashierModals/SaleDetailsModal";
-import { posIcons, sidebarIconMap } from "@/components/ui/Icons";
 import TransactionResultModal from "@/components/modals/TransactionResultModal";
+import { posIcons, sidebarIconMap } from "@/components/ui/Icons";
+import { calculateVat, VatTreatments, treatmentLabels } from "@/services/vatCalculator";
 
 import { Info, PackageSearch, SlidersHorizontal, ShoppingCart, CreditCard, Users, Truck } from "lucide-react";
 
@@ -87,6 +88,11 @@ function EmptyState({ title, desc, icon: Icon }) {
     </div>
   );
 }
+
+const vatTreatmentOptions = Object.entries(treatmentLabels).map(([value, label]) => ({
+  value,
+  label,
+}));
 
 function PesoAmountInput({ value, onValueChange, disabled, placeholder = "0.00" }) {
   const sanitize = (raw) => {
@@ -192,6 +198,21 @@ export default function POS() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [cashTendered, setCashTendered] = useState("");
+  const vatSettings = page.props?.vat_settings || {};
+  const vatRegistered = Boolean(vatSettings.vat_registered);
+  const vatActive = Boolean(vatSettings.vat_active);
+  const vatMode = vatSettings.vat_mode || "inclusive";
+  const [vatTreatment, setVatTreatment] = useState(
+    vatRegistered && vatActive ? VatTreatments.VATABLE : VatTreatments.EXEMPT
+  );
+  const [vatInclusive, setVatInclusive] = useState(vatMode === "inclusive");
+  const [vatRate, setVatRate] = useState(vatRegistered ? Number(vatSettings.vat_rate ?? 0) : 0);
+
+  useEffect(() => {
+    setVatRate(vatRegistered ? Number(vatSettings.vat_rate ?? 0) : 0);
+    setVatTreatment(vatRegistered && vatActive ? VatTreatments.VATABLE : VatTreatments.EXEMPT);
+    setVatInclusive(vatMode === "inclusive");
+  }, [vatRegistered, vatActive, vatSettings.vat_rate, vatMode]);
 
   const filteredProducts = useMemo(() => {
     const s = String(q || "").toLowerCase().trim();
@@ -237,8 +258,27 @@ export default function POS() {
     setCart((prev) => prev.filter((x) => x._key !== k));
   };
 
-  const subtotal = useMemo(() => cart.reduce((sum, x) => sum + Number(x.unit_price || 0) * Number(x.qty || 0), 0), [cart]);
-  const total = Math.max(0, subtotal);
+  const lineTotal = useMemo(() => cart.reduce((sum, x) => sum + Number(x.unit_price || 0) * Number(x.qty || 0), 0), [cart]);
+  const shouldApplyVat = vatRegistered && vatActive;
+  const effectiveVatRate = shouldApplyVat ? vatRate : 0;
+  const effectiveVatInclusive = vatMode === "inclusive" ? true : vatInclusive;
+
+  const vatResult = useMemo(() => {
+    return calculateVat({
+      amount: lineTotal,
+      rate: effectiveVatRate,
+      inclusive: effectiveVatInclusive,
+      treatment: vatTreatment,
+    });
+  }, [lineTotal, effectiveVatRate, effectiveVatInclusive, vatTreatment]);
+
+  const grossTotal = Math.max(0, vatResult.gross_amount);
+  const netTotal = vatResult.net_amount;
+  const vatTotal = vatResult.vat_amount;
+  const displayVatRate = shouldApplyVat ? vatResult.rate_used : Number(vatSettings.vat_rate ?? 0);
+  const displayedVatRate = vatTreatment === VatTreatments.VATABLE ? vatResult.rate_used : 0;
+  const rateLabel = `${(displayVatRate * 100).toFixed(2)}%`;
+  const appliedRateLabel = `${(displayedVatRate * 100).toFixed(2)}%`;
 
   const needsRef = payment === "gcash" || payment === "card";
   const validRef = !needsRef || String(paymentRef || "").trim().length >= 4;
@@ -251,8 +291,11 @@ export default function POS() {
   }, [cashTendered]);
 
   const isCash = payment === "cash";
-  const change = useMemo(() => (isCash ? Math.max(0, tenderedNumber - total) : 0), [isCash, tenderedNumber, total]);
-  const cashEnough = !isCash || tenderedNumber >= total;
+  const change = useMemo(
+    () => (isCash ? Math.max(0, tenderedNumber - grossTotal) : 0),
+    [isCash, tenderedNumber, grossTotal]
+  );
+  const cashEnough = !isCash || tenderedNumber >= grossTotal;
 
   const canCheckout = cart.length > 0 && !readOnly && validRef && !isSubmitting && cashEnough;
 
@@ -298,6 +341,9 @@ export default function POS() {
         payment_ref: needsRef ? String(paymentRef || "").trim() : null,
 
         cash_tendered: payment === "cash" ? tenderedNumber : null,
+        vat_treatment: vatTreatment,
+        vat_inclusive: vatInclusive,
+        vat_rate: vatRate,
 
         lines: cart.map((x) => ({
           product_id: x.product_id,
@@ -639,7 +685,7 @@ export default function POS() {
                     <div className="mt-3 grid gap-2 text-sm">
                       <div className="flex items-center justify-between">
                         <span className="text-slate-600 font-semibold">Amount due</span>
-                        <span className="text-slate-800 font-extrabold">{formatPeso(total)}</span>
+                        <span className="text-slate-800 font-extrabold">{formatPeso(grossTotal)}</span>
                       </div>
 
                       <div className="flex items-center justify-between">
@@ -664,20 +710,134 @@ export default function POS() {
                   </div>
                 ) : null}
 
-                <div className="rounded-3xl bg-slate-50 ring-1 ring-slate-200 p-5">
+                {vatRegistered ? (
+                  <div className="rounded-3xl bg-slate-50 ring-1 ring-slate-200 p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-extrabold text-slate-900">VAT options</div>
+                        <p className="text-xs text-slate-500">Select treatment and pricing mode</p>
+                      </div>
+                      <span className="text-[11px] font-semibold text-slate-500">Rate: {rateLabel}</span>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className="text-[11px] font-extrabold text-slate-500">VAT treatment</label>
+                        <select
+                          value={vatTreatment}
+                          onChange={(event) => setVatTreatment(event.target.value)}
+                          className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/25"
+                        >
+                          {vatTreatmentOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-extrabold text-slate-500">Pricing</label>
+                        {vatMode === "inclusive" ? (
+                          <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+                            VAT-inclusive pricing enforced by admin.
+                          </div>
+                        ) : (
+                          <div className="mt-2 flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setVatInclusive(true)}
+                              className={cx(
+                                "flex-1 rounded-2xl px-3 py-2 text-xs font-extrabold ring-1",
+                                vatInclusive
+                                  ? "bg-teal-600 text-white ring-teal-600"
+                                  : "bg-white text-slate-700 ring-slate-200"
+                              )}
+                            >
+                              Inclusive
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setVatInclusive(false)}
+                              className={cx(
+                                "flex-1 rounded-2xl px-3 py-2 text-xs font-extrabold ring-1",
+                                !vatInclusive
+                                  ? "bg-teal-600 text-white ring-teal-600"
+                                  : "bg-white text-slate-700 ring-slate-200"
+                              )}
+                            >
+                              Exclusive
+                            </button>
+                          </div>
+                        )}
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          {effectiveVatInclusive
+                            ? "Entered prices include VAT."
+                            : "Entered prices are VAT-exclusive."}
+                        </p>
+                      </div>
+                    </div>
+                    {!vatActive && vatSettings.vat_effective_date ? (
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
+                        VAT activates on {vatSettings.vat_effective_date}.
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="rounded-3xl bg-slate-50 ring-1 ring-slate-200 p-5 space-y-2">
+                    <div className="text-sm font-extrabold text-slate-900">VAT registration is off</div>
+                    <div className="text-xs text-slate-500">
+                      VAT calculations stay hidden until the company enables VAT registration via settings.
+                    </div>
+                    {vatSettings.vat_effective_date ? (
+                      <div className="text-xs text-slate-500">
+                        VAT will become active on {vatSettings.vat_effective_date}.
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+
+                <div className="rounded-3xl bg-slate-50 ring-1 ring-slate-200 p-5 space-y-3">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-600 font-semibold">Subtotal</span>
-                    <span className="text-slate-800 font-extrabold">{formatPeso(subtotal)}</span>
+                    <span className="text-slate-600 font-semibold">Line total</span>
+                    <span className="text-slate-800 font-extrabold">{formatPeso(lineTotal)}</span>
                   </div>
 
-                  <div className="mt-3 h-px bg-slate-200" />
+                  <div className="border-t border-slate-200" />
 
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="text-slate-700 text-sm font-extrabold">Total</span>
-                    <span className="text-slate-800 text-lg font-extrabold">{formatPeso(total)}</span>
+                  <div className="space-y-1">
+                    {shouldApplyVat ? (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-600 text-sm">Net</span>
+                          <span className="text-slate-800 font-extrabold">{formatPeso(netTotal)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-600 text-sm">VAT ({appliedRateLabel})</span>
+                          <span className="text-slate-800 font-extrabold">{formatPeso(vatTotal)}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-xs text-slate-500">
+                        {vatRegistered
+                          ? vatActive
+                            ? "VAT is currently 0% for this transaction."
+                            : `VAT will apply on ${vatSettings.vat_effective_date || "the effective date"}.`
+                          : "VAT is disabled for this company."}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="h-px bg-slate-200" />
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-700 text-sm font-extrabold">Gross</span>
+                    <span className="text-slate-800 text-lg font-extrabold">{formatPeso(grossTotal)}</span>
+                  </div>
+
+                  <div className="text-xs text-slate-500">
+                    <div>{treatmentLabels[vatTreatment]}</div>
+                    <div>{effectiveVatInclusive ? "Prices include VAT" : "Prices exclude VAT"}</div>
                   </div>
                 </div>
-
                 <button
                   type="button"
                   onClick={checkout}

@@ -81,6 +81,8 @@ class SaleController extends Controller
         $summary = [
             'count' => $sales->count(),
             'total' => $sales->sum('grand_total'),
+            'net_total' => $sales->sum('net_amount'),
+            'vat_total' => $sales->sum('vat_amount'),
         ];
 
         $methodTotals = $sales

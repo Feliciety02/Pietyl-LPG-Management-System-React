@@ -16,6 +16,7 @@ export default function DataTable({
   renderActions,
   searchQuery,
   searchAccessor,
+  rowKey,
 }) {
   const colCount = columns.length + (renderActions ? 1 : 0);
   const normalizedQuery = String(searchQuery || "").trim().toLowerCase();
@@ -131,31 +132,40 @@ export default function DataTable({
               </td>
             </tr>
           ) : (
-            displayRows.map((row, idx) => (
-              <tr
-                key={row?.id ?? idx}
-                className="hover:bg-teal-50/40 transition-colors"
-              >
-                {columns.map((col) => (
-                  <td
-                    key={col.key}
-                    className={cx(
-                      "px-4 py-3 text-sm text-slate-700",
-                      col.nowrap && "whitespace-nowrap",
-                      col.truncate && "truncate"
-                    )}
-                  >
-                    {col.render ? col.render(row) : row?.[col.key]}
-                  </td>
-                ))}
+            displayRows.map((row, idx) => {
+              const computedKey = rowKey
+                ? rowKey(row, idx)
+                : row?.id !== undefined && row?.id !== null
+                ? `${String(row.id)}__${idx}`
+                : `__row__${idx}`;
 
-                {renderActions && (
-                  <td className="px-4 py-3 text-right">
-                    {renderActions(row)}
-                  </td>
-                )}
-              </tr>
-            ))
+              // Legacy behavior: previously used row?.id or index; keep stable fallback plus index suffix to avoid duplicates.
+              return (
+                <tr
+                  key={computedKey}
+                  className="hover:bg-teal-50/40 transition-colors"
+                >
+                  {columns.map((col) => (
+                    <td
+                      key={col.key}
+                      className={cx(
+                        "px-4 py-3 text-sm text-slate-700",
+                        col.nowrap && "whitespace-nowrap",
+                        col.truncate && "truncate"
+                      )}
+                    >
+                      {col.render ? col.render(row) : row?.[col.key]}
+                    </td>
+                  ))}
+
+                  {renderActions && (
+                    <td className="px-4 py-3 text-right">
+                      {renderActions(row)}
+                    </td>
+                  )}
+                </tr>
+              );
+            })
           )}
         </tbody>
       </table>

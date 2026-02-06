@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\SettingsService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -22,6 +23,7 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $user = $request->user();
+        $vatSettings = app(SettingsService::class)->getVatSnapshot();
 
         return [
             ...parent::share($request),
@@ -35,6 +37,7 @@ class HandleInertiaRequests extends Middleware
                     'permissions' => $user->getAllPermissions()->pluck('name')->values(),
                 ] : null,
             ],
+            'vat_settings' => $vatSettings,
         ];
     }
 }

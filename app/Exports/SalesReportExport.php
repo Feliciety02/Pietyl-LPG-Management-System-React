@@ -64,7 +64,7 @@ class SalesSheet implements FromArray, ShouldAutoSize, WithStyles, WithColumnFor
             ['Sales Report'],
             [$this->rangeLabel, '', '', '', '', '', 'Status scope:', $this->statusLabel],
             [],
-            ['Date', 'Time', 'Sale #', 'Customer', 'Status', 'Method', 'Reference', 'Amount'],
+            ['Date', 'Time', 'Sale #', 'Customer', 'Status', 'Method', 'Reference', 'Net', 'VAT', 'Gross'],
         ];
 
         foreach ($this->sales as $sale) {
@@ -79,17 +79,21 @@ class SalesSheet implements FromArray, ShouldAutoSize, WithStyles, WithColumnFor
                 Str::upper($sale->status),
                 Str::title($method),
                 $payment?->reference_no ?? $sale->sale_number,
-                $sale->grand_total,
+                $sale->net_amount,
+                $sale->vat_amount,
+                $sale->gross_amount,
             ];
         }
 
         $rows[] = [];
         $rows[] = ['Summary'];
         $rows[] = ['Total transactions', $this->summary['count'] ?? 0];
-        $rows[] = ['Total sales amount', null, null, null, null, null, null, $this->summary['total'] ?? 0];
+        $rows[] = ['Net sales total', null, null, null, null, null, null, $this->summary['net_total'] ?? 0];
+        $rows[] = ['VAT total', null, null, null, null, null, null, null, $this->summary['vat_total'] ?? 0];
+        $rows[] = ['Gross sales total', null, null, null, null, null, null, null, null, $this->summary['total'] ?? 0];
 
         foreach ($this->methodTotals as $method => $amount) {
-            $rows[] = [Str::title($method) . ' total', null, null, null, null, null, null, $amount];
+            $rows[] = [Str::title($method) . ' total', null, null, null, null, null, null, null, null, $amount];
         }
 
         return $rows;
@@ -97,7 +101,7 @@ class SalesSheet implements FromArray, ShouldAutoSize, WithStyles, WithColumnFor
 
     public function styles(Worksheet $sheet): array
     {
-        $sheet->getStyle('A4:H4')->applyFromArray([
+        $sheet->getStyle('A4:J4')->applyFromArray([
             'font' => ['bold' => true, 'size' => 12],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'E0F2FE']],
             'borders' => ['bottom' => ['borderStyle' => Border::BORDER_THIN]],
@@ -112,6 +116,8 @@ class SalesSheet implements FromArray, ShouldAutoSize, WithStyles, WithColumnFor
             'A' => NumberFormat::FORMAT_DATE_YYYYMMDD2,
             'B' => NumberFormat::FORMAT_DATE_TIME4,
             'H' => NumberFormat::FORMAT_CURRENCY_PHP,
+            'I' => NumberFormat::FORMAT_CURRENCY_PHP,
+            'J' => NumberFormat::FORMAT_CURRENCY_PHP,
         ];
     }
 
@@ -120,7 +126,7 @@ class SalesSheet implements FromArray, ShouldAutoSize, WithStyles, WithColumnFor
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 $event->sheet->freezePane('A5');
-                $event->sheet->getStyle('A4:H4')->getAlignment()->setHorizontal('center');
+                $event->sheet->getStyle('A4:J4')->getAlignment()->setHorizontal('center');
             },
         ];
     }

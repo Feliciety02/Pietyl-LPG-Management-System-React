@@ -16,6 +16,8 @@ use App\Models\SaleItem;
 use App\Services\Accounting\CostingService;
 use App\Services\Accounting\LedgerService;
 use App\Services\InventoryService;
+use App\Services\SettingsService;
+use App\Services\VatCalculator;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +30,7 @@ use Throwable;
 
 class POSController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, SettingsService $settings)
     {
 
         $user = $request->user();
@@ -96,6 +98,7 @@ class POSController extends Controller
         return \Inertia\Inertia::render('CashierPage/POS', [
             'products' => $products,
             'customers' => $customers,
+            'vat_settings' => $settings->getVatSnapshot(),
         ]);
     }
 
@@ -119,6 +122,9 @@ class POSController extends Controller
             'is_delivery' => 'boolean',
             'payment_method' => 'required|in:cash,gcash,card',
             'payment_ref' => 'nullable|string',
+            'vat_treatment' => ['required', 'in:vatable_12,zero_rated_0,exempt'],
+            'vat_inclusive' => 'required|boolean',
+            'vat_rate' => 'nullable|numeric|min:0',
             'cash_tendered' => 'nullable|numeric|min:0',
             'lines' => 'required|array|min:1',
             'lines.*.product_id' => 'required|exists:product_variants,id',
@@ -168,14 +174,38 @@ class POSController extends Controller
             }
 
             $discount = 0.0;
-            $tax = 0.0;
-            $grandTotal = round($subtotal - $discount + $tax, 2);
+            $saleDate = Carbon::now();
+            $vatSettings = $settings->getSettings();
+            $vatApplicable = $settings->isVatActiveForDate($saleDate);
+            $requestedTreatment = $request->input('vat_treatment', VatCalculator::TREATMENT_VATABLE);
+            $vatTreatment = $vatApplicable
+                ? (in_array($requestedTreatment, VatCalculator::TREATMENTS, true) ? $requestedTreatment : VatCalculator::TREATMENT_VATABLE)
+                : VatCalculator::TREATMENT_EXEMPT;
+            $vatMode = $vatSettings->vat_mode ?? 'inclusive';
+            $vatInclusive = $vatMode === 'inclusive'
+                ? true
+                : filter_var(
+                    $request->input('vat_inclusive', config('vat.default_inclusive', true)),
+                    FILTER_VALIDATE_BOOLEAN
+                );
+            $vatRate = $vatApplicable
+                ? ($request->filled('vat_rate') ? max(0, (float) $request->input('vat_rate')) : $vatSettings->vat_rate)
+                : 0.0;
+
+            $vatResult = VatCalculator::calculate($subtotal, $vatRate, $vatInclusive, $vatTreatment);
+            $vatAmount = $vatResult['vat_amount'];
+            $netAmount = $vatResult['net_amount'];
+            $grossAmount = $vatResult['gross_amount'];
+            $tax = $vatAmount;
+            $grandTotal = $grossAmount;
+            $vatApplied = $vatApplicable && $vatTreatment === VatCalculator::TREATMENT_VATABLE && $vatAmount > 0;
 
             Log::info('POS store: totals computed', [
                 'subtotal' => $subtotal,
                 'discount' => $discount,
-                'tax' => $tax,
-                'grand_total' => $grandTotal,
+                'vat_amount' => $vatAmount,
+                'net_amount' => $netAmount,
+                'gross_amount' => $grossAmount,
             ]);
 
             $cashTendered = null;
@@ -211,11 +241,18 @@ class POSController extends Controller
                 'customer_id' => $request->customer_id,
                 'cashier_user_id' => $user->id,
                 'status' => 'paid',
-                'sale_datetime' => Carbon::now(),
+                'sale_datetime' => $saleDate,
                 'subtotal' => $subtotal,
                 'discount_total' => $discount,
                 'tax_total' => $tax,
                 'grand_total' => $grandTotal,
+                'vat_treatment' => $vatResult['treatment'],
+                'vat_rate' => $vatResult['rate_used'],
+                'vat_inclusive' => $vatResult['inclusive'],
+                'vat_amount' => $vatAmount,
+                'net_amount' => $netAmount,
+                'gross_amount' => $grossAmount,
+                'vat_applied' => $vatApplied,
             ];
 
             if (Schema::hasColumn('sales', 'cash_tendered')) {
@@ -238,12 +275,18 @@ class POSController extends Controller
                 $qty = (float) $line['qty'];
                 $unitPrice = (float) $line['unit_price'];
 
+                $lineAmount = $qty * $unitPrice;
+                $lineVat = VatCalculator::calculate($lineAmount, $vatRate, $vatInclusive, $vatTreatment);
+
                 SaleItem::create([
                     'sale_id' => $sale->id,
                     'product_variant_id' => $line['product_id'],
                     'qty' => $qty,
                     'unit_price' => $unitPrice,
-                    'line_total' => $qty * $unitPrice,
+                    'line_total' => $lineAmount,
+                    'line_net_amount' => $lineVat['net_amount'],
+                    'line_vat_amount' => $lineVat['vat_amount'],
+                    'line_gross_amount' => $lineVat['gross_amount'],
                     'pricing_source' => 'manual',
                 ]);
 
@@ -295,7 +338,7 @@ class POSController extends Controller
                 Payment::create([
                     'sale_id' => $sale->id,
                     'payment_method_id' => $paymentMethod->id,
-                    'amount' => $grandTotal,
+                    'amount' => $grossAmount,
                     'reference_no' => $needsRef ? trim((string) $request->payment_ref) : null,
                     'received_by_user_id' => $user->id,
                     'paid_at' => Carbon::now(),
@@ -304,29 +347,34 @@ class POSController extends Controller
 
             $salesLines = [];
             $cogsLines = [];
+            $debitAccount = $paymentMethodKey === 'cash' ? '2010' : '1020';
 
-            if ($paymentMethodKey === 'cash') {
-                $salesLines[] = [
-                    'account_code' => '2010',
-                    'debit' => $grandTotal,
-                    'credit' => 0,
-                    'description' => 'Cash sales recorded as turnover receivable',
-                ];
-            } else {
-                $salesLines[] = [
-                    'account_code' => '1020',
-                    'debit' => $grandTotal,
-                    'credit' => 0,
-                    'description' => 'Non-cash sales received in bank',
-                ];
-            }
+            $salesLines[] = [
+                'account_code' => $debitAccount,
+                'debit' => $grossAmount,
+                'credit' => 0,
+                'description' => $paymentMethodKey === 'cash'
+                    ? 'Cash sales recorded as turnover receivable'
+                    : 'Non-cash sales received in bank',
+            ];
 
             $salesLines[] = [
                 'account_code' => '4010',
                 'debit' => 0,
-                'credit' => $grandTotal,
-                'description' => 'Recognize sales revenue',
+                'credit' => $vatAmount > 0 ? $netAmount : $grossAmount,
+                'description' => $vatAmount > 0
+                    ? 'Recognize sales revenue (net)'
+                    : 'Recognize sales revenue',
             ];
+
+            if ($vatAmount > 0) {
+                $salesLines[] = [
+                    'account_code' => '2030',
+                    'debit' => 0,
+                    'credit' => $vatAmount,
+                    'description' => 'VAT payable',
+                ];
+            }
 
             $cogsTotal = 0.0;
             foreach ($request->lines as $i => $line) {

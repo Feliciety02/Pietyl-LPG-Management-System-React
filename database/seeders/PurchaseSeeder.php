@@ -23,6 +23,17 @@ class PurchaseSeeder extends Seeder
             return;
         }
 
+        $latestPurchaseNumber = Purchase::where('purchase_number', 'like', 'P-%')
+            ->orderByDesc('purchase_number')
+            ->value('purchase_number');
+
+        $currentSequence = 45;
+
+        if ($latestPurchaseNumber) {
+            $numericPart = intval(substr($latestPurchaseNumber, 2));
+            $currentSequence = max($currentSequence, $numericPart);
+        }
+
         // Hardcoded purchases
         $purchases = [];
 
@@ -36,7 +47,7 @@ class PurchaseSeeder extends Seeder
                 : null;
 
             $purchases[] = [
-                'purchase_number' => 'P-' . str_pad(46 + $i, 6, '0', STR_PAD_LEFT),
+                'purchase_number' => 'P-' . str_pad($currentSequence + $i, 6, '0', STR_PAD_LEFT),
                 'supplier_id' => $suppliers->random()->id,
                 'created_by_user_id' => $user->id,
                 'status' => $status,

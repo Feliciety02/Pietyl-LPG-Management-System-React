@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Accountant;
 use App\Http\Controllers\Controller;
 use App\Models\AccountingReport;
 use App\Models\Remittance;
+use App\Models\Sale;
 use App\Services\Accounting\CostingService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -98,6 +99,8 @@ class ReportController extends Controller
             'date_from' => $fromDate->toDateString(),
             'date_to' => $toDate->toDateString(),
             'total_sales' => $payload['total_sales'] ?? null,
+            'total_net_sales' => $payload['total_net_sales'] ?? null,
+            'total_vat' => $payload['total_vat'] ?? null,
             'total_cash' => $payload['total_cash'] ?? null,
             'total_non_cash' => $payload['total_non_cash'] ?? null,
             'total_remitted' => $payload['total_remitted'] ?? null,
@@ -118,9 +121,13 @@ class ReportController extends Controller
     protected function buildReportPayload(string $type, Carbon $from, Carbon $to, CostingService $costing): array
     {
         if ($type === 'sales') {
-            $salesTotal = DB::table('sales')
-                ->whereBetween('sale_datetime', [$from, $to])
-                ->sum('grand_total');
+            $salesQuery = Sale::query()
+                ->where('status', 'paid')
+                ->whereBetween('sale_datetime', [$from, $to]);
+
+            $salesTotal = (float) (clone $salesQuery)->sum('grand_total');
+            $netTotal = (float) (clone $salesQuery)->sum('net_amount');
+            $vatTotal = (float) (clone $salesQuery)->sum('vat_amount');
 
             $payments = DB::table('payments as p')
                 ->join('payment_methods as pm', 'pm.id', '=', 'p.payment_method_id')
@@ -145,7 +152,9 @@ class ReportController extends Controller
             $inventoryValue = $this->inventoryValuationAsOf($to, $costing);
 
             return [
-                'total_sales' => (float) $salesTotal,
+                'total_sales' => $salesTotal,
+                'total_net_sales' => $netTotal,
+                'total_vat' => $vatTotal,
                 'total_cash' => (float) ($payments->cash_total ?? 0),
                 'total_non_cash' => (float) ($payments->non_cash_total ?? 0),
                 'cogs' => $cogs,
@@ -203,9 +212,11 @@ class ReportController extends Controller
         $lines[] = "";
 
         if ($type === 'sales') {
-            $lines[] = "total_sales,total_cash,total_non_cash,cogs,gross_profit,inventory_valuation";
+            $lines[] = "total_sales,total_net_sales,total_vat,total_cash,total_non_cash,cogs,gross_profit,inventory_valuation";
             $lines[] = implode(',', [
                 $payload['total_sales'] ?? 0,
+                $payload['total_net_sales'] ?? 0,
+                $payload['total_vat'] ?? 0,
                 $payload['total_cash'] ?? 0,
                 $payload['total_non_cash'] ?? 0,
                 $payload['cogs'] ?? 0,

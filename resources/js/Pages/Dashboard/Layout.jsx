@@ -40,6 +40,7 @@ const ROLE_META = {
         label: "Finance",
         items: [
           { label: "Payroll", href: "/dashboard/accountant/payroll", icon: "payroll", permission: "accountant.payroll.view" },
+          { label: "VAT Settings", href: "/dashboard/admin/settings/vat", icon: "vatSettings", permission: "admin.settings.manage" },
         ],
       },
       {

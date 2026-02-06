@@ -10,6 +10,7 @@ export const DASHBOARD_CONFIG = {
       { label: "Stock Counts", href: "/dashboard/inventory/counts", permission: "inventory.stock.view" },
       { label: "Low Stock", href: "/dashboard/inventory/low-stock", permission: "inventory.stock.low_stock" },
       { label: "Reports", href: "/dashboard/admin/reports", permission: "admin.reports.view" },
+      { label: "VAT Settings", href: "/dashboard/admin/vat", permission: "admin.settings.manage" },
       { label: "Audit Logs", href: "/dashboard/admin/audit", permission: "admin.audit.view" },
     ],
     activityTitle: "Owner activity",

@@ -23,6 +23,13 @@ class Sale extends Model
         'discount_total',
         'tax_total',
         'grand_total',
+        'vat_treatment',
+        'vat_rate',
+        'vat_inclusive',
+        'vat_amount',
+        'net_amount',
+        'gross_amount',
+        'vat_applied',
         'notes',
     ];
 
@@ -32,6 +39,12 @@ class Sale extends Model
         'discount_total' => 'decimal:2',
         'tax_total' => 'decimal:2',
         'grand_total' => 'decimal:2',
+        'vat_rate' => 'decimal:4',
+        'vat_inclusive' => 'boolean',
+        'vat_amount' => 'decimal:2',
+        'net_amount' => 'decimal:2',
+        'gross_amount' => 'decimal:2',
+        'vat_applied' => 'boolean',
     ];
 
     // Relationships

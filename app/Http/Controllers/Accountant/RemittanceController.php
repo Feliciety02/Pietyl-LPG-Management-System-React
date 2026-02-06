@@ -7,12 +7,14 @@ use App\Models\AuditLog;
 use App\Models\DailyClose;
 use App\Models\Payment;
 use App\Models\Remittance;
+use App\Models\User;
 use App\Services\Accounting\LedgerService;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use Inertia\Inertia;
 
 class RemittanceController extends Controller
@@ -25,7 +27,6 @@ class RemittanceController extends Controller
             'q' => $request->input('q', ''),
             'status' => $request->input('status', 'all'),
             'date' => $request->input('date', ''),
-            'tab' => $request->input('tab', 'cash'),
             'per' => (int) $request->input('per', 10),
             'page' => (int) $request->input('page', 1),
         ];
@@ -43,7 +44,12 @@ class RemittanceController extends Controller
                 return $remittance->business_date->toDateString() . '::' . $remittance->cashier_user_id;
             });
 
-        $rows = $expectedRows->map(function ($item) use ($remittances) {
+        $finalizedDates = DailyClose::whereBetween('business_date', [$fromDate, $toDate])
+            ->pluck('business_date')
+            ->map(fn ($date) => $date->toDateString())
+            ->all();
+
+        $rows = $expectedRows->map(function ($item) use ($remittances, $finalizedDates) {
             $key = $item['business_date'] . '::' . $item['cashier_user_id'];
             $record = $remittances->get($key);
 
@@ -52,23 +58,38 @@ class RemittanceController extends Controller
                 $cashVariance = round($record->remitted_cash_amount - $item['expected_cash'], 2);
             }
 
+            $finalized = in_array($item['business_date'], $finalizedDates, true);
+            $stage = $this->deriveStage($record, $finalized);
+            $verification = $record?->noncash_verification ?? [];
+            $verifiedTransactionIds = is_array($verification['transaction_ids'] ?? null)
+                ? $verification['transaction_ids']
+                : [];
+            $noncashVerifiedAmount = round((float) ($verification['amount'] ?? 0), 2);
+
             return [
                 'id' => $record?->id,
                 'business_date' => $item['business_date'],
                 'cashier_user_id' => $item['cashier_user_id'],
                 'cashier_name' => $item['cashier_name'],
                 'expected_cash' => $item['expected_cash'],
+                'expected_cashless_total' => $item['expected_noncash_total'],
                 'expected_noncash_total' => $item['expected_noncash_total'],
                 'expected_by_method' => $item['expected_by_method'],
                 'remitted_cash_amount' => $record?->remitted_cash_amount,
+                'cash_counted' => $record?->remitted_cash_amount,
                 'cash_variance' => is_null($cashVariance) ? null : (float) round($cashVariance, 2),
-                'cash_status' => $record?->status ?? 'pending',
+                'cash_status' => $stage,
+                'status' => $stage,
+                'finalized' => $finalized,
                 'note' => $record?->note,
                 'recorded_at' => $record?->recorded_at?->format('Y-m-d H:i') ?? '-',
                 'noncash_verified_at' => $record?->noncash_verified_at?->format('Y-m-d H:i'),
                 'noncash_verified_by' => $record?->noncashVerifier?->name,
                 'noncash_verification' => $record?->noncash_verification ?? [],
                 'noncash_status' => $record?->noncash_verified_at ? 'verified' : 'unverified',
+                'noncash_verified_total' => $noncashVerifiedAmount,
+                'noncash_verified_count' => count($verifiedTransactionIds),
+                'verified_transaction_ids' => $verifiedTransactionIds,
             ];
         });
 
@@ -78,7 +99,7 @@ class RemittanceController extends Controller
         }
 
         if ($filters['status'] !== 'all') {
-            $rows = $rows->filter(fn ($row) => $row['cash_status'] === $filters['status']);
+            $rows = $rows->filter(fn ($row) => $row['status'] === $filters['status']);
         }
 
         $per = max(1, $filters['per']);
@@ -117,6 +138,43 @@ class RemittanceController extends Controller
         ]);
     }
 
+    public function review(Request $request)
+    {
+        $user = $request->user();
+        if (!$user || !$user->can('accountant.remittances.view')) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'business_date' => 'required|date',
+            'cashier_user_id' => 'required|exists:users,id',
+            'return_url' => 'nullable|string',
+        ]);
+
+        $expected = $this->expectedForRow($validated['business_date'], $validated['cashier_user_id']);
+        $remittance = Remittance::where('business_date', $validated['business_date'])
+            ->where('cashier_user_id', $validated['cashier_user_id'])
+            ->first();
+
+        return Inertia::render('AccountantPage/TurnoverReview', [
+            'row' => [
+                'business_date' => $validated['business_date'],
+                'cashier_user_id' => $validated['cashier_user_id'],
+                'cashier_name' => User::find($validated['cashier_user_id'])?->name,
+                'expected_cash' => $expected['expected_cash'],
+                'remitted_cash_amount' => $remittance?->remitted_cash_amount,
+                'note' => $remittance?->note,
+                'expected_by_method' => $expected['expected_by_method'],
+            ],
+            'methods' => $this->getPaymentMethods()->map(fn ($method) => [
+                'method_key' => $method->method_key,
+                'method_name' => $method->name,
+                'is_cashless' => (bool) $method->is_cashless,
+            ]),
+            'return_url' => $validated['return_url'] ?: '/dashboard/accountant/remittances',
+        ]);
+    }
+
     public function recordCash(Request $request, LedgerService $ledger)
     {
         $user = $request->user();
@@ -135,86 +193,19 @@ class RemittanceController extends Controller
             return back()->with('error', 'This business date is already finalized.');
         }
 
-        $expected = $this->expectedForRow($validated['business_date'], $validated['cashier_user_id']);
-        $remitted = round((float) $validated['cash_counted'], 2);
-        $variance = round($remitted - $expected['expected_cash'], 2);
-        $note = Str::of($validated['note'] ?? '')->trim();
-
-        if ($variance !== 0.0 && $note->length() < 3) {
-            return back()->with('error', 'Provide a short note when cash variance is not zero.');
+        try {
+            $this->persistCashTurnover(
+                $request,
+                $validated['business_date'],
+                $validated['cashier_user_id'],
+                round((float) $validated['cash_counted'], 2),
+                $validated['note'] ?? null,
+                $user,
+                $ledger
+            );
+        } catch (\InvalidArgumentException $ex) {
+            return back()->with('error', $ex->getMessage());
         }
-
-        $status = $variance === 0.0 ? 'verified' : 'flagged';
-
-        $existing = Remittance::where('business_date', $validated['business_date'])
-            ->where('cashier_user_id', $validated['cashier_user_id'])
-            ->first();
-        $previous = (float) ($existing?->remitted_cash_amount ?? 0);
-
-        $remittance = Remittance::updateOrCreate(
-            [
-                'business_date' => $validated['business_date'],
-                'cashier_user_id' => $validated['cashier_user_id'],
-            ],
-            [
-                'accountant_user_id' => $user->id,
-                'expected_amount' => $expected['expected_cash'],
-                'expected_cash' => $expected['expected_cash'],
-                'expected_noncash_total' => $expected['expected_noncash_total'],
-                'expected_by_method' => $expected['expected_by_method'],
-                'remitted_amount' => $remitted,
-                'remitted_cash_amount' => $remitted,
-                'variance_amount' => $variance,
-                'cash_variance' => $variance,
-                'status' => $status,
-                'note' => $note->length() ? $note->toString() : null,
-                'recorded_at' => now(),
-            ]
-        );
-
-        $delta = $remitted - $previous;
-
-        if ($delta !== 0.0) {
-            $refType = $existing ? 'remittance_adjustment' : 'remittance';
-            $deltaAbs = abs($delta);
-            $isPositive = $delta > 0;
-            $ledger->postEntry([
-                'entry_date' => $validated['business_date'],
-                'reference_type' => $refType,
-                'reference_id' => $remittance->id,
-                'created_by_user_id' => $user->id,
-                'memo' => "Cashier remittance {$validated['business_date']}",
-                'lines' => [
-                    [
-                        'account_code' => '1010',
-                        'debit' => $isPositive ? $deltaAbs : 0,
-                        'credit' => $isPositive ? 0 : $deltaAbs,
-                        'description' => 'Cash received from cashier',
-                    ],
-                    [
-                        'account_code' => '2010',
-                        'debit' => $isPositive ? 0 : $deltaAbs,
-                        'credit' => $isPositive ? $deltaAbs : 0,
-                        'description' => 'Reduce turnover receivable',
-                    ],
-                ],
-            ]);
-        }
-
-        AuditLog::create([
-            'actor_user_id' => $user->id,
-            'action' => 'remittance.cash.recorded',
-            'entity_type' => Remittance::class,
-            'entity_id' => $remittance->id,
-            'message' => "Recorded cash turnover for {$validated['business_date']} (variance: " . number_format($variance, 2) . ")",
-            'after_json' => [
-                'cash_status' => $status,
-                'business_date' => $validated['business_date'],
-                'cashier_user_id' => $validated['cashier_user_id'],
-            ],
-            'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-        ]);
 
         return back()->with('success', 'Cash turnover recorded.');
     }
@@ -251,8 +242,8 @@ class RemittanceController extends Controller
         $validated = $request->validate([
             'business_date' => 'required|date',
             'cashier_user_id' => 'required|exists:users,id',
-            'transaction_ids' => 'required|array|min:1',
-            'transaction_ids.*' => 'required|integer|distinct',
+            'verified_transaction_ids' => 'required|array|min:1',
+            'verified_transaction_ids.*' => 'required|integer|distinct',
         ]);
 
         if (DailyClose::where('business_date', $validated['business_date'])->exists()) {
@@ -261,17 +252,168 @@ class RemittanceController extends Controller
             ], 422);
         }
 
-        $payments = $this->cashlessPaymentsQuery(
-            $validated['business_date'],
-            $validated['cashier_user_id']
-        )
-            ->whereIn('payments.id', $validated['transaction_ids'])
+        try {
+            $remittance = $this->persistCashlessVerification(
+                $request,
+                $validated['business_date'],
+                $validated['cashier_user_id'],
+                $validated['verified_transaction_ids'],
+                $user
+            );
+        } catch (InvalidArgumentException $ex) {
+            return response()->json(['message' => $ex->getMessage()], 422);
+        }
+
+        $verification = $remittance->noncash_verification ?? [];
+        $verifiedIds = is_array($verification['transaction_ids'] ?? null)
+            ? $verification['transaction_ids']
+            : [];
+        $verifiedAmount = round((float) ($verification['amount'] ?? 0), 2);
+
+        return response()->json([
+            'transactions' => $this->cashlessTransactionsFor(
+                $validated['business_date'],
+                $validated['cashier_user_id']
+            ),
+            'verified_count' => count($verifiedIds),
+            'verified_amount' => $verifiedAmount,
+            'message' => 'Cashless transactions confirmed.',
+        ]);
+    }
+
+    public function dailyClose(Request $request, LedgerService $ledger)
+    {
+        $user = $request->user();
+        if (!$user || !$user->can('accountant.remittances.verify')) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'business_date' => 'required|date',
+            'cashier_user_id' => 'required|exists:users,id',
+            'cash_counted' => 'required|numeric|min:0',
+            'note' => 'nullable|string',
+            'verified_transaction_ids' => 'nullable|array',
+            'verified_transaction_ids.*' => 'required_with:verified_transaction_ids|integer|distinct',
+        ]);
+
+        $existingClose = DailyClose::where('business_date', $validated['business_date'])->first();
+        if ($existingClose) {
+            return response()->json([
+                'message' => 'This business date is already finalized.',
+                'finalized_at' => $existingClose->finalized_at?->toDateTimeString(),
+            ], 200);
+        }
+
+        try {
+            $remittance = $this->persistCashTurnover(
+                $request,
+                $validated['business_date'],
+                $validated['cashier_user_id'],
+                round((float) $validated['cash_counted'], 2),
+                $validated['note'] ?? null,
+                $user,
+                $ledger
+            );
+
+            $pendingIds = $this->pendingCashlessTransactionIds(
+                $validated['business_date'],
+                $validated['cashier_user_id']
+            );
+            $verifiedPayload = $validated['verified_transaction_ids'] ?? [];
+
+            if (!empty($pendingIds)) {
+                if (empty($verifiedPayload)) {
+                    throw new InvalidArgumentException(
+                        'Verify all pending cashless transactions before finalizing.'
+                    );
+                }
+
+                $missing = array_diff($pendingIds, $verifiedPayload);
+                if (!empty($missing)) {
+                    throw new InvalidArgumentException(
+                        'All pending cashless transactions must be verified before finalizing.'
+                    );
+                }
+
+                $remittance = $this->persistCashlessVerification(
+                    $request,
+                    $validated['business_date'],
+                    $validated['cashier_user_id'],
+                    $verifiedPayload,
+                    $user
+                );
+            }
+
+            $remittance->status = $this->stageFromFlags(true, true, true);
+            $remittance->save();
+
+            $close = DailyClose::create([
+                'business_date' => $validated['business_date'],
+                'finalized_by_user_id' => $user->id,
+                'finalized_at' => now(),
+            ]);
+
+            AuditLog::create([
+                'actor_user_id' => $user->id,
+                'action' => 'remittance.daily.finalized',
+                'entity_type' => Remittance::class,
+                'entity_id' => $remittance->id,
+                'message' => "Daily close finalized for {$validated['business_date']}",
+                'after_json' => [
+                    'status' => 'finalized',
+                    'business_date' => $validated['business_date'],
+                    'cashier_user_id' => $validated['cashier_user_id'],
+                ],
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+
+            return response()->json([
+                'message' => 'Daily closure finalized.',
+                'status' => 'finalized',
+                'finalized_at' => $close->finalized_at?->toDateTimeString(),
+            ]);
+        } catch (InvalidArgumentException $ex) {
+            return response()->json(['message' => $ex->getMessage()], 422);
+        }
+    }
+
+    private function persistCashlessVerification(
+        Request $request,
+        string $businessDate,
+        int $cashierId,
+        array $transactionIds,
+        User $user
+    ): Remittance {
+        $transactionIds = array_values(array_unique($transactionIds ?? []));
+        $expected = $this->expectedForRow($businessDate, $cashierId);
+
+        $remittance = Remittance::updateOrCreate(
+            [
+                'business_date' => $businessDate,
+                'cashier_user_id' => $cashierId,
+            ],
+            [
+                'accountant_user_id' => $user->id,
+                'expected_cash' => $expected['expected_cash'],
+                'expected_noncash_total' => $expected['expected_noncash_total'],
+                'expected_by_method' => $expected['expected_by_method'],
+            ]
+        );
+
+        if (empty($transactionIds)) {
+            return $remittance->refresh();
+        }
+
+        $payments = $this->cashlessPaymentsQuery($businessDate, $cashierId)
+            ->whereIn('payments.id', $transactionIds)
             ->get();
 
-        if ($payments->count() !== count($validated['transaction_ids'])) {
-            return response()->json([
-                'message' => 'Some transactions are no longer available. Refresh and try again.',
-            ], 422);
+        if ($payments->count() !== count($transactionIds)) {
+            throw new InvalidArgumentException(
+                'Some transactions are no longer available. Refresh and try again.'
+            );
         }
 
         $alreadyVerifiedIds = $payments
@@ -280,76 +422,58 @@ class RemittanceController extends Controller
             ->all();
 
         if (!empty($alreadyVerifiedIds)) {
-            return response()->json([
-                'message' => 'Some selected transactions have already been verified.',
-                'already_verified_ids' => $alreadyVerifiedIds,
-            ], 409);
+            throw new InvalidArgumentException('Some selected transactions have already been verified.');
         }
 
-        if ($payments->isEmpty()) {
-            return response()->json([
-                'message' => 'No transactions to verify.',
-            ], 422);
-        }
-
-        $expected = $this->expectedForRow(
-            $validated['business_date'],
-            $validated['cashier_user_id']
-        );
-
-        $remittance = Remittance::updateOrCreate(
-            [
-                'business_date' => $validated['business_date'],
-                'cashier_user_id' => $validated['cashier_user_id'],
-            ],
-            [
-                'accountant_user_id' => $user->id,
-                'expected_cash' => $expected['expected_cash'],
-                'expected_noncash_total' => $expected['expected_noncash_total'],
-                'expected_by_method' => $expected['expected_by_method'],
-                'noncash_verified_at' => now(),
-                'noncash_verified_by_user_id' => $user->id,
-                'noncash_verification' => [
-                    'transaction_ids' => $payments->pluck('id')->all(),
-                    'amount' => round($payments->sum('amount'), 2),
-                ],
-                'status' => 'verified',
-            ]
-        );
-
-        $totalAmount = 0.0;
         foreach ($payments as $payment) {
-            $totalAmount += (float) $payment->amount;
             $payment->noncash_verified_at = now();
             $payment->noncash_verified_by_user_id = $user->id;
-            $payment->noncash_verified_business_date = $validated['business_date'];
+            $payment->noncash_verified_business_date = $businessDate;
             $payment->noncash_remittance_id = $remittance->id;
             $payment->save();
         }
+
+        $existingVerifiedIds = is_array($remittance->noncash_verification['transaction_ids'] ?? null)
+            ? $remittance->noncash_verification['transaction_ids']
+            : [];
+        $allVerifiedIds = array_values(array_unique(array_merge($existingVerifiedIds, $transactionIds)));
+
+        $verifiedTotalAmount = 0.0;
+        if (!empty($allVerifiedIds)) {
+            $verifiedTotalAmount = $this->cashlessPaymentsQuery($businessDate, $cashierId)
+                ->whereIn('payments.id', $allVerifiedIds)
+                ->sum('amount');
+        }
+
+        $cashRecorded = (bool) $remittance->remitted_cash_amount;
+        $stage = $this->stageFromFlags($cashRecorded, true, false);
+
+        $remittance->forceFill([
+            'noncash_verified_at' => now(),
+            'noncash_verified_by_user_id' => $user->id,
+            'noncash_verification' => [
+                'transaction_ids' => $allVerifiedIds,
+                'amount' => round($verifiedTotalAmount, 2),
+            ],
+            'status' => $stage,
+        ])->save();
 
         AuditLog::create([
             'actor_user_id' => $user->id,
             'action' => 'remittance.noncash_transactions.verified',
             'entity_type' => Remittance::class,
             'entity_id' => $remittance->id,
-            'message' => "Verified {$payments->count()} cashless transactions for {$validated['business_date']} totaling " . number_format($totalAmount, 2),
+            'message' => "Verified " . count($transactionIds) . " cashless transactions for {$businessDate} totaling " . number_format($verifiedTotalAmount, 2),
             'after_json' => [
-                'verified_count' => $payments->count(),
-                'verified_amount' => round($totalAmount, 2),
+                'verified_count' => count($allVerifiedIds),
+                'verified_amount' => round($verifiedTotalAmount, 2),
+                'status' => $stage,
             ],
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
         ]);
 
-        return response()->json([
-            'transactions' => $this->cashlessTransactionsFor(
-                $validated['business_date'],
-                $validated['cashier_user_id']
-            ),
-            'verified_count' => $payments->count(),
-            'verified_amount' => round($totalAmount, 2),
-            'message' => 'Cashless transactions confirmed.',
-        ]);
+        return $remittance->refresh();
     }
 
     private function cashlessPaymentsQuery(string $businessDate, int $cashierId)
@@ -390,6 +514,139 @@ class RemittanceController extends Controller
                 'business_date' => $businessDate,
             ];
         })->toArray();
+    }
+
+    private function deriveStage(?Remittance $remittance, bool $finalized): string
+    {
+        if ($finalized) {
+            return 'finalized';
+        }
+
+        $cashRecorded = $remittance?->remitted_cash_amount !== null;
+        $cashlessVerified = $remittance?->noncash_verified_at !== null;
+
+        return $this->stageFromFlags((bool) $cashRecorded, (bool) $cashlessVerified, $finalized);
+    }
+
+    private function stageFromFlags(bool $cashRecorded, bool $cashlessVerified, bool $finalized): string
+    {
+        if ($finalized) {
+            return 'finalized';
+        }
+
+        if ($cashRecorded && $cashlessVerified) {
+            return 'ready_to_finalize';
+        }
+
+        if ($cashlessVerified) {
+            return 'cashless_verified';
+        }
+
+        if ($cashRecorded) {
+            return 'cash_recorded';
+        }
+
+        return 'draft';
+    }
+
+    private function persistCashTurnover(
+        Request $request,
+        string $businessDate,
+        int $cashierId,
+        float $cashCounted,
+        ?string $note,
+        User $user,
+        LedgerService $ledger
+    ): Remittance {
+        $expected = $this->expectedForRow($businessDate, $cashierId);
+        $existing = Remittance::where('business_date', $businessDate)
+            ->where('cashier_user_id', $cashierId)
+            ->first();
+
+        $variance = round($cashCounted - $expected['expected_cash'], 2);
+        $noteText = Str::of($note ?? '')->trim();
+
+        if ($variance !== 0.0 && $noteText->length() < 3) {
+            throw new InvalidArgumentException('Provide a short note when cash variance is not zero.');
+        }
+
+        $previous = (float) ($existing?->remitted_cash_amount ?? 0);
+        $cashlessVerified = (bool) ($existing?->noncash_verified_at);
+        $status = $this->stageFromFlags(true, $cashlessVerified, false);
+
+        $remittance = Remittance::updateOrCreate(
+            [
+                'business_date' => $businessDate,
+                'cashier_user_id' => $cashierId,
+            ],
+            [
+                'accountant_user_id' => $user->id,
+                'expected_amount' => $expected['expected_cash'],
+                'expected_cash' => $expected['expected_cash'],
+                'expected_noncash_total' => $expected['expected_noncash_total'],
+                'expected_by_method' => $expected['expected_by_method'],
+                'remitted_amount' => $cashCounted,
+                'remitted_cash_amount' => $cashCounted,
+                'variance_amount' => $variance,
+                'cash_variance' => $variance,
+                'status' => $status,
+                'note' => $noteText->length() ? $noteText->toString() : null,
+                'recorded_at' => now(),
+            ]
+        );
+
+        $delta = $cashCounted - $previous;
+        if ($delta !== 0.0) {
+            $refType = $existing ? 'remittance_adjustment' : 'remittance';
+            $deltaAbs = abs($delta);
+            $isPositive = $delta > 0;
+            $ledger->postEntry([
+                'entry_date' => $businessDate,
+                'reference_type' => $refType,
+                'reference_id' => $remittance->id,
+                'created_by_user_id' => $user->id,
+                'memo' => "Cashier remittance {$businessDate}",
+                'lines' => [
+                    [
+                        'account_code' => '1010',
+                        'debit' => $isPositive ? $deltaAbs : 0,
+                        'credit' => $isPositive ? 0 : $deltaAbs,
+                        'description' => 'Cash received from cashier',
+                    ],
+                    [
+                        'account_code' => '2010',
+                        'debit' => $isPositive ? 0 : $deltaAbs,
+                        'credit' => $isPositive ? $deltaAbs : 0,
+                        'description' => 'Reduce turnover receivable',
+                    ],
+                ],
+            ]);
+        }
+
+        AuditLog::create([
+            'actor_user_id' => $user->id,
+            'action' => 'remittance.cash.recorded',
+            'entity_type' => Remittance::class,
+            'entity_id' => $remittance->id,
+            'message' => "Recorded cash turnover for {$businessDate} (variance: " . number_format($variance, 2) . ")",
+            'after_json' => [
+                'status' => $status,
+                'business_date' => $businessDate,
+                'cashier_user_id' => $cashierId,
+            ],
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        return $remittance->refresh();
+    }
+
+    private function pendingCashlessTransactionIds(string $businessDate, int $cashierId): array
+    {
+        return $this->cashlessPaymentsQuery($businessDate, $cashierId)
+            ->whereNull('payments.noncash_verified_at')
+            ->pluck('payments.id')
+            ->all();
     }
 
     private function getPaymentMethods(): Collection

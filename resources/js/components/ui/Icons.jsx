@@ -98,6 +98,7 @@ export const sidebarIconMap = {
   daily: CalendarDays,
   ledger: BookOpen,
   payroll: BadgeDollarSign,
+  vatSettings: Banknote,
 };
 
 /**

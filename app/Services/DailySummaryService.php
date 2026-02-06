@@ -14,7 +14,7 @@ class DailySummaryService
         $salesTotals = DB::table('sales as s')
             ->whereDate('s.sale_datetime', $date)
             ->where('s.status', 'paid')
-            ->selectRaw('COUNT(*) as transactions_count, SUM(s.grand_total) as total')
+            ->selectRaw('COUNT(*) as transactions_count, SUM(s.grand_total) as total, SUM(s.net_amount) as net_total, SUM(s.vat_amount) as vat_total')
             ->first();
 
         $cashTotals = DB::table('payments as p')
@@ -77,6 +77,8 @@ class DailySummaryService
         $summary = [
             'date' => $date,
             'sales_total' => (float) ($salesTotals->total ?? 0),
+            'net_total' => (float) ($salesTotals->net_total ?? 0),
+            'vat_total' => (float) ($salesTotals->vat_total ?? 0),
             'sales_count' => (int) ($salesTotals->transactions_count ?? 0),
             'cash_expected' => $cashExpectedTotal,
             'non_cash_total' => $nonCashTotal,
