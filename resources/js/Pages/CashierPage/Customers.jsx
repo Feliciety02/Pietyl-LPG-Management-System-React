@@ -1,5 +1,5 @@
 // resources/js/pages/.../Customers.jsx
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
 
@@ -128,13 +128,21 @@ export default function Customers() {
 
   const loading = Boolean(page.props?.loading);
 
-  const pushQuery = (patch) => {
-    router.get(listHref, { q, per, ...patch }, {
-      preserveScroll: true,
-      preserveState: true,
-      replace: true,
-    });
-  };
+  const pushQuery = useCallback(
+    (patch) => {
+      router.get(listHref, { q, per, ...patch }, {
+        preserveScroll: true,
+        preserveState: true,
+        replace: true,
+      });
+    },
+    [listHref, q, per]
+  );
+
+  const handleCustomerCreated = useCallback(() => {
+    setOpenAdd(false);
+    pushQuery({ page: 1 });
+  }, [pushQuery]);
 
   const fillerRows = useMemo(
     () =>
@@ -146,6 +154,18 @@ export default function Customers() {
   );
 
   const tableRows = loading ? fillerRows : rows;
+
+  useEffect(() => {
+    if (
+      !loading &&
+      meta &&
+      meta.total > 0 &&
+      meta.last_page &&
+      meta.current_page > meta.last_page
+    ) {
+      pushQuery({ page: meta.last_page });
+    }
+  }, [loading, meta?.current_page, meta?.last_page, meta?.total, pushQuery]);
 
   /* -------------------------------------------------------------------------- */
   /* Actions                                                                    */
@@ -316,7 +336,7 @@ export default function Customers() {
         open={openAdd}
         onClose={() => setOpenAdd(false)}
         postTo={postTo}
-        onCreated={() => setOpenAdd(false)}
+        onCreated={handleCustomerCreated}
       />
 
       <CustomerDetailsModal

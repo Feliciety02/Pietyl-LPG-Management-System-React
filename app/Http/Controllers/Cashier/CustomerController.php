@@ -19,8 +19,7 @@ class CustomerController extends Controller
 
     public function index(Request $request)
     {
-        $user = $request->user();
-        if (!$user || !$user->can('cashier.customers.view')) {
+        if (!$this->canViewCustomers($request)) {
             abort(403);
         }
 
@@ -36,7 +35,10 @@ class CustomerController extends Controller
     public function store(Request $request)
     {   
         $user = $request->user();
-        if (!$user || !$user->can('cashier.customers.create')) {
+        if (
+            !$user ||
+            (!$user->can('cashier.customers.create') && !$user->can('admin.customers.create'))
+        ) {
             abort(403);
         }
 
@@ -83,8 +85,7 @@ class CustomerController extends Controller
 
     public function show(Request $request, Customer $customer)
     {
-        $user = $request->user();
-        if (!$user || !$user->can('cashier.customers.view')) {
+        if (!$this->canViewCustomers($request)) {
             abort(403);
         }
 
@@ -93,6 +94,16 @@ class CustomerController extends Controller
         return Inertia::render('Cashier/CustomerShow', [
             'customer' => $customer,
         ]);
+    }
+
+    private function canViewCustomers(Request $request): bool
+    {
+        $user = $request->user();
+        if (!$user) {
+            return false;
+        }
+
+        return $user->can('cashier.customers.view') || $user->can('admin.customers.view');
     }
 
     public function destroy(Request $request, Customer $customer)

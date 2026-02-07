@@ -102,7 +102,7 @@ class POSController extends Controller
         ]);
     }
 
-    public function store(Request $request, LedgerService $ledger, CostingService $costing)
+    public function store(Request $request, LedgerService $ledger, CostingService $costing, SettingsService $settings)
     {
 
         
@@ -311,20 +311,27 @@ class POSController extends Controller
 
                     $balance = InventoryBalance::where('location_id', $location->id)
                         ->where('product_variant_id', $line['product_id'])
-                        ->where('qty_filled', '>', 0)
                         ->first();
 
-                    if ($balance) {
-                        // Deduct filled, add empty
-                        $balance->qty_filled = $balance->qty_filled - (int) $qty;
-                        $balance->qty_empty = $balance->qty_empty + (int) $qty;
-                        $balance->save();
-                    } else {
-                        throw new \Exception("No stock available for product variant ID: {$line['product_id']}");
+                    if (!$balance) {
+                        Log::warning('POS store: InventoryBalance missing, creating placeholder record', [
+                            'location_id' => $location->id,
+                            'product_variant_id' => $line['product_id'],
+                        ]);
+
+                        $balance = InventoryBalance::create([
+                            'location_id' => $location->id,
+                            'product_variant_id' => $line['product_id'],
+                            'qty_filled' => 0,
+                            'qty_empty' => 0,
+                            'qty_reserved' => 0,
+                        ]);
                     }
 
-
-                   
+                    $newFilled = max(0, (int) $balance->qty_filled - (int) $qty);
+                    $balance->qty_filled = $newFilled;
+                    $balance->qty_empty = $balance->qty_empty + (int) $qty;
+                    $balance->save();
                 }
             }
 

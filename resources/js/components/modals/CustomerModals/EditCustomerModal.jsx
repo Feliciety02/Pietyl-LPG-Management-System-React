@@ -1,7 +1,32 @@
 
 import React, { useEffect, useMemo, useState } from "react";
-import { UserRound, Phone, MapPin, StickyNote } from "lucide-react";
+import { UserRound, Phone, MapPin, StickyNote, Mail } from "lucide-react";
 import ModalShell from "../ModalShell";
+
+function digitsOnly(value) {
+  return String(value || "").replace(/\D+/g, "");
+}
+
+function allowPhoneKeyDown(e) {
+  const k = e.key;
+
+  const allowed =
+    k === "Backspace" ||
+    k === "Delete" ||
+    k === "Tab" ||
+    k === "Enter" ||
+    k === "Escape" ||
+    k === "ArrowLeft" ||
+    k === "ArrowRight" ||
+    k === "Home" ||
+    k === "End";
+
+  if (allowed) return;
+
+  if (e.ctrlKey || e.metaKey) return;
+
+  if (!/^\d$/.test(k)) e.preventDefault();
+}
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -46,7 +71,14 @@ function Textarea({ icon: Icon, ...props }) {
 export default function EditCustomerModal({ open, onClose, customer, onSave }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
+  const [email, setEmail] = useState("");
+  const [customerType, setCustomerType] = useState("regular");
+  const [addressLine1, setAddressLine1] = useState("");
+  const [addressLine2, setAddressLine2] = useState("");
+  const [barangay, setBarangay] = useState("");
+  const [city, setCity] = useState("");
+  const [province, setProvince] = useState("");
+  const [postalCode, setPostalCode] = useState("");
   const [notes, setNotes] = useState("");
   const [localError, setLocalError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -55,7 +87,19 @@ export default function EditCustomerModal({ open, onClose, customer, onSave }) {
     if (!open) return;
     setName(customer?.name || "");
     setPhone(customer?.phone || "");
-    setAddress(customer?.address || "");
+    setEmail(customer?.email || "");
+    setCustomerType(customer?.customer_type || "regular");
+    setAddressLine1(
+      customer?.address_line1 ||
+        customer?.full_address ||
+        customer?.address ||
+        ""
+    );
+    setAddressLine2(customer?.address_line2 || "");
+    setBarangay(customer?.barangay || "");
+    setCity(customer?.city || customer?.address || "");
+    setProvince(customer?.province || "");
+    setPostalCode(customer?.postal_code || "");
     setNotes(customer?.notes || "");
     setLocalError("");
     setSaving(false);
@@ -86,7 +130,14 @@ export default function EditCustomerModal({ open, onClose, customer, onSave }) {
       await onSave?.({
         name: name.trim(),
         phone: phoneClean || null,
-        address: address.trim() || null,
+        email: email.trim() || null,
+        customer_type: customerType,
+        address_line1: addressLine1.trim() || null,
+        address_line2: addressLine2.trim() || null,
+        barangay: barangay.trim() || null,
+        city: city.trim() || null,
+        province: province.trim() || null,
+        postal_code: postalCode.trim() || null,
         notes: notes.trim() || null,
       });
     } finally {
@@ -158,17 +209,80 @@ export default function EditCustomerModal({ open, onClose, customer, onSave }) {
             inputMode="numeric"
             maxLength={11}
           />
-
         </Field>
 
-        <Field label="Address">
+        <Field label="Email" hint="Used for notifications and receipts.">
+          <Input
+            icon={Mail}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="email@example.com"
+            type="email"
+          />
+        </Field>
+
+        <Field label="Customer type" hint="Used for reporting filters.">
+          <select
+            value={customerType}
+            onChange={(e) => setCustomerType(e.target.value)}
+            className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/25"
+          >
+            <option value="walkin">Walk-in</option>
+            <option value="regular">Regular</option>
+            <option value="corporate">Corporate</option>
+          </select>
+        </Field>
+
+        <Field label="Address line 1" hint="Street, building, or barangay.">
           <Input
             icon={MapPin}
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
+            value={addressLine1}
+            onChange={(e) => setAddressLine1(e.target.value)}
             placeholder="Barangay, City"
           />
         </Field>
+
+        <Field label="Address line 2 (optional)">
+          <Input
+            value={addressLine2}
+            onChange={(e) => setAddressLine2(e.target.value)}
+            placeholder="Unit, floor, subdivision..."
+          />
+        </Field>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Barangay">
+            <Input
+              value={barangay}
+              onChange={(e) => setBarangay(e.target.value)}
+              placeholder="Barangay"
+            />
+          </Field>
+          <Field label="City">
+            <Input
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="City / Municipality"
+            />
+          </Field>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Province">
+            <Input
+              value={province}
+              onChange={(e) => setProvince(e.target.value)}
+              placeholder="Province"
+            />
+          </Field>
+          <Field label="Postal code">
+            <Input
+              value={postalCode}
+              onChange={(e) => setPostalCode(e.target.value)}
+              placeholder="Postal code"
+            />
+          </Field>
+        </div>
 
         <Field label="Notes" hint="Optional, internal notes only.">
           <Textarea

@@ -91,14 +91,15 @@ export default function AddCustomerModal({ open, onClose, postTo, onCreated, def
 
   const canSubmit = useMemo(() => {
     if (!name.trim()) return false;
-    if (!phoneDigits.trim()) return false;
+    if (phoneDigits && phoneDigits.length > 0 && !/^(0)\d{10}$/.test(phoneDigits)) {
+      return false;
+    }
     return true;
   }, [name, phoneDigits]);
 
   const validate = () => {
     if (!name.trim()) return "Full name is required.";
-    if (!phoneDigits.trim()) return "Mobile number is required.";
-    if (!/^(0)\d{10}$/.test(phoneDigits)) {
+    if (phoneDigits && phoneDigits.length > 0 && !/^(0)\d{10}$/.test(phoneDigits)) {
       return "Mobile number looks invalid. Use 09XXXXXXXXX.";
     }
     return "";
@@ -118,7 +119,7 @@ export default function AddCustomerModal({ open, onClose, postTo, onCreated, def
       postTo,
       {
         name: name.trim(),
-        phone: phoneDigits,
+        phone: phoneDigits || null,
         address: address.trim() || null,
         notes: notes.trim() || null,
       },
@@ -128,7 +129,6 @@ export default function AddCustomerModal({ open, onClose, postTo, onCreated, def
         onSuccess: () => {
           onClose?.();
           onCreated?.();
-          router.reload({ only: ["customers"] });
         },
         onError: (errors) => {
           const first =

@@ -10,6 +10,16 @@ use Illuminate\Support\Facades\DB;
 
 class LedgerService
 {
+    protected array $defaultAccounts = [
+        '1010' => ['name' => 'Cash on Hand', 'account_type' => 'asset'],
+        '1020' => ['name' => 'Cash in Bank', 'account_type' => 'asset'],
+        '1200' => ['name' => 'Inventory', 'account_type' => 'asset'],
+        '2010' => ['name' => 'Turnover Receivable', 'account_type' => 'asset'],
+        '2030' => ['name' => 'VAT Payable', 'account_type' => 'liability'],
+        '4010' => ['name' => 'Sales Revenue', 'account_type' => 'revenue'],
+        '5000' => ['name' => 'Cost of Goods Sold', 'account_type' => 'expense'],
+    ];
+
     public function postEntry(array $payload): LedgerEntry
     {
         $entryDate = $payload['entry_date'] ?? Carbon::now()->toDateString();
@@ -71,7 +81,11 @@ class LedgerService
     {
         $account = ChartOfAccount::where('code', $code)->first();
         if (!$account) {
-            throw new \RuntimeException("Account code {$code} not found.");
+            $account = ChartOfAccount::create([
+                'code' => $code,
+                'name' => $this->defaultAccounts[$code]['name'] ?? "Account {$code}",
+                'account_type' => $this->defaultAccounts[$code]['account_type'] ?? 'asset',
+            ]);
         }
         return $account->id;
     }

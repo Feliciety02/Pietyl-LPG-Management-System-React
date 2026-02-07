@@ -194,6 +194,39 @@ export default function Sales() {
 
   const loading = Boolean(page.props?.loading);
 
+  const [liveSales, setLiveSales] = useState(rows);
+  const [liveMeta, setLiveMeta] = useState(meta);
+
+  useEffect(() => {
+    setLiveSales(rows);
+    setLiveMeta(meta);
+  }, [rows, meta]);
+
+  useEffect(() => {
+    let active = true;
+    const fetchLiveSales = async () => {
+      try {
+        const { data: live } = await axios.get("/dashboard/cashier/sales/latest", {
+          params: { q, status, per, page: currentPage },
+        });
+
+        if (!active) return;
+        setLiveSales(live?.data ?? []);
+        setLiveMeta(live?.meta ?? null);
+      } catch {
+        // ignore fetch errors, rely on manual refresh for now
+      }
+    };
+
+    fetchLiveSales();
+    const intervalId = setInterval(fetchLiveSales, 15000);
+
+    return () => {
+      active = false;
+      clearInterval(intervalId);
+    };
+  }, [q, status, per, currentPage]);
+
   const statusOptions = [
     { value: "all", label: "All status" },
     { value: "paid", label: "Paid" },
@@ -220,7 +253,7 @@ export default function Sales() {
     [per]
   );
 
-  const tableRows = loading ? fillerRows : rows;
+  const tableRows = loading ? fillerRows : liveSales;
 
   const extractSummaryError = (error) => {
     const response = error?.response;
@@ -584,7 +617,7 @@ export default function Sales() {
         />
 
         <DataTablePagination
-          meta={meta}
+          meta={liveMeta}
           perPage={per}
           onPerPage={(n) => pushQuery({ per: n, page: 1 })}
           onPrev={() => meta?.current_page > 1 && pushQuery({ page: meta.current_page - 1 })}

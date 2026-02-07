@@ -32,20 +32,33 @@ class VatSettingsController extends Controller
             abort(403);
         }
 
+        $vatRegistered = $request->boolean('vat_registered');
+
         $validated = $request->validate([
             'vat_registered' => ['required', 'boolean'],
-            'vat_rate' => ['required_if:vat_registered,1', 'numeric', 'gt:0'],
-            'vat_effective_date' => ['required_if:vat_registered,1', 'nullable', 'date'],
+            'vat_rate' => Rule::when(
+                $vatRegistered,
+                ['required', 'numeric', 'gt:0'],
+                ['nullable', 'numeric']
+            ),
+            'vat_effective_date' => Rule::when(
+                $vatRegistered,
+                ['required', 'date'],
+                ['nullable', 'date']
+            ),
             'vat_mode' => ['required', Rule::in(['inclusive'])],
         ]);
 
         $before = $settings->getSettings()->toArray();
 
         $current = $settings->getSettings();
+        $vatRate = $validated['vat_rate'] ?? null;
+        $effectiveDate = $validated['vat_effective_date'] ?? null;
+
         $payload = [
-            'vat_registered' => (bool) $validated['vat_registered'],
-            'vat_rate' => (float) ($validated['vat_registered'] ? $validated['vat_rate'] : $current->vat_rate),
-            'vat_effective_date' => $validated['vat_registered'] ? $validated['vat_effective_date'] : null,
+            'vat_registered' => $vatRegistered,
+            'vat_rate' => $vatRegistered ? (float) $vatRate : $current->vat_rate,
+            'vat_effective_date' => $vatRegistered ? $effectiveDate : null,
             'vat_mode' => $validated['vat_mode'],
         ];
 

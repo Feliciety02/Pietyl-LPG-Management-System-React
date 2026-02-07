@@ -31,6 +31,8 @@ class Sale extends Model
         'gross_amount',
         'vat_applied',
         'notes',
+        'cash_tendered',
+        'cash_change',
     ];
 
     protected $casts = [
@@ -45,6 +47,8 @@ class Sale extends Model
         'net_amount' => 'decimal:2',
         'gross_amount' => 'decimal:2',
         'vat_applied' => 'boolean',
+        'cash_tendered' => 'decimal:2',
+        'cash_change' => 'decimal:2',
     ];
 
     // Relationships
