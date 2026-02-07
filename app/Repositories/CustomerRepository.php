@@ -3,8 +3,10 @@
 namespace App\Repositories;
 
 use App\Models\Customer;
+use App\Models\Delivery;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 class CustomerRepository
 {
@@ -35,5 +37,25 @@ class CustomerRepository
         $this->applyFilters($filters);
 
         return $this->query->latest()->paginate($perPage)->withQueryString();
+    }
+
+    public function getAllCustomers(): Collection
+    {
+        return Customer::select('id', 'name', 'phone')
+            ->orderBy('name')
+            ->get();
+    }
+
+    public function findCustomerWithAddresses(int $customerId): ?Customer
+    {
+        return Customer::with('addresses')->find($customerId);
+    }
+
+    public function getDefaultAddress(Customer $customer)
+    {
+        return $customer->addresses()
+            ->where('is_default', 1)
+            ->first()
+            ?? $customer->addresses()->first();
     }
 }

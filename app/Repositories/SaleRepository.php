@@ -4,6 +4,8 @@ namespace App\Repositories;
 
 use App\Models\Sale;
 use Carbon\Carbon;
+use App\Models\SaleItem;
+use App\Models\Receipt; 
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
@@ -71,5 +73,40 @@ class SaleRepository
         }
 
         return $query->orderBy('sale_datetime', 'asc')->get();
+    }
+
+    public function create(array $data): Sale
+    {
+        return Sale::create($data);
+    }
+
+    public function createSaleItem(array $data): SaleItem
+    {
+        return SaleItem::create($data);
+    }
+
+    public function createReceipt(int $saleId): Receipt
+    {
+        return Receipt::create([
+            'sale_id' => $saleId,
+            'receipt_number' => Receipt::generateReceiptNumber(),
+            'printed_count' => 0,
+            'issued_at' => Carbon::now(),
+        ]);
+    }
+
+    public function isSaleLocked(string $businessDate): bool
+    {
+        return \App\Models\DailyClose::where('business_date', $businessDate)->exists();
+    }
+
+    public function findById(int $id): ?Sale
+    {
+        return Sale::find($id);
+    }
+
+    public function generateSaleNumber(): string
+    {
+        return Sale::generateSaleNumber();
     }
 }

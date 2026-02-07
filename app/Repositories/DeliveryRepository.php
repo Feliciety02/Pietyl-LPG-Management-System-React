@@ -136,4 +136,32 @@ class DeliveryRepository
 
         return $query->paginate($perPage);
     }
+
+    public function createDelivery(array $data): Delivery
+    {
+        return Delivery::create($data);
+    }
+
+    public function getRiders(): Collection
+    {
+        return User::whereHas('roles', function($q) {
+            $q->where('name', 'rider');
+        })->get();
+    }
+
+    public function getActiveDeliveryCount(int $riderId): int
+    {
+        return Delivery::where('assigned_rider_user_id', $riderId)
+            ->whereIn('status', [
+                Delivery::STATUS_PENDING,
+                Delivery::STATUS_ASSIGNED,
+                Delivery::STATUS_IN_TRANSIT,
+            ])
+            ->count();
+    }
+
+    public function generateDeliveryNumber(): string
+    {
+        return Delivery::generateDeliveryNumber();
+    }
 }
