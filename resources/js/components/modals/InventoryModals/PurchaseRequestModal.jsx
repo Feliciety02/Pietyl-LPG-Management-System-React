@@ -34,6 +34,11 @@ function InputShell({ icon: Icon, children }) {
   );
 }
 
+function formatCurrency(value) {
+  const n = Number(value || 0);
+  return `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 function TextInput({ icon, ...props }) {
   return (
     <InputShell icon={icon}>
@@ -58,16 +63,19 @@ export default function PurchaseRequestModal({
   onClose,
   item = null,
   products = [],
+  suppliersByProduct = {},
   onSubmit,
   loading = false,
 }) {
   const [qty, setQty] = useState("");
   const [note, setNote] = useState("");
+  const [unitCost, setUnitCost] = useState("");
 
   useEffect(() => {
     if (!open) return;
     setQty("");
     setNote("");
+    setUnitCost("");
   }, [open]);
 
   const displayData = useMemo(() => {
@@ -83,7 +91,26 @@ export default function PurchaseRequestModal({
     };
   }, [item]);
 
+  useEffect(() => {
+    if (!open) return;
+    const variantId = item?.product_variant_id ?? item?.id;
+    if (!variantId) {
+      setUnitCost("");
+      return;
+    }
+
+    const supplierData =
+      suppliersByProduct[String(variantId)]?.suppliers ||
+      suppliersByProduct[Number(variantId)]?.suppliers ||
+      [];
+    const primarySupplier = supplierData.find((s) => s.is_primary) || supplierData[0];
+    const fallback = Number(item?.supplier_cost ?? 0);
+    const defaultCost = Number(primarySupplier?.unit_cost ?? fallback);
+    setUnitCost(defaultCost > 0 ? defaultCost.toFixed(2) : "");
+  }, [open, item, suppliersByProduct]);
+
   const normalizedQty = safeNum(qty);
+  const totalCost = useMemo(() => safeNum(unitCost) * normalizedQty, [unitCost, normalizedQty]);
   const canSubmit = Boolean(item?.id) && normalizedQty > 0 && !loading;
 
   const submit = () => {
@@ -93,8 +120,12 @@ export default function PurchaseRequestModal({
       product_variant_id: Number(item.product_variant_id || item.id),
       qty: normalizedQty,
       note: note?.trim() || null,
+      unit_cost: safeNum(unitCost),
     });
   };
+
+  const unitCostDisplay = unitCost ? formatCurrency(Number(unitCost)) : "—";
+  const totalCostDisplay = formatCurrency(totalCost);
 
   return (
     <ModalShell
@@ -162,6 +193,20 @@ export default function PurchaseRequestModal({
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
+          <Field label="Unit cost" hint="Supplier cost per unit">
+            <InputShell icon={Hash}>
+              <input
+                type="text"
+                readOnly
+                value={unitCostDisplay}
+                className="w-full bg-transparent text-sm font-extrabold text-slate-900 outline-none placeholder:text-slate-400"
+              />
+            </InputShell>
+            <div className="mt-1 text-[11px] text-slate-500">
+              Auto-filled from the linked supplier.
+            </div>
+          </Field>
+
           <Field label="Requested quantity" required>
             <TextInput
               icon={Hash}
@@ -173,16 +218,27 @@ export default function PurchaseRequestModal({
               placeholder="0"
             />
           </Field>
-
-          <Field label="Note">
-            <TextInput
-              icon={StickyNote}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Optional"
-            />
-          </Field>
         </div>
+
+        <Field label="Notes" hint="Optional">
+          <TextInput
+            icon={StickyNote}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Optional"
+          />
+        </Field>
+
+        <Field label="Total cost" hint="Unit cost × quantity">
+          <InputShell icon={Hash}>
+            <input
+              type="text"
+              readOnly
+              value={totalCostDisplay}
+              className="w-full bg-transparent text-sm font-extrabold text-slate-900 outline-none placeholder:text-slate-400"
+            />
+          </InputShell>
+        </Field>
       </div>
     </ModalShell>
   );

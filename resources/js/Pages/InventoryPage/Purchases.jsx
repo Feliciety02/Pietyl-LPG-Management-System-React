@@ -7,19 +7,9 @@ import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
 
-import NewPurchaseModal from "@/components/modals/InventoryModals/OrderStockModal";
-import ConfirmDeliveryModal from "@/components/modals/InventoryModals/ConfirmDeliveryModal";
 import ViewPurchaseModal from "@/components/modals/InventoryModals/ViewPurchaseModal";
 
-import {
-  PlusCircle,
-  FileText,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  Truck,
-  AlertTriangle,
-} from "lucide-react";
+import { FileText } from "lucide-react";
 
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 
@@ -248,25 +238,6 @@ export default function Purchases() {
     []
   );
 
-  const canCreate = roleKey === "inventory_manager" || roleKey === "admin";
-  const isInventoryManager = roleKey === "inventory_manager";
-
-  const canConfirmDelivery = (x) => {
-    const s = normalizeStatus(x?.status);
-    return isInventoryManager && (s === "delivered" || s === "awaiting_confirmation");
-  };
-
-  const canEditPending = (x) => normalizeStatus(x?.status) === "pending" && isInventoryManager;
-
-  const markDeliveredHint = "Mark delivered is usually set by Admin or supplier process.";
-  const confirmHint = "Confirm delivery to update stock and record damages or shortages.";
-
-  const [newPurchaseOpen, setNewPurchaseOpen] = useState(false);
-
-  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-  const [confirmModalMode, setConfirmModalMode] = useState("confirm");
-  const [activePurchase, setActivePurchase] = useState(null);
-
   const [viewOpen, setViewOpen] = useState(false);
   const [viewItem, setViewItem] = useState(null);
 
@@ -281,42 +252,12 @@ export default function Purchases() {
     setViewItem(null);
   };
 
-  const openConfirm = (row) => {
-    setActivePurchase(row);
-    setConfirmModalMode("confirm");
-    setConfirmModalOpen(true);
-  };
-
-  const openReport = (row) => {
-    setActivePurchase(row);
-    setConfirmModalMode("report");
-    setConfirmModalOpen(true);
-  };
-
-  const closeConfirmModal = () => {
-    setConfirmModalOpen(false);
-    setActivePurchase(null);
-    setConfirmModalMode("confirm");
-  };
-
   return (
-    <Layout title="Purchases">
+    <Layout title="Purchase history">
       <div className="grid gap-6">
         <TopCard
-          title="Purchases"
-          subtitle="Create and track purchase requests. Stock updates only happen after delivery confirmation."
-          right={
-            canCreate ? (
-              <button
-                type="button"
-                onClick={() => setNewPurchaseOpen(true)}
-                className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 focus:ring-4 focus:ring-teal-500/25"
-              >
-                <PlusCircle className="h-4 w-4" />
-                New purchase
-              </button>
-            ) : null
-          }
+          title="Purchase history"
+          subtitle="Review historic purchases."
         />
 
         <DataTableFilters
@@ -354,61 +295,6 @@ export default function Purchases() {
                   <FileText className="h-4 w-4 text-slate-600" />
                   View
                 </button>
-
-                {canEditPending(x) ? (
-                  <button
-                    type="button"
-                    onClick={() => router.visit(`/dashboard/inventory/purchases/${x.id}/edit`)}
-                    className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
-                  >
-                    <Clock className="h-4 w-4 text-slate-600" />
-                    Edit
-                  </button>
-                ) : null}
-
-                {roleKey === "admin" && normalizeStatus(x.status) === "approved" ? (
-                  <button
-                    type="button"
-                    title={markDeliveredHint}
-                    onClick={() =>
-                      router.post(`/dashboard/inventory/purchases/${x.id}/mark-delivered`, {}, { preserveScroll: true })
-                    }
-                    className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
-                  >
-                    <Truck className="h-4 w-4 text-slate-600" />
-                    Mark delivered
-                  </button>
-                ) : null}
-
-                {canConfirmDelivery(x) ? (
-                  <button
-                    type="button"
-                    title={confirmHint}
-                    onClick={() => openConfirm(x)}
-                    className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-3 py-2 text-xs font-extrabold text-white hover:bg-teal-700 focus:ring-4 focus:ring-teal-500/25"
-                  >
-                    <CheckCircle2 className="h-4 w-4" />
-                    Confirm
-                  </button>
-                ) : null}
-
-                {canConfirmDelivery(x) ? (
-                  <button
-                    type="button"
-                    onClick={() => openReport(x)}
-                    className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
-                  >
-                    <AlertTriangle className="h-4 w-4 text-slate-600" />
-                    Report
-                  </button>
-                ) : null}
-
-                {normalizeStatus(x.status) === "rejected" ? (
-                  <span className="inline-flex items-center gap-2 rounded-2xl bg-rose-600/10 px-3 py-2 text-xs font-extrabold text-rose-900 ring-1 ring-rose-700/10">
-                    <XCircle className="h-4 w-4" />
-                    Rejected
-                  </span>
-                ) : null}
               </div>
             )
           }
@@ -422,41 +308,6 @@ export default function Purchases() {
           onNext={handleNext}
           disablePrev={!meta || meta.current_page <= 1}
           disableNext={!meta || meta.current_page >= meta.last_page}
-        />
-
-        <NewPurchaseModal
-          open={newPurchaseOpen}
-          onClose={() => setNewPurchaseOpen(false)}
-          products={page.props?.products || []}
-          suppliers={page.props?.suppliersByProduct || {}}
-          productsMap={page.props?.productsMap || {}}
-          suppliersMap={page.props?.suppliersMap || {}} 
-          onSubmit={(payload) => {
-            router.post("/dashboard/inventory/purchases", payload, {
-              preserveScroll: true,
-              onSuccess: () => setNewPurchaseOpen(false),
-            });
-          }}
-        />
-
-        <ConfirmDeliveryModal
-          open={confirmModalOpen}
-          mode={confirmModalMode}
-          purchase={activePurchase}
-          onClose={closeConfirmModal}
-          onSubmit={(payload) => {
-            if (!activePurchase?.id) return;
-
-            const url =
-              confirmModalMode === "report"
-                ? `/dashboard/inventory/purchases/${activePurchase.id}/discrepancy`
-                : `/dashboard/inventory/purchases/${activePurchase.id}/confirm`;
-
-            router.post(url, payload, {
-              preserveScroll: true,
-              onSuccess: () => closeConfirmModal(),
-            });
-          }}
         />
 
         <ViewPurchaseModal open={viewOpen} onClose={closeView} purchase={viewItem} />

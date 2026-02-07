@@ -16,6 +16,10 @@ class RestockRequestItem extends Model
         'current_qty',
         'reorder_level',
         'requested_qty',
+        'approved_qty',
+        'received_qty',
+        'unit_cost',
+        'line_total',
         'supplier_id',
         'linked_purchase_id',
     ];
@@ -24,6 +28,10 @@ class RestockRequestItem extends Model
         'current_qty' => 'decimal:3',
         'reorder_level' => 'decimal:3',
         'requested_qty' => 'decimal:3',
+        'approved_qty' => 'decimal:3',
+        'received_qty' => 'decimal:3',
+        'unit_cost' => 'decimal:2',
+        'line_total' => 'decimal:2',
     ];
 
     // Relationships
@@ -56,5 +64,13 @@ class RestockRequestItem extends Model
     public function getShortageQty(): float
     {
         return max(0, $this->reorder_level - $this->current_qty);
+    }
+
+    public function remainingQty(): float
+    {
+        $approved = (float) ($this->approved_qty ?? $this->requested_qty ?? 0);
+        $received = (float) ($this->received_qty ?? 0);
+
+        return max(0, $approved - $received);
     }
 }

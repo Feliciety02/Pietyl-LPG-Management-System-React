@@ -312,14 +312,64 @@ class StockController extends Controller
         $filters = $request->only(['q', 'risk', 'req', 'per', 'page']);
         $data = $svc->getLowStock($filters);
 
-        return Inertia::render('InventoryPage/LowStock', [
+        return Inertia::render('InventoryPage/OrderStocks', [
             'low_stock' => $data['low_stock'],
             'product_hash' => $data['product_hash'],
             'suppliers' => $data['suppliers'],
             'suppliersByProduct' => $data['suppliersByProduct'] ?? [],
             'products' => $data['products'] ?? [],
+            'scope' => $data['scope'] ?? 'low',
             'filters' => $filters,
         ]);
+    }
+
+    public function thresholds(Request $request, InventoryBalanceService $svc)
+    {
+        $user = $request->user();
+        if (!$user || !$user->can('inventory.stock.low_stock')) {
+            abort(403);
+        }
+
+        $filters = $request->only(['q', 'risk', 'req', 'per', 'page']);
+        $filters['scope'] = 'all';
+        $data = $svc->getLowStock($filters);
+
+        return Inertia::render('InventoryPage/Thresholds', [
+            'thresholds' => $data['low_stock'],
+            'suppliers' => $data['suppliers'],
+            'suppliersByProduct' => $data['suppliersByProduct'] ?? [],
+            'products' => $data['products'] ?? [],
+            'scope' => $data['scope'] ?? 'all',
+            'filters' => $filters,
+        ]);
+    }
+
+    public function updateThresholds(Request $request)
+    {
+        $user = $request->user();
+        if (!$user || !$user->can('inventory.stock.low_stock')) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'updates' => 'required|array',
+            'updates.*.id' => 'required|integer|exists:inventory_balances,id',
+            'updates.*.reorder_level' => 'required|numeric|min:0',
+        ]);
+
+        $updates = collect($validated['updates']);
+        $balances = InventoryBalance::whereIn('id', $updates->pluck('id')->unique())->get()->keyBy('id');
+
+        foreach ($updates as $entry) {
+            $balance = $balances->get($entry['id']);
+            if (!$balance) {
+                continue;
+            }
+            $balance->reorder_level = $entry['reorder_level'];
+            $balance->save();
+        }
+
+        return back()->with('success', 'Thresholds updated.');
     }
 
 

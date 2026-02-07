@@ -545,6 +545,18 @@ export default function Products() {
           ),
       },
       {
+        key: "unit_cost",
+        label: "Unit cost",
+        render: (p) =>
+          p?.__filler ? (
+            <SkeletonLine w="w-20" />
+          ) : (
+            <span className="text-sm font-semibold text-slate-800">
+              {formatPesoDisplay(p?.supplier_cost)}
+            </span>
+          ),
+      },
+      {
         key: "status",
         label: "Status",
         render: (p) =>

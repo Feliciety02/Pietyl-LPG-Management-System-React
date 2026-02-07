@@ -347,7 +347,7 @@ export default function Reports() {
 
             <div className="mt-4">
               <Link
-                href="/dashboard/inventory/low-stock"
+                href="/dashboard/inventory/order-stocks"
                 className="inline-flex items-center rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 transition focus:ring-4 focus:ring-teal-500/25"
               >
                 Open low stock

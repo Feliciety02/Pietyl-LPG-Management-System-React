@@ -24,7 +24,9 @@ return new class extends Migration
         }
 
         if (Schema::hasColumn('sale_items', 'pricing_source')) {
-            DB::statement("ALTER TABLE sale_items MODIFY pricing_source VARCHAR(50) NOT NULL DEFAULT 'base_price'");
+            if (DB::getDriverName() === 'mysql') {
+                DB::statement("ALTER TABLE sale_items MODIFY pricing_source VARCHAR(50) NOT NULL DEFAULT 'base_price'");
+            }
         }
     }
 
@@ -59,7 +61,9 @@ return new class extends Migration
         }
 
         if (Schema::hasColumn('sale_items', 'pricing_source')) {
-            DB::statement("ALTER TABLE sale_items MODIFY pricing_source VARCHAR(50) NOT NULL DEFAULT 'price_list'");
+            if (DB::getDriverName() === 'mysql') {
+                DB::statement("ALTER TABLE sale_items MODIFY pricing_source VARCHAR(50) NOT NULL DEFAULT 'price_list'");
+            }
         }
     }
 };

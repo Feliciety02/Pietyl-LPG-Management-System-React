@@ -63,6 +63,8 @@ class InventoryBalanceService
         $q = trim((string) ($filters['q'] ?? ''));
         $riskFilter = (string) ($filters['risk'] ?? 'all');
         $reqFilter = (string) ($filters['req'] ?? 'all');
+        $scope = (string) ($filters['scope'] ?? 'low');
+        $showAll = $scope === 'all';
 
         // Aggregate inventory across all locations per variant
         $query = DB::table('inventory_balances as ib')
@@ -79,10 +81,17 @@ class InventoryBalanceService
                 DB::raw('MAX(ib.updated_at) as last_updated'),
             ])
             ->join('product_variants as pv', 'ib.product_variant_id', '=', 'pv.id')
-            ->join('products as p', 'pv.product_id', '=', 'p.id')
-            ->where('ib.reorder_level', '>', 0)
-            ->groupBy('pv.id', 'p.id', 'p.sku', 'p.name', 'pv.variant_name')
-            ->havingRaw('(SUM(ib.qty_filled) + SUM(ib.qty_empty) - SUM(ib.qty_reserved)) <= MAX(ib.reorder_level)');
+            ->join('products as p', 'pv.product_id', '=', 'p.id');
+
+        if (!$showAll) {
+            $query->where('ib.reorder_level', '>', 0);
+        }
+
+        $query->groupBy('pv.id', 'p.id', 'p.sku', 'p.name', 'pv.variant_name');
+
+        if (!$showAll) {
+            $query->havingRaw('(SUM(ib.qty_filled) + SUM(ib.qty_empty) - SUM(ib.qty_reserved)) <= MAX(ib.reorder_level)');
+        }
 
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
@@ -139,12 +148,22 @@ class InventoryBalanceService
             ->get()
             ->keyBy('product_variant_id');
 
-        $mapped = collect($results)->map(function ($row) use ($latestByVariant, $suppliers) {
+        $mapped = collect($results)->map(function ($row) use ($latestByVariant, $suppliers, $scope) {
             $available = ($row->total_qty_filled + $row->total_qty_empty) - $row->total_qty_reserved;
             $reorderLevel = $row->max_reorder_level;
 
-            // Critical if 50% or less of reorder level, Warning if above 50%
-            $riskLevel = ($available <= $reorderLevel * 0.5) ? 'critical' : 'warning';
+            if ($reorderLevel <= 0) {
+                $riskLevel = 'ok';
+            } else {
+                $ratio = $available / $reorderLevel;
+                if ($ratio <= 0.5) {
+                    $riskLevel = 'critical';
+                } elseif ($ratio < 1) {
+                    $riskLevel = 'warning';
+                } else {
+                    $riskLevel = 'ok';
+                }
+            }
 
             $supplier = $suppliers->get($row->product_variant_id);
             
@@ -166,6 +185,7 @@ class InventoryBalanceService
                 'reorder_level' => $reorderLevel,
                 'est_days_left' => rand(1, 5),
                 'risk_level' => $riskLevel,
+                'scope' => $scope,
                 'last_movement_at' => \Carbon\Carbon::parse($row->last_updated)->format('M d, Y h:i A'),
                 'purchase_request_id' => $latestRequest?->id,
                 'purchase_request_status' => $latestRequest?->status,
@@ -261,6 +281,7 @@ class InventoryBalanceService
             'suppliers' => \App\Models\Supplier::where('is_active', true)->get(['id', 'name']),
             'suppliersByProduct' => $suppliersByProduct,
             'products' => $products,
+            'scope' => $scope,
         ];
     }
 }

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
+use App\Models\Location;
+use App\Models\Supplier;
 use App\Services\RestockRequestService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -16,22 +18,6 @@ class RestockRequestController extends Controller
         $this->svc = $svc;
     }
 
-    public function index(Request $request)
-    {
-        $user = $request->user();
-        if (!$user || !$user->can('inventory.purchases.view')) {
-            abort(403);
-        }
-
-        $filters = $request->only(['q', 'status', 'priority', 'per', 'page']);
-        $requests = $this->svc->getRequestsForPage($filters);
-
-        return Inertia::render('InventoryPage/Purchases', [
-            'purchase_requests' => $requests,  // ← Frontend expects this name
-            'filters' => $filters,
-        ]);
-    }
-
     public function adminIndex(Request $request)
     {
         $user = $request->user();
@@ -41,10 +27,32 @@ class RestockRequestController extends Controller
 
         $filters = $request->only(['q', 'status', 'priority', 'per', 'page']);
         $requests = $this->svc->getRequestsForPage($filters);
+        $summary = $this->svc->getKPIs();
 
         return Inertia::render('AdminPage/StockRequests', [
             'stock_requests' => $requests,
             'filters' => $filters,
+            'summary' => $summary,
+        ]);
+    }
+
+    public function approvalForm(Request $request, int $id)
+    {
+        $user = $request->user();
+        if (!$user || !$user->can('inventory.purchases.view')) {
+            abort(403);
+        }
+
+        $stockRequest = $this->svc->getRequestForReceiving($id);
+        if (!$stockRequest) {
+            abort(404);
+        }
+
+        $suppliers = Supplier::where('is_active', true)->get(['id', 'name']);
+
+        return Inertia::render('AdminPage/StockRequestApprove', [
+            'stock_request' => $this->svc->formatRequest($stockRequest),
+            'suppliers' => $suppliers,
         ]);
     }
 
@@ -55,27 +63,42 @@ class RestockRequestController extends Controller
             abort(403);
         }
 
-        // Transform the modal data to match the service's expected structure
-        $data = [
-            'requested_by_user_id' => auth()->id(),
-            'location_id' => $request->input('location_id'),
+        $validated = $request->validate([
+            'product_variant_id' => 'required|integer',
+            'qty' => 'required|numeric|min:0.01',
+            'current_qty' => 'nullable|numeric|min:0',
+            'reorder_level' => 'nullable|numeric|min:0',
+            'supplier_id' => 'nullable|integer',
+            'location_id' => 'nullable|integer',
+            'note' => 'nullable|string',
+        ]);
+
+        $locationId = $validated['location_id'] ?? Location::first()?->id;
+        if (!$locationId) {
+            return redirect()->back()->with('error', 'No location configured for requests.');
+        }
+
+        $payload = [
+            'requested_by_user_id' => $user->id,
+            'submitted_by_user_id' => $user->id,
+            'location_id' => $locationId,
             'priority' => 'normal',
             'needed_by_date' => null,
-            'notes' => $request->input('note'), // The note field from the modal
+            'notes' => $validated['note'] ?? null,
             'items' => [
                 [
-                    'product_variant_id' => $request->input('product_variant_id'),
-                    'requested_qty' => $request->input('qty'),
-                    'current_qty' => $request->input('current_qty', 0),
-                    'reorder_level' => $request->input('reorder_level', 0),
-                    'supplier_id' => $request->input('supplier_id'),
-                ]
-            ]
+                    'product_variant_id' => $validated['product_variant_id'],
+                    'requested_qty' => $validated['qty'],
+                    'current_qty' => $validated['current_qty'] ?? 0,
+                    'reorder_level' => $validated['reorder_level'] ?? 0,
+                    'supplier_id' => $validated['supplier_id'] ?? null,
+                ],
+            ],
         ];
-       
-        $this->svc->createRequest($data);
 
-        return redirect()->back()->with('success', 'Purchase request created successfully');
+        $this->svc->createRequest($payload);
+
+        return redirect()->back()->with('success', 'Purchase request created successfully.');
     }
 
     public function approve(Request $request, int $id)
@@ -85,13 +108,19 @@ class RestockRequestController extends Controller
             abort(403);
         }
 
-        $success = $this->svc->approveRequest($id, auth()->id());
+        $validated = $request->validate([
+            'supplier_id' => 'required|integer|exists:suppliers,id',
+            'invoice_ref' => 'nullable|string|max:100',
+            'invoice_date' => 'nullable|date',
+            'lines' => 'required|array',
+            'lines.*.line_id' => 'required|integer',
+            'lines.*.unit_cost' => 'required|numeric|min:0',
+            'lines.*.approved_qty' => 'nullable|numeric|min:0',
+        ]);
 
-        if (!$success) {
-            return redirect()->back()->with('error', 'Unable to approve request');
-        }
+        $this->svc->approveRequest($id, $validated, $user->id);
 
-        return redirect()->back()->with('success', 'Request approved successfully');
+        return redirect()->back()->with('success', 'Request approved successfully.');
     }
 
     public function reject(Request $request, int $id)
@@ -101,12 +130,44 @@ class RestockRequestController extends Controller
             abort(403);
         }
 
-        $success = $this->svc->rejectRequest($id, auth()->id(), $request->input('reason'));
+        $reason = $request->input('reason');
+        $this->svc->rejectRequest($id, $user->id, $reason);
 
-        if (!$success) {
-            return redirect()->back()->with('error', 'Unable to reject request');
+        return redirect()->back()->with('success', 'Request rejected.');
+    }
+
+    public function receivePage(Request $request, int $id)
+    {
+        $user = $request->user();
+        if (!$user || !$user->can('inventory.purchases.view')) {
+            abort(403);
         }
 
-        return redirect()->back()->with('success', 'Request rejected');
+        $stockRequest = $this->svc->getRequestForReceiving($id);
+        if (!$stockRequest) {
+            abort(404);
+        }
+
+        return Inertia::render('InventoryPage/ReceiveStockRequest', [
+            'stock_request' => $this->svc->formatRequest($stockRequest),
+        ]);
+    }
+
+    public function receive(Request $request, int $id)
+    {
+        $user = $request->user();
+        if (!$user || !$user->can('inventory.purchases.update')) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'lines' => 'required|array',
+            'lines.*.line_id' => 'required|integer',
+            'lines.*.received_qty_increment' => 'required|numeric|min:0',
+        ]);
+
+        $this->svc->receiveRequest($id, $validated, $user->id);
+
+        return redirect()->back()->with('success', 'Receipt saved.');
     }
 }

@@ -15,9 +15,13 @@ class RestockRequestRepository
         $this->query = RestockRequest::query()->with([
             'location',
             'requestedBy',
+            'submittedBy',
             'approvedBy',
+            'receivedBy',
+            'supplier',
+            'payable',
             'items.productVariant.product',
-            'items.supplier'
+            'items.supplier',
         ]);
     }
 
@@ -61,9 +65,13 @@ class RestockRequestRepository
         return RestockRequest::with([
             'location',
             'requestedBy',
+            'submittedBy',
             'approvedBy',
+            'receivedBy',
+            'supplier',
+            'payable',
             'items.productVariant.product',
-            'items.supplier'
+            'items.supplier',
         ])->find($id);
     }
 }

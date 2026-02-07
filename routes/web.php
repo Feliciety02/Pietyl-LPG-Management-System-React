@@ -21,6 +21,7 @@ use App\Http\Controllers\Inventory\RestockRequestController;
 use App\Http\Controllers\Accountant\RemittanceController as AccountantRemittanceController;
 use App\Http\Controllers\Accountant\LedgerController as AccountantLedgerController;
 use App\Http\Controllers\Accountant\ReportController as AccountantReportController;
+use App\Http\Controllers\Accountant\PayableController as AccountantPayableController;
 use App\Http\Controllers\Cashier\DailySummaryController as CashierDailySummaryController;
 use App\Http\Controllers\Rider\RiderDeliveryController;
 
@@ -169,6 +170,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/purchase-requests/{id}/reject', [RestockRequestController::class, 'reject'])
             ->middleware('permission:inventory.purchases.update')
             ->name('dash.admin.purchase-requests.reject');
+        Route::get('/stock-requests/{id}/approve', [RestockRequestController::class, 'approvalForm'])
+            ->middleware('permission:inventory.purchases.view')
+            ->name('dash.admin.stock-requests.approve');
 
         Route::get('/stock-requests', [RestockRequestController::class, 'adminIndex'])
             ->middleware('permission:inventory.purchases.view')
@@ -280,6 +284,16 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('permission:accountant.reports.view')
             ->name('dash.accountant.reports.export');
 
+        Route::get('/payables', [AccountantPayableController::class, 'index'])
+            ->middleware('permission:accountant.payables.view')
+            ->name('dash.accountant.payables');
+        Route::get('/payables/{payable}', [AccountantPayableController::class, 'show'])
+            ->middleware('permission:accountant.payables.view')
+            ->name('dash.accountant.payables.show');
+        Route::post('/payables/{payable}/pay', [AccountantPayableController::class, 'pay'])
+            ->middleware('permission:accountant.payables.pay')
+            ->name('dash.accountant.payables.pay');
+
         Route::get('/audit', [AuditLogController::class, 'index'])
             ->middleware('permission:accountant.audit.view')
             ->name('dash.accountant.audit');
@@ -322,13 +336,28 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('permission:inventory.stock.view')
             ->name('dash.inventory.counts.review');
 
-        Route::get('/low-stock', [StockController::class, 'lowStock'])
+        Route::get('/order-stocks', [StockController::class, 'lowStock'])
             ->middleware('permission:inventory.stock.low_stock')
-            ->name('dash.inventory.lowstock');
+            ->name('dash.inventory.order-stocks');
+
+        Route::get('/thresholds', [StockController::class, 'thresholds'])
+            ->middleware('permission:inventory.stock.low_stock')
+            ->name('dash.inventory.thresholds');
+
+        Route::post('/admin/inventory/thresholds', [StockController::class, 'updateThresholds'])
+            ->middleware('permission:inventory.stock.low_stock')
+            ->name('dash.inventory.thresholds.save');
 
         Route::get('/purchases', [PurchaseController::class, 'index'])
             ->middleware('permission:inventory.purchases.view')
             ->name('dash.inventory.purchases');
+
+        Route::get('/stock-requests/{id}/receive', [RestockRequestController::class, 'receivePage'])
+            ->middleware('permission:inventory.purchases.view')
+            ->name('dash.inventory.stock-requests.receive');
+        Route::post('/stock-requests/{id}/receive', [RestockRequestController::class, 'receive'])
+            ->middleware('permission:inventory.purchases.update')
+            ->name('dash.inventory.stock-requests.receive.store');
 
         Route::post('/purchase-requests', [RestockRequestController::class, 'store'])
             ->middleware('permission:inventory.purchases.create')

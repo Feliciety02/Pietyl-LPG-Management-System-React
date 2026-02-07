@@ -93,12 +93,14 @@ export const sidebarIconMap = {
   purchases: PackagePlus,
   suppliers: Building2,
   products: Package,
+  thresholds: SlidersHorizontal,
 
   // Accountant
   daily: CalendarDays,
   ledger: BookOpen,
   payroll: BadgeDollarSign,
   vatSettings: Banknote,
+  payables: Wallet,
 };
 
 /**

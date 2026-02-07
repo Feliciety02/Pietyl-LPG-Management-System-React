@@ -274,6 +274,19 @@ export default function Suppliers() {
           ),
       },
       {
+        key: "payables",
+        label: "Outstanding",
+        render: (s) =>
+          s?.__filler ? (
+            <SkeletonLine w="w-24" />
+          ) : (
+            <div className="text-sm text-slate-900">
+              ₱{Number(s.outstanding_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <div className="text-xs text-slate-500">{s.open_payables || 0} open</div>
+            </div>
+          ),
+      },
+      {
         key: "status",
         label: "Status",
         render: (s) =>
@@ -418,6 +431,7 @@ export default function Suppliers() {
           columns={columns}
           rows={tableRows}
           loading={loading}
+          rowKey={(row) => `supplier_${row.id}`}
           searchQuery={q}
           emptyTitle="No suppliers found"
           emptyHint={readOnly ? "Ask admin to add suppliers" : "Add suppliers or adjust filters"}

@@ -8,7 +8,7 @@ export const DASHBOARD_CONFIG = {
       { label: "Suppliers", href: "/dashboard/admin/suppliers", permission: "admin.suppliers.view" },
       { label: "Stock Requests", href: "/dashboard/admin/stock-requests", permission: "inventory.purchases.view" },
       { label: "Stock Counts", href: "/dashboard/inventory/counts", permission: "inventory.stock.view" },
-      { label: "Low Stock", href: "/dashboard/inventory/low-stock", permission: "inventory.stock.low_stock" },
+      { label: "Order Stocks", href: "/dashboard/inventory/order-stocks", permission: "inventory.stock.low_stock" },
       { label: "Reports", href: "/dashboard/admin/reports", permission: "admin.reports.view" },
       { label: "VAT Settings", href: "/dashboard/admin/vat", permission: "admin.settings.manage" },
       { label: "Audit Logs", href: "/dashboard/admin/audit", permission: "admin.audit.view" },
@@ -37,6 +37,7 @@ export const DASHBOARD_CONFIG = {
     actions: [
       { label: "Remittances", href: "/dashboard/accountant/remittances", permission: "accountant.remittances.view" },
       { label: "Ledger", href: "/dashboard/accountant/ledger", permission: "accountant.ledger.view" },
+      { label: "Supplier Payables", href: "/dashboard/accountant/payables", permission: "accountant.payables.view" },
       { label: "Payroll", href: "/dashboard/accountant/payroll", permission: "accountant.payroll.view" },
       { label: "Reports", href: "/dashboard/accountant/reports", permission: "accountant.reports.view" },
     ],
@@ -61,7 +62,7 @@ export const DASHBOARD_CONFIG = {
     actions: [
       { label: "Stock Counts", href: "/dashboard/inventory/counts", permission: "inventory.stock.view" },
       { label: "Movements", href: "/dashboard/inventory/movements", permission: "inventory.movements.view" },
-      { label: "Low Stock", href: "/dashboard/inventory/low-stock", permission: "inventory.stock.low_stock" },
+      { label: "Order Stocks", href: "/dashboard/inventory/order-stocks", permission: "inventory.stock.low_stock" },
       { label: "Purchases", href: "/dashboard/inventory/purchases", permission: "inventory.purchases.view" },
       { label: "Suppliers", href: "/dashboard/inventory/suppliers", permission: "inventory.suppliers.view" },
     ],

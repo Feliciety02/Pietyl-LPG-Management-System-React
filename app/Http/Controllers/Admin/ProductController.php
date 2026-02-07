@@ -55,6 +55,7 @@ class ProductController extends Controller
                       $variant->size_unit
                     : null,
                 'price' => number_format((float) $product->price, 2, '.', ''),
+                'supplier_cost' => number_format((float) $product->supplier_cost, 2, '.', ''),
                 'is_active' => $product->is_active,
                 'image_url' => null,
                 'supplier' => $supplier ? ['id' => $supplier->id, 'name' => $supplier->name] : null,

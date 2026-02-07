@@ -11,7 +11,6 @@ import { TableActionButton } from "@/components/Table/ActionTableButton";
 
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 
-import ThresholdsModal from "@/components/modals/InventoryModals/ThresholdsModal";
 import ConfirmActionModal from "@/components/modals/InventoryModals/ConfirmActionModal";
 import PurchaseRequestModal from "@/components/modals/InventoryModals/PurchaseRequestModal";
 import NewPurchaseModal from "@/components/modals/InventoryModals/OrderStockModal";
@@ -51,6 +50,8 @@ function RiskPill({ level }) {
       ? "bg-rose-600/10 text-rose-900 ring-rose-700/10"
       : v === "warning"
       ? "bg-amber-600/10 text-amber-900 ring-amber-700/10"
+      : v === "ok"
+      ? "bg-emerald-600/10 text-emerald-900 ring-emerald-700/10"
       : "bg-slate-100 text-slate-700 ring-slate-200";
 
   const { label, hint } = getRiskCopy(v);
@@ -111,11 +112,8 @@ function StatusPill({ status }) {
   );
 }
 
-function ProgressBar({ pct = 0 }) {
+function ProgressBar({ pct = 0, tone = "bg-teal-600" }) {
   const safe = Number.isFinite(Number(pct)) ? Math.max(0, Math.min(100, Number(pct))) : 0;
-
-  const tone =
-    safe <= 35 ? "bg-rose-600" : safe <= 70 ? "bg-amber-600" : "bg-teal-600";
 
   return (
     <div className="w-full">
@@ -130,7 +128,16 @@ function StockMini({ current = 0, threshold = 0 }) {
   const safeThreshold = Math.max(Number(threshold || 0), 0);
   const safeCurrent = Math.max(Number(current || 0), 0);
 
-  const pct = safeThreshold <= 0 ? 0 : Math.round(Math.min(safeCurrent / safeThreshold, 1) * 100);
+  const ratio = safeThreshold <= 0 ? 1 : Math.min(safeCurrent / safeThreshold, 2);
+  const pct = Math.round(Math.min(ratio, 1) * 100);
+  const tone =
+    safeThreshold <= 0
+      ? "bg-slate-400"
+      : ratio >= 1
+      ? "bg-emerald-600"
+      : ratio >= 0.6
+      ? "bg-amber-500"
+      : "bg-rose-600";
 
   return (
     <div className="min-w-[220px] max-w-[260px]">
@@ -146,14 +153,16 @@ function StockMini({ current = 0, threshold = 0 }) {
         </span>
       </div>
       <div className="mt-1">
-        <ProgressBar pct={pct} />
+        <ProgressBar pct={pct} tone={tone} />
       </div>
       <div className="mt-1 text-[11px] text-slate-500">
         {safeThreshold > 0 ? (
-          safeCurrent <= safeThreshold ? (
-            <span className="font-semibold text-amber-800">Low now</span>
+          ratio < 0.6 ? (
+            <span className="font-semibold text-rose-800">Critical</span>
+          ) : ratio < 1 ? (
+            <span className="font-semibold text-amber-800">Running low</span>
           ) : (
-            <span>OK</span>
+            <span className="font-semibold text-emerald-800">In good standing</span>
           )
         ) : (
           <span>Alerts off</span>
@@ -216,7 +225,7 @@ function normalizePaginator(p) {
   return { data, meta };
 }
 
-export default function LowStock() {
+export default function OrderStocks() {
   const page = usePage();
 
   const roleKey = page.props?.auth?.user?.role || "inventory_manager";
@@ -231,15 +240,28 @@ export default function LowStock() {
   const { data: rows, meta } = normalizePaginator(page.props?.low_stock);
   const [localRows, setLocalRows] = useState(rows);
 
-  const { query, set, setPer, prevPage, nextPage, canPrev, canNext } = useTableQuery({
-    endpoint: "/dashboard/inventory/low-stock",
-    meta,
-    defaults: { q: "", risk: "all", req: "all", per: 10, page: 1 },
-  });
+    const { query, set, setPer, prevPage, nextPage, canPrev, canNext } = useTableQuery({
+      endpoint: "/dashboard/inventory/order-stocks",
+      meta,
+      defaults: { q: "", risk: "all", req: "all", scope: "all", per: 10, page: 1 },
+    });
 
-  const [q, setQ] = useState(query.q);
-  const risk = query.risk;
-  const req = query.req;
+    const [q, setQ] = useState(query.q);
+    const risk = query.risk;
+    const req = query.req;
+    const scope = query.scope;
+    const baseSubtitle = isAdmin
+      ? "Owner view. Approve requests, set restock levels, and create purchases."
+      : "Request restock for items that are low based on your restock levels.";
+    const scopeSubtitle =
+      scope === "all"
+        ? "Displaying every product with its current stock and thresholds."
+        : "Highlighted items are at or below their restock levels.";
+    const emptyTitle = scope === "all" ? "No products found" : "No low stock items";
+    const emptyHint =
+      scope === "all"
+        ? "Try widening the search or add new products."
+        : "Try changing the search or restock levels.";
   const per = query.per;
 
   useEffect(() => {
@@ -249,8 +271,6 @@ export default function LowStock() {
   useEffect(() => {
     setLocalRows(rows);
   }, [rows]);
-
-  const [thresholdsOpen, setThresholdsOpen] = useState(false);
 
   const [purchaseReqOpen, setPurchaseReqOpen] = useState(false);
   const [purchaseReqItem, setPurchaseReqItem] = useState(null);
@@ -269,10 +289,16 @@ export default function LowStock() {
     onConfirm: null,
   });
 
+  const scopeOptions = [
+    { value: "low", label: "Low stock" },
+    { value: "all", label: "All products" },
+  ];
+
   const riskOptions = [
     { value: "all", label: "All levels" },
     { value: "critical", label: "Urgent" },
     { value: "warning", label: "Low" },
+    { value: "ok", label: "Healthy" },
   ];
 
   const reqOptions = [
@@ -437,14 +463,15 @@ export default function LowStock() {
   };
 
   return (
-    <Layout title="Low Stock">
+    <Layout title="Order stocks">
       <div className="grid gap-6">
         <TopCard
-          title="Low stock items"
+          title="Order stocks"
           subtitle={
-            isAdmin
-              ? "Owner view. Approve requests, set restock levels, and create purchases."
-              : "Request restock for items that are low based on your restock levels."
+            <div className="space-y-1">
+              <div>{baseSubtitle}</div>
+              <div className="text-xs text-slate-500">{scopeSubtitle}</div>
+            </div>
           }
           right={
             <div className="flex flex-wrap items-center gap-2">
@@ -452,16 +479,17 @@ export default function LowStock() {
                 {urgentCount} urgent
               </div>
 
-              {isAdmin ? (
+              {!isAdmin ? (
                 <button
                   type="button"
-                  onClick={() => setThresholdsOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
+                  onClick={() => openNewPurchaseModal(null)}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 focus:ring-4 focus:ring-teal-500/25"
                 >
-                  <SlidersHorizontal className="h-4 w-4 text-slate-600" />
-                  Restock levels
+                  <PlusCircle className="h-4 w-4" />
+                  New purchase
                 </button>
               ) : null}
+
             </div>
           }
         />
@@ -472,6 +500,12 @@ export default function LowStock() {
           onQDebounced={(v) => set("q", v, { resetPage: true })}
           placeholder="Search product, SKU, supplier..."
           filters={[
+            {
+              key: "scope",
+              value: scope,
+              onChange: (v) => set("scope", v, { resetPage: true }),
+              options: scopeOptions,
+            },
             { key: "risk", value: risk, onChange: (v) => set("risk", v, { resetPage: true }), options: riskOptions },
             ...(isAdmin
               ? [{ key: "req", value: req, onChange: (v) => set("req", v, { resetPage: true }), options: reqOptions }]
@@ -487,8 +521,8 @@ export default function LowStock() {
             rows={filteredRows}
             loading={loading}
             searchQuery={q}
-            emptyTitle="No low stock items"
-            emptyHint="Try changing the search or restock levels."
+            emptyTitle={emptyTitle}
+            emptyHint={emptyHint}
             renderActions={(row) =>
               loading ? (
                 <SkeletonButton w="w-28" />
@@ -553,6 +587,7 @@ export default function LowStock() {
           }}
           item={purchaseReqItem}
           products={productHash}
+          suppliersByProduct={suppliers}
           onSubmit={(payload) => {
             const merged = {
               ...payload,
@@ -600,18 +635,6 @@ export default function LowStock() {
                 setNewPurchaseOpen(false);
                 setNewPurchaseItem(null);
               },
-            });
-          }}
-        />
-
-        <ThresholdsModal
-          open={thresholdsOpen}
-          onClose={() => setThresholdsOpen(false)}
-          items={filteredRows}
-          onSave={(payload) => {
-            router.post("/dashboard/admin/inventory/thresholds", payload, {
-              preserveScroll: true,
-              onSuccess: () => setThresholdsOpen(false),
             });
           }}
         />

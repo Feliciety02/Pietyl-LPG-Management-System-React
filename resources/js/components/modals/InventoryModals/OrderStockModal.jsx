@@ -11,6 +11,11 @@ function safeNum(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function formatCurrency(value) {
+  const n = Number(value || 0);
+  return `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 function Field({ label, hint, children }) {
   return (
     <div>
@@ -56,6 +61,23 @@ function Textarea({ icon: Icon, className = "", ...props }) {
   );
 }
 
+function getDefaultSupplierCost(variantId, suppliers) {
+  if (!variantId) return 0;
+  const variantSuppliers = suppliers[variantId]?.suppliers || [];
+  const primary = variantSuppliers.find((s) => s.is_primary) || variantSuppliers[0];
+  return primary ? Number(primary.unit_cost ?? primary.supplier_cost ?? 0) : 0;
+}
+
+function resolveUnitCost(variantId, suppliers, product) {
+  const supplierCost = getDefaultSupplierCost(variantId, suppliers);
+  if (supplierCost > 0) {
+    return supplierCost;
+  }
+
+  const productCost = Number(product?.supplier_cost ?? product?.unit_cost ?? 0);
+  return productCost > 0 ? productCost : 0;
+}
+
 export default function OrderStockModal({
   open,
   onClose,
@@ -68,9 +90,18 @@ export default function OrderStockModal({
   const [productId, setProductId] = useState("");
   const [supplierId, setSupplierId] = useState("");
   const [qty, setQty] = useState("");
-  const [unitCost, setUnitCost] = useState("");
-  const [negativeUnitCost, setNegativeUnitCost] = useState(false);
+  const [unitCost, setUnitCost] = useState(0);
   const [notes, setNotes] = useState("");
+
+  const selectedProduct = useMemo(() => {
+    if (!productId) return null;
+    return products.find((p) => String(p.id) === String(productId)) || null;
+  }, [products, productId]);
+
+  const selectedSupplier = useMemo(() => {
+    if (!supplierId) return null;
+    return suppliers[productId]?.suppliers.find((s) => String(s.id) === String(supplierId)) || null;
+  }, [suppliers, productId, supplierId]);
 
   useEffect(() => {
     if (!open) return;
@@ -91,26 +122,21 @@ export default function OrderStockModal({
     const effectiveSupplier = presetSupplier || defaultSupplier;
     setSupplierId(effectiveSupplier ? String(effectiveSupplier.id) : "");
     setQty(item?.suggest_qty ? String(item.suggest_qty) : "");
-    setUnitCost(effectiveSupplier?.unit_cost ? String(effectiveSupplier.unit_cost) : "");
-    setNegativeUnitCost(false);
+    setUnitCost(resolveUnitCost(presetProductId, suppliers, selectedProduct));
     setNotes("");
-  }, [open, item, suppliers]);
-
-  const selectedProduct = useMemo(() => {
-    if (!productId) return null;
-    return products.find((p) => String(p.id) === String(productId)) || null;
-  }, [products, productId]);
-
-  const selectedSupplier = useMemo(() => {
-    if (!supplierId) return null;
-    return suppliers[productId]?.suppliers.find((s) => String(s.id) === String(supplierId)) || null;
-  }, [suppliers, productId, supplierId]);
+  }, [open, item, suppliers, selectedProduct]);
 
   const supplierMissing = Boolean(selectedProduct) && !supplierId;
-  const unitCostMissing = Boolean(productId) && safeNum(unitCost) <= 0;
-  const canSubmit =
-    Boolean(productId) && safeNum(qty) > 0 && !supplierMissing && !unitCostMissing && !negativeUnitCost;
   const totalCost = useMemo(() => safeNum(qty) * safeNum(unitCost), [qty, unitCost]);
+  const canSubmit = Boolean(productId) && safeNum(qty) > 0 && !supplierMissing && safeNum(unitCost) > 0;
+
+  useEffect(() => {
+    if (!productId) {
+      setUnitCost(0);
+      return;
+    }
+    setUnitCost(resolveUnitCost(productId, suppliers, selectedProduct));
+  }, [productId, suppliers, selectedProduct]);
 
   const pickProduct = (e) => {
     const nextId = e.target.value;
@@ -119,13 +145,13 @@ export default function OrderStockModal({
     const variantSuppliers = suppliers[nextId]?.suppliers || [];
     const defaultSupplier = variantSuppliers.find((s) => s.is_primary) || variantSuppliers[0];
     setSupplierId(defaultSupplier ? String(defaultSupplier.id) : "");
-    setUnitCost(defaultSupplier?.unit_cost ? String(defaultSupplier.unit_cost) : "");
-    setNegativeUnitCost(false);
+    setUnitCost(
+      resolveUnitCost(nextId, suppliers, products.find((p) => String(p.id) === String(nextId)))
+    );
 
     if (!nextId) {
       setQty("");
-      setUnitCost("");
-      setNegativeUnitCost(false);
+      setUnitCost(0);
       setNotes("");
     }
   };
@@ -234,43 +260,20 @@ export default function OrderStockModal({
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Unit Cost" hint="Auto-filled, editable (PHP)">
+          <Field label="Unit cost" hint="Supplier rate per unit">
             <InputShell icon={Hash}>
               <input
-                value={unitCost}
-                onChange={(e) => {
-                  const raw = e.target.value;
-                  if (raw.includes("-")) {
-                    setNegativeUnitCost(true);
-                    setUnitCost(raw.replace(/-/g, ""));
-                    return;
-                  }
-                  const parsed = safeNum(raw);
-                  setNegativeUnitCost(parsed < 0);
-                  setUnitCost(raw);
-                }}
-                type="number"
-                min="0"
-                step="0.01"
-                inputMode="decimal"
-                placeholder="0.00"
+                type="text"
+                readOnly
+                value={formatCurrency(unitCost)}
                 className="w-full bg-transparent text-sm font-extrabold text-slate-900 outline-none placeholder:text-slate-400"
-                disabled={loading}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") submit();
-                }}
               />
             </InputShell>
-            {unitCostMissing ? (
+            {safeNum(unitCost) <= 0 && (
               <div className="mt-1 text-[11px] font-semibold text-rose-700">
-                Unit cost is required.
+                Supplier cost is missing; link a supplier price.
               </div>
-            ) : null}
-            {negativeUnitCost ? (
-              <div className="mt-1 text-[11px] font-semibold text-rose-700">
-                Negative costs are not allowed.
-              </div>
-            ) : null}
+            )}
           </Field>
 
           <Field label="Quantity" hint="Required">
@@ -295,7 +298,7 @@ export default function OrderStockModal({
         <Field label="Total Cost" hint="Unit cost x quantity">
           <InputShell icon={Hash}>
             <input
-              value={totalCost.toFixed(2)}
+              value={formatCurrency(totalCost)}
               readOnly
               className="w-full bg-transparent text-sm font-extrabold text-slate-900 outline-none placeholder:text-slate-400"
             />
@@ -315,3 +318,4 @@ export default function OrderStockModal({
     </ModalShell>
   );
 }
+

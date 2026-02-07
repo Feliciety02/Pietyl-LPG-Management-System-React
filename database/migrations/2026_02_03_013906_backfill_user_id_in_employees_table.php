@@ -7,11 +7,13 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Copy users.id into employees.user_id where users.employee_id matches employees.id
-        DB::table('employees')
-            ->join('users', 'users.employee_id', '=', 'employees.id')
-            ->whereNull('employees.user_id')
-            ->update(['employees.user_id' => DB::raw('users.id')]);
+        $users = DB::table('users')->whereNotNull('employee_id')->get(['id', 'employee_id']);
+        foreach ($users as $user) {
+            DB::table('employees')
+                ->where('id', $user->employee_id)
+                ->whereNull('user_id')
+                ->update(['user_id' => $user->id]);
+        }
     }
 
     public function down(): void

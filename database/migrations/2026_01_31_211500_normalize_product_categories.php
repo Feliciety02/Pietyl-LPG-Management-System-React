@@ -11,13 +11,18 @@ return new class extends Migration
             ->where('category', 'accessory')
             ->update(['category' => 'accessories']);
 
-        DB::statement("
-            UPDATE product_variants pv
-            INNER JOIN products p ON p.id = pv.product_id
-            SET pv.container_type = p.category,
-                pv.barcode = NULL
-            WHERE p.category IN ('lpg', 'stove', 'accessories')
-        ");
+        $productCategories = DB::table('products')
+            ->whereIn('category', ['lpg', 'stove', 'accessories'])
+            ->pluck('category', 'id');
+
+        foreach ($productCategories as $productId => $category) {
+            DB::table('product_variants')
+                ->where('product_id', $productId)
+                ->update([
+                    'container_type' => $category,
+                    'barcode' => null,
+                ]);
+        }
     }
 
     public function down(): void

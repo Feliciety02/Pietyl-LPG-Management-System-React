@@ -155,6 +155,8 @@ export default function AddProductModal({
   const [size, setSize] = useState("");
   const [price, setPrice] = useState("");
   const [negativePrice, setNegativePrice] = useState(false);
+  const [unitPrice, setUnitPrice] = useState("");
+  const [negativeUnitPrice, setNegativeUnitPrice] = useState(false);
   const [supplierId, setSupplierId] = useState("");
   const [stoveType, setStoveType] = useState("single");
 
@@ -164,13 +166,16 @@ export default function AddProductModal({
     setType("lpg");
     setSize("");
     setPrice("");
+    setUnitPrice("");
     setNegativePrice(false);
+    setNegativeUnitPrice(false);
     setSupplierId("");
     setStoveType("single");
   }, [open]);
 
   const sizeClean = useMemo(() => decimalOnly(size), [size]);
   const priceClean = useMemo(() => decimalOnly(price), [price]);
+  const unitPriceClean = useMemo(() => decimalOnly(unitPrice), [unitPrice]);
 
   const sku = useMemo(() => {
     const nameCode = compactCode(name, 3);
@@ -196,24 +201,23 @@ export default function AddProductModal({
     return "";
   }, [type, sizeClean, stoveType, name, existingSkus]);
 
-    const canSubmit = useMemo(() => {
+  const canSubmit = useMemo(() => {
     if (!name.trim()) return false;
     if (!sku.trim()) return false;
     if (!supplierId) return false;
-    if (negativePrice) return false;
+    if (negativePrice || negativeUnitPrice) return false;
 
     const n = Number(String(priceClean || "").replace(/,/g, ""));
     if (!Number.isFinite(n) || n <= 0) return false;
 
-    
+    const uc = Number(String(unitPriceClean || "").replace(/,/g, ""));
+    if (!Number.isFinite(uc) || uc < 0) return false;
+
     if (type === "lpg" && !String(sizeClean || "").trim()) return false;
-    
-  
     if (type === "stove" && !stoveType) return false;
 
-    
     return true;
-  }, [name, sku, priceClean, supplierId, type, sizeClean, stoveType, negativePrice])
+  }, [name, sku, priceClean, unitPriceClean, supplierId, type, sizeClean, stoveType, negativePrice, negativeUnitPrice]);
 
   const submit = () => {
     if (!canSubmit || loading) return;
@@ -224,6 +228,7 @@ export default function AddProductModal({
       type,
       size_label: type === "lpg" ? String(sizeClean || "").trim() || null : null,
       price: String(priceClean || "").trim(),
+      supplier_cost: String(unitPriceClean || "").trim(),
       supplier_id: supplierId,
       stove_type: type === "stove" ? stoveType : null,
     });
@@ -347,6 +352,35 @@ export default function AddProductModal({
             {negativePrice ? (
               <div className="mt-1 text-[11px] font-semibold text-rose-700">
                 Negative prices are not allowed.
+              </div>
+            ) : null}
+          </Field>
+
+          <Field label="Unit cost (supplier)">
+            <Input
+              left="₱"
+              value={unitPriceClean}
+              onKeyDown={allowDecimalKeyDown}
+              onChange={(e) => {
+                const raw = e.target.value;
+
+                if (raw.includes("-")) {
+                  setNegativeUnitPrice(true);
+                  setUnitPrice(raw.replace(/-/g, ""));
+                  return;
+                }
+
+                const cleaned = decimalOnly(raw);
+                const parsed = Number(String(cleaned || "").replace(/,/g, ""));
+                setNegativeUnitPrice(Number.isFinite(parsed) ? parsed < 0 : false);
+                setUnitPrice(cleaned);
+              }}
+              inputMode="decimal"
+              placeholder="0.00"
+            />
+            {negativeUnitPrice ? (
+              <div className="mt-1 text-[11px] font-semibold text-rose-700">
+                Negative costs are not allowed.
               </div>
             ) : null}
           </Field>

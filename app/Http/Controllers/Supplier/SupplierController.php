@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Supplier;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Services\SupplierService;
+use App\Models\SupplierPayable;
 use App\Http\Controllers\Controller;
 use App\Models\Supplier;
 use App\Models\AuditLog;
@@ -187,6 +188,10 @@ class SupplierController extends Controller
             })
             ->values();
 
+        $outstandingAmount = SupplierPayable::where('supplier_id', $supplier->id)
+            ->where('status', SupplierPayable::STATUS_UNPAID)
+            ->sum('amount');
+
         return response()->json([
             'supplier' => [
                 'id' => $supplier->id,
@@ -199,6 +204,7 @@ class SupplierController extends Controller
                 'is_active' => $supplier->is_active,
             ],
             'items' => $items,
+            'outstanding_payables' => (float) $outstandingAmount,
         ]);
     }
 

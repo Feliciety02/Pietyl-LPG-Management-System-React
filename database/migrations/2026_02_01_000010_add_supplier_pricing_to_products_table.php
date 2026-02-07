@@ -31,14 +31,13 @@ return new class extends Migration
             });
         }
 
-        $hasNameIndex = !empty(DB::select("SHOW INDEX FROM products WHERE Key_name = 'products_name_unique'"));
         $hasDuplicateNames = DB::table('products')
             ->select('name')
             ->groupBy('name')
             ->havingRaw('COUNT(*) > 1')
             ->exists();
 
-        if (!$hasNameIndex && !$hasDuplicateNames) {
+        if (!$hasDuplicateNames) {
             Schema::table('products', function (Blueprint $table) {
                 $table->unique('name');
             });
@@ -47,11 +46,12 @@ return new class extends Migration
 
     public function down(): void
     {
-        $hasNameIndex = !empty(DB::select("SHOW INDEX FROM products WHERE Key_name = 'products_name_unique'"));
-        if ($hasNameIndex) {
+        try {
             Schema::table('products', function (Blueprint $table) {
                 $table->dropUnique('products_name_unique');
             });
+        } catch (\Throwable $e) {
+            // index may not exist on sqlite
         }
 
         if (Schema::hasColumn('products', 'price')) {
