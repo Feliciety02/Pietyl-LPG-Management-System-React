@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Inventory;
 
 use App\Models\InventoryBalance;
 use App\Models\ProductVariant;

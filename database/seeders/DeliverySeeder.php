@@ -20,76 +20,98 @@ class DeliverySeeder extends Seeder
         $sales = Sale::all();
         $customers = Customer::all();
         $addresses = CustomerAddress::all();
-        $rider = User::first();
+        
+        // Get all riders (users with rider role)
+        $riders = User::whereHas('roles', function($q) {
+            $q->where('name', 'rider');
+        })->get();
 
-        if ($customers->isEmpty() || $addresses->isEmpty()) {
+        if ($customers->isEmpty() || $addresses->isEmpty() || $riders->isEmpty()) {
+            $this->command->warn('Missing customers, addresses, or riders. Skipping delivery seeding.');
             return;
         }
 
-        // Delivery 1: Pending
-        Delivery::create([
-            'delivery_number' => Delivery::generateDeliveryNumber(),
-            'sale_id' => $sales->isNotEmpty() ? $sales->random()->id : null,
-            'customer_id' => $customers->random()->id,
-            'address_id' => $addresses->random()->id,
-            'assigned_rider_user_id' => null,
-            'status' => Delivery::STATUS_PENDING,
-            'scheduled_at' => Carbon::now()->addHours(2),
-            'notes' => 'Customer requested afternoon delivery',
-        ]);
+        // Create 4+ deliveries for each rider
+        foreach ($riders as $rider) {
+            // Delivery 1: Pending
+            Delivery::create([
+                'delivery_number' => Delivery::generateDeliveryNumber(),
+                'sale_id' => $sales->isNotEmpty() ? $sales->random()->id : null,
+                'customer_id' => $customers->random()->id,
+                'address_id' => $addresses->random()->id,
+                'assigned_rider_user_id' => $rider->id,
+                'status' => Delivery::STATUS_PENDING,
+                'scheduled_at' => Carbon::now()->addHours(2),
+                'notes' => 'Customer requested afternoon delivery',
+            ]);
 
-        // Delivery 2: Assigned
-        Delivery::create([
-            'delivery_number' => Delivery::generateDeliveryNumber(),
-            'sale_id' => $sales->isNotEmpty() ? $sales->random()->id : null,
-            'customer_id' => $customers->random()->id,
-            'address_id' => $addresses->random()->id,
-            'assigned_rider_user_id' => $rider?->id,
-            'status' => Delivery::STATUS_ASSIGNED,
-            'scheduled_at' => Carbon::now()->addHours(1),
-            'notes' => 'Rider assigned, ready for dispatch',
-        ]);
+            // Delivery 2: Assigned
+            Delivery::create([
+                'delivery_number' => Delivery::generateDeliveryNumber(),
+                'sale_id' => $sales->isNotEmpty() ? $sales->random()->id : null,
+                'customer_id' => $customers->random()->id,
+                'address_id' => $addresses->random()->id,
+                'assigned_rider_user_id' => $rider->id,
+                'status' => Delivery::STATUS_ASSIGNED,
+                'scheduled_at' => Carbon::now()->addHours(1),
+                'notes' => 'Rider assigned, ready for dispatch',
+            ]);
 
-        // Delivery 3: In Transit
-        Delivery::create([
-            'delivery_number' => Delivery::generateDeliveryNumber(),
-            'sale_id' => $sales->isNotEmpty() ? $sales->random()->id : null,
-            'customer_id' => $customers->random()->id,
-            'address_id' => $addresses->random()->id,
-            'assigned_rider_user_id' => $rider?->id,
-            'status' => Delivery::STATUS_IN_TRANSIT,
-            'scheduled_at' => Carbon::now(),
-            'dispatched_at' => Carbon::now()->subMinutes(30),
-            'notes' => 'Out for delivery',
-        ]);
+            // Delivery 3: In Transit
+            Delivery::create([
+                'delivery_number' => Delivery::generateDeliveryNumber(),
+                'sale_id' => $sales->isNotEmpty() ? $sales->random()->id : null,
+                'customer_id' => $customers->random()->id,
+                'address_id' => $addresses->random()->id,
+                'assigned_rider_user_id' => $rider->id,
+                'status' => Delivery::STATUS_IN_TRANSIT,
+                'scheduled_at' => Carbon::now(),
+                'dispatched_at' => Carbon::now()->subMinutes(30),
+                'notes' => 'Out for delivery',
+            ]);
 
-        // Delivery 4: Delivered
-        Delivery::create([
-            'delivery_number' => Delivery::generateDeliveryNumber(),
-            'sale_id' => $sales->isNotEmpty() ? $sales->random()->id : null,
-            'customer_id' => $customers->random()->id,
-            'address_id' => $addresses->random()->id,
-            'assigned_rider_user_id' => $rider?->id,
-            'status' => Delivery::STATUS_DELIVERED,
-            'scheduled_at' => Carbon::yesterday(),
-            'dispatched_at' => Carbon::yesterday()->addHours(1),
-            'delivered_at' => Carbon::yesterday()->addHours(2),
-            'proof_type' => 'signature',
-            'proof_url' => null,
-            'notes' => 'Successfully delivered, customer signed',
-        ]);
+            // Delivery 4: Delivered
+            Delivery::create([
+                'delivery_number' => Delivery::generateDeliveryNumber(),
+                'sale_id' => $sales->isNotEmpty() ? $sales->random()->id : null,
+                'customer_id' => $customers->random()->id,
+                'address_id' => $addresses->random()->id,
+                'assigned_rider_user_id' => $rider->id,
+                'status' => Delivery::STATUS_DELIVERED,
+                'scheduled_at' => Carbon::yesterday(),
+                'dispatched_at' => Carbon::yesterday()->addHours(1),
+                'delivered_at' => Carbon::yesterday()->addHours(2),
+                'proof_type' => 'signature',
+                'proof_url' => null,
+                'notes' => 'Successfully delivered, customer signed',
+            ]);
 
-        // Delivery 5: Failed
-        Delivery::create([
-            'delivery_number' => Delivery::generateDeliveryNumber(),
-            'sale_id' => $sales->isNotEmpty() ? $sales->random()->id : null,
-            'customer_id' => $customers->random()->id,
-            'address_id' => $addresses->random()->id,
-            'assigned_rider_user_id' => $rider?->id,
-            'status' => Delivery::STATUS_FAILED,
-            'scheduled_at' => Carbon::now()->subDays(2),
-            'dispatched_at' => Carbon::now()->subDays(2)->addHours(1),
-            'notes' => 'Customer not home, rescheduling required',
-        ]);
+            // Delivery 5: Failed (bonus)
+            Delivery::create([
+                'delivery_number' => Delivery::generateDeliveryNumber(),
+                'sale_id' => $sales->isNotEmpty() ? $sales->random()->id : null,
+                'customer_id' => $customers->random()->id,
+                'address_id' => $addresses->random()->id,
+                'assigned_rider_user_id' => $rider->id,
+                'status' => Delivery::STATUS_FAILED,
+                'scheduled_at' => Carbon::now()->subDays(2),
+                'dispatched_at' => Carbon::now()->subDays(2)->addHours(1),
+                'notes' => 'Customer not home, rescheduling required',
+            ]);
+        }
+
+        // Create a few unassigned deliveries
+        for ($i = 0; $i < 3; $i++) {
+            Delivery::create([
+                'delivery_number' => Delivery::generateDeliveryNumber(),
+                'sale_id' => $sales->isNotEmpty() ? $sales->random()->id : null,
+                'customer_id' => $customers->random()->id,
+                'address_id' => $addresses->random()->id,
+                'assigned_rider_user_id' => null,
+                'status' => Delivery::STATUS_PENDING,
+                'scheduled_at' => Carbon::now()->addHours(rand(1, 6)),
+                'notes' => 'Awaiting rider assignment',
+            ]);
+        }
     }
 }
