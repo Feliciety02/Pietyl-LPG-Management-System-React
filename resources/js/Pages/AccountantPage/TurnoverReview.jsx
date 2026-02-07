@@ -3,24 +3,25 @@ import axios from "axios";
 import { router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
 import { calculateVat } from "@/services/vatCalculator";
-import {
-  CheckCircle2,
-  AlertTriangle,
-  Search,
-  Filter,
-  RotateCcw,
-  Check,
-  ShieldCheck,
-} from "lucide-react";
+import { ArrowLeft, CheckCircle2, RotateCcw } from "lucide-react";
+
+import { TableActionButton } from "@/components/Table/ActionTableButton";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
+const PESO = new Intl.NumberFormat("en-PH", {
+  style: "currency",
+  currency: "PHP",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 function money(v) {
   const n = Number(String(v ?? 0).replace(/[^0-9.-]/g, ""));
   if (!Number.isFinite(n)) return "—";
-  return n.toLocaleString("en-PH", { style: "currency", currency: "PHP" });
+  return PESO.format(n);
 }
 
 function formatTime(value) {
@@ -43,53 +44,106 @@ function safeNum(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
-function Stat({ label, value, tone = "slate" }) {
-  const toneMap = {
-    slate: "bg-white ring-slate-200",
-    teal: "bg-teal-50 ring-teal-200",
-    amber: "bg-amber-50 ring-amber-200",
-    rose: "bg-rose-50 ring-rose-200",
-  };
+/* -------------------------------------------------------------------------- */
+/* UI                                                                         */
+/* -------------------------------------------------------------------------- */
 
+function TopCard({ title, subtitle, right }) {
   return (
-    <div className={cx("rounded-2xl px-4 py-3 ring-1", toneMap[tone] || toneMap.slate)}>
-      <div className="text-[11px] font-extrabold text-slate-500">{label}</div>
-      <div className="mt-1 text-sm font-extrabold tabular-nums text-slate-900">{value}</div>
+    <div className="rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm">
+      <div className="p-6 flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="text-lg font-extrabold text-slate-900">{title}</div>
+          <div className="mt-1 text-sm text-slate-600">{subtitle}</div>
+        </div>
+        {right}
+      </div>
     </div>
   );
 }
 
-function Field({ label, hint, children }) {
+/**
+ * Key fix: footer always sits at the bottom of the card
+ * 1) root is flex-col + h-full
+ * 2) body is flex-1
+ * 3) you can pass bodyClassName to control spacing/scroll behavior
+ */
+function Panel({ title, subtitle, right, children, footer, className = "", bodyClassName = "" }) {
   return (
-    <div>
-      <div className="text-xs font-extrabold text-slate-700">{label}</div>
-      {hint ? <div className="mt-0.5 text-[11px] text-slate-500">{hint}</div> : null}
-      <div className="mt-2">{children}</div>
+    <div
+      className={cx(
+        "rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm overflow-hidden",
+        "flex flex-col h-full",
+        className
+      )}
+    >
+      <div className="px-6 py-5 border-b border-slate-200">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-base font-extrabold text-slate-900">{title}</div>
+            {subtitle ? <div className="mt-1 text-sm text-slate-600">{subtitle}</div> : null}
+          </div>
+
+          {right ? <div className="shrink-0">{right}</div> : null}
+        </div>
+      </div>
+
+      <div className={cx("p-6 flex-1", bodyClassName)}>{children}</div>
+
+      {footer ? (
+        <div className="px-6 py-4 border-t border-slate-200 bg-white mt-auto">{footer}</div>
+      ) : null}
+    </div>
+  );
+}
+
+function LabelValue({ label, value, tone = "default" }) {
+  const toneClass =
+    tone === "danger"
+      ? "text-rose-700"
+      : tone === "warn"
+      ? "text-amber-700"
+      : "text-slate-900";
+
+  return (
+    <div className="rounded-2xl bg-slate-50 ring-1 ring-slate-200 px-4 py-3">
+      <div className="text-[11px] font-extrabold tracking-wide text-slate-500 uppercase">
+        {label}
+      </div>
+      <div className={cx("mt-1 text-sm font-semibold tabular-nums", toneClass)}>{value}</div>
+    </div>
+  );
+}
+
+function InputShell({ children }) {
+  return (
+    <div className="rounded-2xl bg-white ring-1 ring-slate-200 px-3 py-2.5 focus-within:ring-2 focus-within:ring-teal-500/20 transition">
+      {children}
     </div>
   );
 }
 
 function PesoInput({ value, onChange, placeholder = "0.00", disabled }) {
   return (
-    <div className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-slate-200 px-3 py-2.5 transition focus-within:ring-2 focus-within:ring-teal-500/25">
-      <div className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-teal-50 ring-1 ring-teal-200 shrink-0">
-        <span className="text-sm font-extrabold text-teal-900">₱</span>
+    <InputShell>
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-extrabold text-slate-500 select-none">₱</span>
+        <input
+          value={value}
+          onChange={(e) => {
+            const raw = e.target.value;
+            const cleaned = raw
+              .replace(/[^0-9.]/g, "")
+              .replace(/^([0-9]*)\.([0-9]*).*$/, (m, a, b) => `${a}.${b}`);
+            onChange?.(cleaned);
+          }}
+          inputMode="decimal"
+          placeholder={placeholder}
+          disabled={disabled}
+          className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+        />
       </div>
-      <input
-        value={value}
-        onChange={(e) => {
-          const raw = e.target.value;
-          const cleaned = raw
-            .replace(/[^0-9.]/g, "")
-            .replace(/^([0-9]*)\.([0-9]*).*$/, (m, a, b) => `${a}.${b}`);
-          onChange?.(cleaned);
-        }}
-        inputMode="decimal"
-        placeholder={placeholder}
-        disabled={disabled}
-        className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
-      />
-    </div>
+    </InputShell>
   );
 }
 
@@ -100,10 +154,10 @@ function PrimaryButton({ disabled, onClick, children, className = "" }) {
       disabled={disabled}
       onClick={onClick}
       className={cx(
-        "inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-extrabold ring-1 transition focus:outline-none focus:ring-4",
+        "inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-extrabold transition focus:outline-none focus:ring-4",
         disabled
-          ? "bg-slate-200 text-slate-500 ring-slate-200 cursor-not-allowed"
-          : "bg-teal-600 text-white ring-teal-600 hover:bg-teal-700 focus:ring-teal-500/25",
+          ? "bg-slate-200 text-slate-500 cursor-not-allowed"
+          : "bg-teal-600 text-white hover:bg-teal-700 focus:ring-teal-500/20",
         className
       )}
     >
@@ -112,43 +166,46 @@ function PrimaryButton({ disabled, onClick, children, className = "" }) {
   );
 }
 
-function GhostButton({ disabled, onClick, children, className = "" }) {
+function GhostButton({ onClick, children }) {
   return (
     <button
       type="button"
-      disabled={disabled}
       onClick={onClick}
-      className={cx(
-        "inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold ring-1 transition focus:outline-none focus:ring-4",
-        disabled
-          ? "text-slate-400 ring-slate-200 cursor-not-allowed"
-          : "text-slate-800 ring-slate-200 hover:bg-slate-50 focus:ring-teal-500/15",
-        className
-      )}
+      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:outline-none focus:ring-4 focus:ring-teal-500/15"
     >
       {children}
     </button>
   );
 }
 
-function MiniPill({ tone = "slate", children }) {
-  const map = {
-    slate: "bg-slate-100 text-slate-700 ring-slate-200",
-    teal: "bg-teal-600/10 text-teal-900 ring-teal-700/10",
-    amber: "bg-amber-600/10 text-amber-900 ring-amber-700/10",
-  };
+function KpiFooter({ verified, pending, checked, remaining }) {
+  const Item = ({ label, value }) => (
+    <div className="flex items-baseline gap-2">
+      <span className="text-[11px] font-semibold tracking-[0.22em] text-slate-500 uppercase">
+        {label}
+      </span>
+      <span className="text-sm font-semibold text-slate-900 tabular-nums">{value}</span>
+    </div>
+  );
 
   return (
-    <span
-      className={cx(
-        "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-extrabold ring-1 whitespace-nowrap",
-        map[tone] || map.slate
-      )}
-    >
-      {children}
-    </span>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center gap-4">
+        <Item label="Verified" value={money(verified)} />
+        <span className="text-slate-300">|</span>
+        <Item label="Pending" value={String(pending)} />
+        <span className="text-slate-300">|</span>
+        <Item label="Checked" value={String(checked)} />
+        <span className="text-slate-300">|</span>
+        <Item label="Remaining" value={String(remaining)} />
+      </div>
+    </div>
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/* Page                                                                       */
+/* -------------------------------------------------------------------------- */
 
 export default function TurnoverReview() {
   const page = usePage();
@@ -157,7 +214,9 @@ export default function TurnoverReview() {
   const vatActive = Boolean(vatSettings.vat_active);
   const methods = page.props?.methods || [];
   const returnUrl = page.props?.return_url || "/dashboard/accountant/remittances";
+
   const expectedGross = safeNum(row?.expected_cash) + safeNum(row?.expected_noncash_total);
+
   const vatBreakdown = vatActive
     ? calculateVat({
         amount: expectedGross,
@@ -173,18 +232,14 @@ export default function TurnoverReview() {
       : String(row?.remitted_cash_amount)
   );
   const [note, setNote] = useState(safeText(row?.note));
-  const [savingCash, setSavingCash] = useState(false);
   const [cashError, setCashError] = useState("");
 
   const [transactions, setTransactions] = useState([]);
   const [confirmedIds, setConfirmedIds] = useState([]);
   const [loadingTx, setLoadingTx] = useState(false);
-  const [savingTx, setSavingTx] = useState(false);
   const [txError, setTxError] = useState("");
 
-  const [search, setSearch] = useState("");
-  const [methodFilter, setMethodFilter] = useState("all");
-  const [showBreakdown, setShowBreakdown] = useState(false);
+  const [savingAll, setSavingAll] = useState(false);
 
   useEffect(() => {
     setCashInput(
@@ -198,9 +253,6 @@ export default function TurnoverReview() {
 
   useEffect(() => {
     setConfirmedIds([]);
-    setSearch("");
-    setMethodFilter("all");
-    setShowBreakdown(false);
   }, [row?.business_date, row?.cashier_user_id]);
 
   useEffect(() => {
@@ -237,7 +289,7 @@ export default function TurnoverReview() {
       })
       .catch((err) => {
         const msg = err?.response?.data?.message;
-        setTxError(msg || "Unable to load cashless transactions. Try again.");
+        setTxError(msg || "Unable to load cashless transactions.");
         setTransactions([]);
       })
       .finally(() => setLoadingTx(false));
@@ -249,58 +301,24 @@ export default function TurnoverReview() {
 
   const needsNote = variance !== 0;
   const noteOk = !needsNote || safeText(note).length >= 3;
-  const canSaveCash = !savingCash && safeText(cashInput) !== "" && noteOk;
+  const canSaveCash = safeText(cashInput) !== "" && noteOk;
 
-  const varianceTone =
-    variance === 0 ? "teal" : variance < 0 ? "rose" : "amber";
+  const varianceTone = variance === 0 ? "default" : variance < 0 ? "danger" : "warn";
 
   const expectedNonCashTotal = useMemo(() => {
-    if (!row?.expected_by_method) return 0;
+    if (!row?.expected_by_method) return safeNum(row?.expected_noncash_total);
     return methods.reduce((sum, m) => {
       if (!m.is_cashless) return sum;
       const v = safeNum(row?.expected_by_method?.[m.method_key]);
       return sum + v;
     }, 0);
-  }, [methods, row?.expected_by_method]);
-
-  const cashlessBreakdown = useMemo(() => {
-    if (!row?.expected_by_method) return [];
-    return methods
-      .filter((m) => m.is_cashless)
-      .map((m) => ({
-        key: m.method_key,
-        label: m.method_name || m.method_key,
-        value: safeNum(row?.expected_by_method?.[m.method_key]),
-      }))
-      .filter((d) => d.value !== 0);
-  }, [methods, row?.expected_by_method]);
+  }, [methods, row?.expected_by_method, row?.expected_noncash_total]);
 
   const confirmedSet = useMemo(() => new Set(confirmedIds), [confirmedIds]);
 
   const pendingRows = useMemo(() => transactions.filter((t) => !t.verified), [transactions]);
   const pendingIdSet = useMemo(() => new Set(pendingRows.map((t) => t.id)), [pendingRows]);
-
-  const methodsList = useMemo(() => {
-    const set = new Set();
-    pendingRows.forEach((t) => set.add(safeText(t.method_name) || "Cashless"));
-    return ["all", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
-  }, [pendingRows]);
-
-  const filteredRows = useMemo(() => {
-    const q = safeText(search).toLowerCase();
-    const m = String(methodFilter || "all").toLowerCase();
-
-    return pendingRows.filter((t) => {
-      if (m !== "all" && String(t.method_name || "").toLowerCase() !== m) return false;
-      if (!q) return true;
-
-      const hay = [t.method_name, formatTime(t.paid_at), money(t.amount), String(t.amount), t.reference]
-        .join(" ")
-        .toLowerCase();
-
-      return hay.includes(q);
-    });
-  }, [pendingRows, methodFilter, search]);
+  const verifiedRows = useMemo(() => transactions.filter((t) => t.verified), [transactions]);
 
   const verifiedTotal = useMemo(() => {
     return transactions.reduce((sum, t) => {
@@ -310,441 +328,335 @@ export default function TurnoverReview() {
     }, 0);
   }, [transactions, confirmedSet]);
 
-  const confirmedCount = useMemo(
+  const checkedCount = useMemo(
     () => pendingRows.reduce((sum, t) => sum + (confirmedSet.has(t.id) ? 1 : 0), 0),
     [pendingRows, confirmedSet]
   );
 
-  const remainingCount = Math.max(pendingRows.length - confirmedCount, 0);
-  const allPendingConfirmed = pendingRows.length === 0 ? true : remainingCount === 0;
-  const canSaveCashless = !loadingTx && !savingTx && allPendingConfirmed;
-
-  const missingRefVisible = useMemo(
-    () => filteredRows.filter((t) => !safeText(t.reference)).length,
-    [filteredRows]
-  );
+  const remainingCount = Math.max(pendingRows.length - checkedCount, 0);
+  const allPendingChecked = pendingRows.length === 0 ? true : remainingCount === 0;
 
   const toggleConfirm = (id) => {
     if (!pendingIdSet.has(id)) return;
     setConfirmedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
-  const markAllAsConfirmed = () => {
-    if (!pendingRows.length) return;
-    setConfirmedIds((prev) => {
-      const set = new Set(prev);
-      pendingRows.forEach((t) => set.add(t.id));
-      return Array.from(set);
-    });
-  };
-
-  const resetConfirmations = () => setConfirmedIds([]);
-
-  const handleSaveCashless = async () => {
-    if (!canSaveCashless || !row?.business_date || !row?.cashier_user_id) return;
-
-    setSavingTx(true);
-    setTxError("");
-
-    const transactionIds = pendingRows.map((t) => t.id).filter((id) => confirmedSet.has(id));
-
-    try {
-      await axios.post("/dashboard/accountant/remittances/cashless-transactions/verify", {
-        business_date: row.business_date,
-        cashier_user_id: row.cashier_user_id,
-        transaction_ids: transactionIds,
-      });
-
-      setConfirmedIds([]);
-      router.reload({ only: ["row", "remittances"], preserveState: true, preserveScroll: true });
-    } catch (err) {
-      const msg = err?.response?.data?.message;
-      setTxError(msg || "Unable to save cashless verification.");
-    } finally {
-      setSavingTx(false);
-    }
-  };
-
-  const handleSaveCash = () => {
-    if (!canSaveCash) return;
-
-    setSavingCash(true);
-    setCashError("");
-
-    router.post(
-      "/dashboard/accountant/remittances/record-cash",
-      {
-        business_date: row?.business_date,
-        cashier_user_id: row?.cashier_user_id,
-        cash_counted: cashAmount,
-        note: safeText(note) || null,
-      },
-      {
-        preserveScroll: true,
-        onSuccess: () => {
-          router.reload({ only: ["row", "remittances"], preserveState: true, preserveScroll: true });
-        },
-        onError: (errors) => {
-          setCashError(errors?.message || "Unable to save cash. Try again.");
-        },
-        onFinish: () => setSavingCash(false),
-      }
-    );
-  };
+  const clearChecks = () => setConfirmedIds([]);
 
   const goBack = () => {
     router.visit(returnUrl, { preserveScroll: true, preserveState: true });
   };
 
-  const pagePills = (
+  const canSaveAll =
+    !savingAll &&
+    Boolean(row?.business_date) &&
+    Boolean(row?.cashier_user_id) &&
+    canSaveCash &&
+    !loadingTx &&
+    allPendingChecked;
+
+  const saveCashPromise = () => {
+    return new Promise((resolve, reject) => {
+      router.post(
+        "/dashboard/accountant/remittances/record-cash",
+        {
+          business_date: row?.business_date,
+          cashier_user_id: row?.cashier_user_id,
+          cash_counted: cashAmount,
+          note: safeText(note) || null,
+        },
+        {
+          preserveScroll: true,
+          preserveState: true,
+          onSuccess: () => resolve(true),
+          onError: (errors) => reject(errors),
+        }
+      );
+    });
+  };
+
+  const saveCashlessPromise = async () => {
+    const transactionIds = pendingRows.map((t) => t.id).filter((id) => confirmedSet.has(id));
+
+    await axios.post("/dashboard/accountant/remittances/cashless-transactions/verify", {
+      business_date: row.business_date,
+      cashier_user_id: row.cashier_user_id,
+      verified_transaction_ids: transactionIds,
+    });
+
+    if (transactionIds.length > 0) {
+      setTransactions((prev) =>
+        prev.map((txn) =>
+          transactionIds.includes(txn.id) ? { ...txn, verified: true } : txn
+        )
+      );
+    }
+  };
+
+  const handleSaveAll = async () => {
+    if (!canSaveAll) return;
+
+    setSavingAll(true);
+    setCashError("");
+    setTxError("");
+
+    try {
+      await saveCashPromise();
+      await saveCashlessPromise();
+
+      setConfirmedIds([]);
+      router.reload({ only: ["row", "remittances"], preserveState: true, preserveScroll: true });
+    } catch (err) {
+      const msg = err?.response?.data?.message;
+      if (msg) setTxError(msg);
+      else setCashError("Unable to save turnover.");
+    } finally {
+      setSavingAll(false);
+    }
+  };
+
+  const headerRight = (
     <div className="flex flex-wrap items-center gap-2">
-      <MiniPill tone="white">{row?.cashier_name || "—"}</MiniPill>
-      <MiniPill tone="white">{row?.business_date || "—"}</MiniPill>
-      {variance === 0 && safeText(cashInput) !== "" ? (
-        <MiniPill tone="teal">
-          <CheckCircle2 className="h-4 w-4" />
-          Cash balanced
-        </MiniPill>
-      ) : safeText(cashInput) !== "" ? (
-        <MiniPill tone="amber">
-          <AlertTriangle className="h-4 w-4" />
-          Cash variance
-        </MiniPill>
-      ) : (
-        <MiniPill tone="slate">Draft</MiniPill>
-      )}
+      <GhostButton onClick={goBack}>
+        <ArrowLeft className="h-4 w-4" />
+        Back
+      </GhostButton>
+
+      <PrimaryButton disabled={!canSaveAll} onClick={handleSaveAll}>
+        <CheckCircle2 className="h-4 w-4" />
+        {savingAll ? "Saving..." : "Save turnover"}
+      </PrimaryButton>
     </div>
   );
+
+  const cashlessSubtitle =
+    pendingRows.length === 0
+      ? verifiedRows.length === 0
+        ? "No pending cashless transactions."
+        : "All pending transactions are checked. Verified history kept for transparency."
+      : allPendingChecked
+      ? "All pending transactions are checked."
+      : "Check all pending transactions before saving.";
 
   return (
     <Layout title="Turnover Review">
       <div className="grid gap-6">
-        <div className="rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm">
-          <div className="p-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <div className="text-lg font-extrabold text-slate-900">Turnover Review</div>
-              <div className="mt-1 text-sm text-slate-500">
-                Cash and cashless verification in one place.
-              </div>
-              <div className="mt-3">{pagePills}</div>
-            </div>
-            <GhostButton onClick={goBack}>Back</GhostButton>
-          </div>
+        <TopCard
+          title="Turnover Review"
+          subtitle={`${row?.cashier_name || "—"} · ${row?.business_date || "—"}`}
+          right={headerRight}
+        />
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <LabelValue label="Gross sales" value={money(expectedGross)} />
+          <LabelValue label="Expected cashless" value={money(expectedNonCashTotal)} />
         </div>
 
-        <div className="rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm">
-          <div className="p-5 space-y-3">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        {vatActive && vatBreakdown ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <LabelValue label="Net sales" value={money(vatBreakdown.net_amount)} />
+            <LabelValue label="VAT collected" value={money(vatBreakdown.vat_amount)} />
+          </div>
+        ) : null}
+
+        <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">
+          <Panel
+            title="Cash"
+            subtitle="Enter counted cash. Note is required only if variance exists."
+            className="h-full"
+          >
+            <div className="grid gap-3 sm:grid-cols-3">
+              <LabelValue label="Expected" value={money(expectedCash)} />
+              <LabelValue
+                label="Counted"
+                value={safeText(cashInput) === "" ? "—" : money(cashAmount)}
+              />
+              <LabelValue
+                label="Variance"
+                value={safeText(cashInput) === "" ? "—" : money(variance)}
+                tone={varianceTone}
+              />
+            </div>
+
+            <div className="mt-5 grid gap-4">
               <div>
-                <div className="text-sm font-extrabold text-slate-900">Gross sales</div>
-                <div className="text-xs text-slate-500">
-                  {vatActive
-                    ? `VAT rate ${(Number(vatSettings.vat_rate ?? 0) * 100).toFixed(2)}% ${
-                        vatSettings.vat_effective_date ? `· effective ${vatSettings.vat_effective_date}` : ""
-                      }`
-                    : "VAT is disabled for this company."}
-                </div>
-              </div>
-              <div className="text-2xl font-extrabold text-slate-900">{money(expectedGross)}</div>
-            </div>
-            {vatActive && vatBreakdown ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Stat label="Net sales" value={money(vatBreakdown.net_amount)} tone="slate" />
-                <Stat label="VAT collected" value={money(vatBreakdown.vat_amount)} tone="teal" />
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="grid gap-5 lg:grid-cols-2">
-          {/* CASH TURNOVER */}
-          <div className="rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm">
-            <div className="p-5 border-b border-slate-200">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-sm font-extrabold text-slate-900">Cash turnover</div>
-                  <div className="mt-1 text-xs text-slate-500">Expected vs counted cash with variance note.</div>
-                </div>
-                <div className="inline-flex items-center gap-2">
-                  <MiniPill tone="teal">Teal flow</MiniPill>
+                <div className="text-xs font-extrabold text-slate-700">Counted cash</div>
+                <div className="mt-2">
+                  <PesoInput value={cashInput} onChange={setCashInput} disabled={savingAll} />
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <Stat label="Expected" value={money(expectedCash)} tone="slate" />
-                <Stat
-                  label="Counted"
-                  value={safeText(cashInput) === "" ? "—" : money(cashAmount)}
-                  tone="slate"
-                />
-                <Stat
-                  label="Variance"
-                  value={safeText(cashInput) === "" ? "—" : money(variance)}
-                  tone={safeText(cashInput) === "" ? "slate" : varianceTone}
-                />
-              </div>
-            </div>
+              <div>
+                <div className="text-xs font-extrabold text-slate-700">Note</div>
+                <div className="mt-1 text-[11px] text-slate-500">
+                  {needsNote ? "Required because variance is not zero." : "Optional."}
+                </div>
 
-            <div className="p-5 grid gap-4">
-              <Field label="Counted cash" hint="Amount received by the accountant">
-                <PesoInput value={cashInput} onChange={setCashInput} disabled={savingCash} />
-              </Field>
-
-              <Field label="Note" hint={needsNote ? "Required when variance is not zero" : "Optional"}>
-                <div className="flex items-start gap-2 rounded-2xl bg-white ring-1 ring-slate-200 px-3 py-2.5 transition focus-within:ring-2 focus-within:ring-teal-500/25">
-                  <textarea
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    rows={3}
-                    placeholder={needsNote ? "Explain variance..." : "Add a note..."}
-                    className="w-full resize-none bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
-                  />
+                <div className="mt-2">
+                  <InputShell>
+                    <textarea
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      rows={3}
+                      placeholder={needsNote ? "Explain variance..." : "Add a note..."}
+                      className="w-full resize-none bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
+                      disabled={savingAll}
+                    />
+                  </InputShell>
                 </div>
 
                 {!noteOk ? (
-                  <div className="mt-2 text-[11px] font-semibold text-rose-700">
-                    Please add at least 3 characters when variance is present.
+                  <div className="mt-2 text-[11px] text-rose-700">
+                    Add at least 3 characters when variance is present.
                   </div>
                 ) : null}
-              </Field>
+              </div>
 
               {cashError ? (
-                <div className="rounded-2xl bg-rose-50 ring-1 ring-rose-700/10 px-4 py-2 text-xs font-semibold text-rose-800">
+                <div className="rounded-2xl bg-rose-500/5 ring-1 ring-rose-700/10 px-4 py-3 text-sm text-rose-800">
                   {cashError}
                 </div>
               ) : null}
-
-              <div className="flex items-center justify-end">
-                <PrimaryButton onClick={handleSaveCash} disabled={!canSaveCash || savingCash}>
-                  {savingCash ? "Saving..." : "Save cash"}
-                </PrimaryButton>
-              </div>
             </div>
-          </div>
+          </Panel>
 
-          {/* CASHLESS PAYMENTS */}
-          <div className="rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm overflow-hidden">
-            <div className="p-5 border-b border-slate-200">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-sm font-extrabold text-slate-900">Cashless payments</div>
-                  <div className="mt-1 text-xs text-slate-500">Verify all pending cashless transactions.</div>
-                </div>
-                <ShieldCheck className="h-5 w-5 text-teal-700" />
+          <Panel
+            title="Cashless"
+            subtitle={cashlessSubtitle}
+            className="h-full"
+            bodyClassName="flex flex-col"
+            right={
+              <TableActionButton
+                icon={RotateCcw}
+                title="Clear all checks"
+                onClick={clearChecks}
+                disabled={!checkedCount || savingAll}
+              >
+                Clear all
+              </TableActionButton>
+            }
+            footer={
+              <KpiFooter
+                verified={verifiedTotal}
+                pending={pendingRows.length}
+                checked={checkedCount}
+                remaining={remainingCount}
+              />
+            }
+          >
+            {txError ? (
+              <div className="mb-4 rounded-2xl bg-rose-500/5 ring-1 ring-rose-700/10 px-4 py-3 text-sm text-rose-800">
+                {txError}
               </div>
+            ) : null}
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-4">
-                <Stat label="Expected" value={money(expectedNonCashTotal)} tone="slate" />
-                <Stat label="Verified" value={money(verifiedTotal)} tone="teal" />
-                <Stat label="Pending" value={String(pendingRows.length)} tone="slate" />
-                <Stat label="Remaining" value={String(remainingCount)} tone={remainingCount ? "amber" : "teal"} />
-              </div>
-
-              {cashlessBreakdown.length ? (
-                <div className="mt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowBreakdown((v) => !v)}
-                    className="text-[11px] font-extrabold text-teal-700 hover:text-teal-900 transition"
-                  >
-                    {showBreakdown ? "Hide breakdown" : "Show breakdown"}
-                  </button>
-
-                  {showBreakdown ? (
-                    <div className="mt-3 grid gap-2">
-                      {cashlessBreakdown.map((d) => (
-                        <div
-                          key={d.key}
-                          className="flex items-center justify-between rounded-2xl bg-white px-3 py-2 ring-1 ring-slate-200"
-                        >
-                          <span className="text-xs font-semibold text-slate-600 truncate pr-3">{d.label}</span>
-                          <span className="text-sm font-extrabold text-slate-900 shrink-0">{money(d.value)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-
-            <div className="p-5 border-b border-slate-200">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div className="text-sm font-extrabold text-slate-900">Verification</div>
-
-                <PrimaryButton onClick={handleSaveCashless} disabled={!canSaveCashless || savingTx}>
-                  {savingTx ? "Saving..." : "Save cashless"}
-                </PrimaryButton>
-              </div>
-
-              <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_280px] lg:items-center">
-                <div className="rounded-2xl bg-white ring-1 ring-slate-200 px-4 py-3 flex items-center gap-2">
-                  <Search className="h-4 w-4 text-slate-500" />
-                  <input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search reference, method, amount, time..."
-                    className="w-full bg-transparent text-sm font-semibold text-slate-800 outline-none placeholder:text-slate-400"
-                  />
-                </div>
-
-                <div className="rounded-2xl bg-white ring-1 ring-slate-200 px-3 py-3 flex items-center gap-2">
-                  <Filter className="h-4 w-4 text-slate-500" />
-                  <select
-                    value={methodFilter}
-                    onChange={(e) => setMethodFilter(e.target.value)}
-                    className="w-full bg-transparent text-sm font-semibold text-slate-800 outline-none"
-                  >
-                    {methodsList.map((m) => (
-                      <option key={m} value={m}>
-                        {m === "all" ? "All methods" : m}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="mt-3 flex items-center justify-end gap-2">
-                <GhostButton onClick={resetConfirmations} disabled={!confirmedCount || loadingTx || savingTx}>
-                  <RotateCcw className="h-4 w-4" />
-                  Undo
-                </GhostButton>
-
-                <PrimaryButton onClick={markAllAsConfirmed} disabled={!pendingRows.length || loadingTx || savingTx}>
-                  <Check className="h-4 w-4" />
-                  Mark all
-                </PrimaryButton>
-              </div>
-
-              {txError ? (
-                <div className="mt-4 rounded-2xl bg-rose-50 ring-1 ring-rose-700/10 px-4 py-2 text-xs font-semibold text-rose-800">
-                  {txError}
-                </div>
-              ) : null}
-
-              <div className={cx("mt-3 text-xs font-extrabold", allPendingConfirmed ? "text-teal-700" : "text-slate-700")}>
-                {pendingRows.length === 0
-                  ? "No pending cashless transactions"
-                  : allPendingConfirmed
-                  ? "Ready to save"
-                  : `Check all pending transactions first (${remainingCount} remaining)`}
-              </div>
-
-              {missingRefVisible ? (
-                <div className="mt-2 text-[11px] font-semibold text-amber-800">
-                  {missingRefVisible} visible rows missing reference
-                </div>
-              ) : null}
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-white sticky top-0">
-                  <tr className="border-b border-slate-200">
-                    <th className="px-5 py-3 text-[11px] font-extrabold text-slate-500 uppercase tracking-wide">
-                      Time
-                    </th>
-                    <th className="px-5 py-3 text-[11px] font-extrabold text-slate-500 uppercase tracking-wide">
-                      Method
-                    </th>
-                    <th className="px-5 py-3 text-[11px] font-extrabold text-slate-500 uppercase tracking-wide text-right">
-                      Amount
-                    </th>
-                    <th className="px-5 py-3 text-[11px] font-extrabold text-slate-500 uppercase tracking-wide">
-                      Reference
-                    </th>
-                    <th className="px-5 py-3 text-[11px] font-extrabold text-slate-500 uppercase tracking-wide text-right">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-slate-200">
-                  {loadingTx ? (
-                    <tr>
-                      <td colSpan={5} className="px-5 py-10 text-center text-sm font-semibold text-slate-500">
-                        Loading transactions...
-                      </td>
+            <div className="flex-1 min-h-[220px]">
+              <div className="h-full overflow-x-auto rounded-2xl ring-1 ring-slate-200">
+                <table className="w-full text-left bg-white">
+                  <thead className="bg-slate-50">
+                    <tr className="border-b border-slate-200">
+                      <th className="px-4 py-3 text-[11px] font-extrabold text-slate-600 uppercase tracking-wide">
+                        Time
+                      </th>
+                      <th className="px-4 py-3 text-[11px] font-extrabold text-slate-600 uppercase tracking-wide">
+                        Method
+                      </th>
+                      <th className="px-4 py-3 text-[11px] font-extrabold text-slate-600 uppercase tracking-wide text-right">
+                        Amount
+                      </th>
+                      <th className="px-4 py-3 text-[11px] font-extrabold text-slate-600 uppercase tracking-wide">
+                        Reference
+                      </th>
+                      <th className="px-4 py-3 text-[11px] font-extrabold text-slate-600 uppercase tracking-wide text-right">
+                        Action
+                      </th>
                     </tr>
-                  ) : filteredRows.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-5 py-10 text-center text-sm font-semibold text-slate-500">
-                        {pendingRows.length === 0
-                          ? "No cashless transactions to verify."
-                          : "No transactions match the current filter."}
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredRows.map((txn) => {
-                      const isConfirmed = confirmedSet.has(txn.id);
-                      const ref = safeText(txn.reference);
+                  </thead>
 
-                      return (
-                        <tr key={txn.id} className={cx(isConfirmed && "bg-teal-50/40")}>
-                          <td className="px-5 py-4 text-sm font-extrabold text-slate-900 whitespace-nowrap">
-                            {formatTime(txn.paid_at)}
-                          </td>
+                  <tbody className="divide-y divide-slate-100">
+                    {loadingTx ? (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-500">
+                          Loading...
+                        </td>
+                      </tr>
+                    ) : transactions.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-500">
+                          Nothing to verify.
+                        </td>
+                      </tr>
+                    ) : (
+                      transactions.map((txn) => {
+                        const isPending = !txn.verified;
+                        const isChecked = isPending ? confirmedSet.has(txn.id) : false;
+                        const ref = safeText(txn.reference);
 
-                          <td className="px-5 py-4">
-                            <div className="text-sm font-extrabold text-slate-900">
+                        return (
+                          <tr
+                            key={txn.id}
+                            className={cx(isChecked && "bg-teal-600/5", txn.verified && "bg-slate-50")}
+                          >
+                            <td className="px-4 py-4 text-sm font-extrabold text-slate-900 whitespace-nowrap">
+                              {formatTime(txn.paid_at)}
+                            </td>
+
+                            <td className="px-4 py-4 text-sm text-slate-700">
                               {txn.method_name || "Cashless"}
-                            </div>
-                            {!ref ? (
-                              <div className="mt-1">
-                                <MiniPill tone="amber">Missing reference</MiniPill>
-                              </div>
-                            ) : null}
-                          </td>
+                            </td>
 
-                          <td className="px-5 py-4 text-right text-sm font-extrabold text-slate-900 whitespace-nowrap">
-                            {money(txn.amount)}
-                          </td>
+                            <td className="px-4 py-4 text-right text-sm font-extrabold text-slate-900 whitespace-nowrap tabular-nums">
+                              {money(txn.amount)}
+                            </td>
 
-                          <td className="px-5 py-4">
-                            {ref ? (
-                              <span className="inline-flex items-center rounded-2xl bg-slate-900 px-4 py-2 text-[13px] font-extrabold text-white font-mono tracking-wide">
-                                {ref}
-                              </span>
-                            ) : (
-                              <span className="text-sm font-semibold text-slate-400">—</span>
-                            )}
-                          </td>
-
-                          <td className="px-5 py-4 text-right whitespace-nowrap">
-                            <button
-                              type="button"
-                              onClick={() => toggleConfirm(txn.id)}
-                              disabled={savingTx}
-                              className={cx(
-                                "inline-flex items-center rounded-2xl px-4 py-2 text-sm font-extrabold ring-1 transition focus:outline-none focus:ring-4",
-                                isConfirmed
-                                  ? "bg-white text-slate-800 ring-slate-200 hover:bg-slate-50 focus:ring-teal-500/15"
-                                  : "bg-teal-600 text-white ring-teal-600 hover:bg-teal-700 focus:ring-teal-500/25"
+                            <td className="px-4 py-4">
+                              {ref ? (
+                                <span className="font-mono text-sm text-slate-900">{ref}</span>
+                              ) : (
+                                <span className="text-sm text-slate-400">—</span>
                               )}
-                            >
-                              {isConfirmed ? "Checked" : "Check"}
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+                            </td>
 
-            <div className="px-5 py-4 border-t border-slate-200 bg-white">
-              <div className="flex flex-wrap items-center gap-2 text-xs font-extrabold text-slate-600">
-                <span className="text-slate-500">Pending</span>
-                <span className="text-slate-900">{pendingRows.length}</span>
-                <span className="text-slate-300">|</span>
-                <span className="text-slate-500">Confirmed</span>
-                <span className="text-slate-900">{confirmedCount}</span>
-                <span className="text-slate-300">|</span>
-                <span className="text-slate-500">Remaining</span>
-                <span className="text-slate-900">{remainingCount}</span>
+                            <td className="px-4 py-4 text-right whitespace-nowrap">
+                              {txn.verified ? (
+                                <TableActionButton
+                                  icon={CheckCircle2}
+                                  tone="primary"
+                                  title="Verified transaction"
+                                  disabled
+                                >
+                                  Verified
+                                </TableActionButton>
+                              ) : isChecked ? (
+                                <TableActionButton
+                                  icon={RotateCcw}
+                                  title="Clear check"
+                                  onClick={() => toggleConfirm(txn.id)}
+                                  disabled={savingAll}
+                                >
+                                  Clear
+                                </TableActionButton>
+                              ) : (
+                                <TableActionButton
+                                  icon={CheckCircle2}
+                                  tone="primary"
+                                  title="Check transaction"
+                                  onClick={() => toggleConfirm(txn.id)}
+                                  disabled={savingAll}
+                                >
+                                  Check
+                                </TableActionButton>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
-          </div>
+          </Panel>
         </div>
       </div>
     </Layout>
