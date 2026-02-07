@@ -242,8 +242,8 @@ class RemittanceController extends Controller
         $validated = $request->validate([
             'business_date' => 'required|date',
             'cashier_user_id' => 'required|exists:users,id',
-            'verified_transaction_ids' => 'required|array|min:1',
-            'verified_transaction_ids.*' => 'required|integer|distinct',
+            'verified_transaction_ids' => 'nullable|array', 
+            'verified_transaction_ids.*' => 'nullable|integer|distinct',
         ]);
 
         if (DailyClose::where('business_date', $validated['business_date'])->exists()) {
@@ -257,7 +257,7 @@ class RemittanceController extends Controller
                 $request,
                 $validated['business_date'],
                 $validated['cashier_user_id'],
-                $validated['verified_transaction_ids'],
+                $validated['verified_transaction_ids'] ?? [],
                 $user
             );
         } catch (InvalidArgumentException $ex) {

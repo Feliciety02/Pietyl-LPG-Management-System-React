@@ -11,13 +11,13 @@ class SaleSeeder extends Seeder
 {
     public function run(): void
     {
-        // Get data
-        $cashier = User::whereHas('roles', function ($q) {
+        // Get all cashiers
+        $cashiers = User::whereHas('roles', function ($q) {
             $q->where('name', 'cashier');
-        })->first();
+        })->get();
 
-        if (!$cashier) {
-            $this->command->warn('No cashier user found. Skipping SaleSeeder.');
+        if ($cashiers->isEmpty()) {
+            $this->command->warn('No cashier users found. Skipping SaleSeeder.');
             return;
         }
 
@@ -27,180 +27,95 @@ class SaleSeeder extends Seeder
             return;
         }
 
-        // Helper to get random customer
+        // Helper functions
         $getCustomer = fn() => $customers->random();
         $getWalkin = fn() => $customers->where('name', 'Walk-in Customer')->first();
+        $getCashier = fn() => $cashiers->random();
 
-        $entries = [
+        $entries = [];
+
+        // Generate sales for the past 14 days with multiple cashiers
+        for ($daysAgo = 14; $daysAgo >= 0; $daysAgo--) {
+            $date = now()->subDays($daysAgo);
+            $dateStr = $date->format('Ymd');
+            
+            // Each cashier gets 5-10 sales per day
+            foreach ($cashiers as $cashierIndex => $cashier) {
+                $salesCount = rand(5, 10);
+                
+                for ($i = 1; $i <= $salesCount; $i++) {
+                    $hour = rand(8, 17);
+                    $minute = rand(0, 59);
+                    $saleType = rand(0, 100) > 30 ? 'walkin' : 'delivery';
+                    $customer = $saleType === 'walkin' ? $getWalkin() : $getCustomer();
+                    
+                    // Random amounts (950, 1750, 3500, 5250)
+                    $amounts = [950.00, 1750.00, 3500.00, 5250.00];
+                    $amount = $amounts[array_rand($amounts)];
+                    
+                    $saleNumber = sprintf('SALE-%s-%04d', $dateStr, ($cashierIndex * 100) + $i);
+                    
+                    $entries[] = [
+                        'sale_number' => $saleNumber,
+                        'sale_type' => $saleType,
+                        'customer_id' => $customer?->id,
+                        'cashier_user_id' => $cashier->id,
+                        'status' => 'paid',
+                        'sale_datetime' => $date->copy()->setHour($hour)->setMinute($minute),
+                        'subtotal' => $amount,
+                        'discount_total' => 0,
+                        'tax_total' => 0,
+                        'grand_total' => $amount,
+                        'notes' => $saleType === 'delivery' ? 'Delivery order' : null,
+                    ];
+                }
+            }
+        }
+
+        // Add some specific high-value sales for variety
+        $specialSales = [
             [
-                'sale_number' => 'SALE-20260120-0001',
-                'sale_type' => 'walkin',
-                'customer_id' => $getWalkin()?->id,
-                'status' => 'paid',
-                'sale_datetime' => now()->subDays(7)->setHour(9)->setMinute(20),
-                'subtotal' => 950.00,
-                'discount_total' => 0,
-                'tax_total' => 0,
-                'grand_total' => 950.00,
-                'notes' => null,
-            ],
-            [
-                'sale_number' => 'SALE-20260120-0002',
-                'sale_type' => 'delivery',
-                'customer_id' => $customers->where('name', 'Juan Dela Cruz')->first()?->id,
-                'status' => 'paid',
-                'sale_datetime' => now()->subDays(7)->setHour(14)->setMinute(30),
-                'subtotal' => 1750.00,
-                'discount_total' => 0,
-                'tax_total' => 0,
-                'grand_total' => 1750.00,
-                'notes' => 'Delivery to Poblacion',
-            ],
-            [
-                'sale_number' => 'SALE-20260121-0002',
+                'sale_number' => 'SALE-' . now()->subDays(10)->format('Ymd') . '-9001',
                 'sale_type' => 'delivery',
                 'customer_id' => $customers->where('name', 'ABC Restaurant Corp.')->first()?->id,
+                'cashier_user_id' => $cashiers->first()->id,
                 'status' => 'paid',
-                'sale_datetime' => now()->subDays(6)->setHour(11)->setMinute(45),
-                'subtotal' => 5250.00,
+                'sale_datetime' => now()->subDays(10)->setHour(10)->setMinute(30),
+                'subtotal' => 15750.00,
                 'discount_total' => 0,
                 'tax_total' => 0,
-                'grand_total' => 5250.00,
-                'notes' => 'Corporate order - 3x 22kg cylinders',
+                'grand_total' => 15750.00,
+                'notes' => 'Bulk corporate order - 9x 22kg cylinders',
             ],
             [
-                'sale_number' => 'SALE-20260122-0002',
-                'sale_type' => 'walkin',
-                'customer_id' => $getWalkin()?->id,
-                'status' => 'paid',
-                'sale_datetime' => now()->subDays(5)->setHour(13)->setMinute(20),
-                'subtotal' => 1750.00,
-                'discount_total' => 0,
-                'tax_total' => 0,
-                'grand_total' => 1750.00,
-                'notes' => null,
-            ],
-            [
-                'sale_number' => 'SALE-20260123-0001',
+                'sale_number' => 'SALE-' . now()->subDays(7)->format('Ymd') . '-9002',
                 'sale_type' => 'delivery',
                 'customer_id' => $getCustomer()?->id,
+                'cashier_user_id' => $cashiers->last()->id,
                 'status' => 'paid',
-                'sale_datetime' => now()->subDays(4)->setHour(10)->setMinute(30),
-                'subtotal' => 3500.00,
+                'sale_datetime' => now()->subDays(7)->setHour(14)->setMinute(15),
+                'subtotal' => 10500.00,
                 'discount_total' => 0,
                 'tax_total' => 0,
-                'grand_total' => 3500.00,
-                'notes' => null,
+                'grand_total' => 10500.00,
+                'notes' => 'Large order - 6x 22kg cylinders',
             ],
             [
-                'sale_number' => 'SALE-20260124-0001',
+                'sale_number' => 'SALE-' . now()->subDays(3)->format('Ymd') . '-9003',
                 'sale_type' => 'delivery',
                 'customer_id' => $customers->where('name', 'Maria Santos')->first()?->id,
+                'cashier_user_id' => $cashiers->first()->id,
                 'status' => 'paid',
-                'sale_datetime' => now()->subDays(3)->setHour(11)->setMinute(0),
-                'subtotal' => 1750.00,
+                'sale_datetime' => now()->subDays(3)->setHour(16)->setMinute(45),
+                'subtotal' => 7000.00,
                 'discount_total' => 0,
                 'tax_total' => 0,
-                'grand_total' => 1750.00,
-                'notes' => null,
-            ],
-            [
-                'sale_number' => 'SALE-20260125-0001',
-                'sale_type' => 'walkin',
-                'customer_id' => $getWalkin()?->id,
-                'status' => 'paid',
-                'sale_datetime' => now()->subDays(2)->setHour(9)->setMinute(30),
-                'subtotal' => 950.00,
-                'discount_total' => 0,
-                'tax_total' => 0,
-                'grand_total' => 950.00,
-                'notes' => null,
-            ],
-            [
-                'sale_number' => 'SALE-20260125-0002',
-                'sale_type' => 'delivery',
-                'customer_id' => $getCustomer()?->id,
-                'status' => 'paid',
-                'sale_datetime' => now()->subDays(2)->setHour(12)->setMinute(45),
-                'subtotal' => 5250.00,
-                'discount_total' => 0,
-                'tax_total' => 0,
-                'grand_total' => 5250.00,
-                'notes' => 'Bulk order',
-            ],
-            [
-                'sale_number' => 'SALE-20260126-0001',
-                'sale_type' => 'walkin',
-                'customer_id' => $getWalkin()?->id,
-                'status' => 'paid',
-                'sale_datetime' => now()->subDay()->setHour(8)->setMinute(45),
-                'subtotal' => 950.00,
-                'discount_total' => 0,
-                'tax_total' => 0,
-                'grand_total' => 950.00,
-                'notes' => null,
-            ],
-            [
-                'sale_number' => 'SALE-20260126-0003',
-                'sale_type' => 'walkin',
-                'customer_id' => $getWalkin()?->id,
-                'status' => 'paid',
-                'sale_datetime' => now()->subDay()->setHour(16)->setMinute(0),
-                'subtotal' => 1750.00,
-                'discount_total' => 0,
-                'tax_total' => 0,
-                'grand_total' => 1750.00,
-                'notes' => null,
-            ],
-            [
-                'sale_number' => 'SALE-20260127-0001',
-                'sale_type' => 'walkin',
-                'customer_id' => $getWalkin()?->id,
-                'status' => 'paid',
-                'sale_datetime' => now()->setHour(9)->setMinute(10),
-                'subtotal' => 950.00,
-                'discount_total' => 0,
-                'tax_total' => 0,
-                'grand_total' => 950.00,
-                'notes' => null,
-            ],
-            [
-                'sale_number' => 'SALE-20260127-0002',
-                'sale_type' => 'delivery',
-                'customer_id' => $getCustomer()?->id,
-                'status' => 'paid',
-                'sale_datetime' => now()->setHour(11)->setMinute(30),
-                'subtotal' => 3500.00,
-                'discount_total' => 0,
-                'tax_total' => 0,
-                'grand_total' => 3500.00,
-                'notes' => null,
-            ],
-            [
-                'sale_number' => 'SALE-20260127-0003',
-                'sale_type' => 'delivery',
-                'customer_id' => $getCustomer()?->id,
-                'status' => 'pending',
-                'sale_datetime' => now()->setHour(14)->setMinute(0),
-                'subtotal' => 1750.00,
-                'discount_total' => 0,
-                'tax_total' => 0,
-                'grand_total' => 1750.00,
-                'notes' => 'Scheduled delivery - COD',
-            ],
-            [
-                'sale_number' => 'SALE-20260127-0004',
-                'sale_type' => 'walkin',
-                'customer_id' => $getWalkin()?->id,
-                'status' => 'paid',
-                'sale_datetime' => now()->setHour(16)->setMinute(45),
-                'subtotal' => 1750.00,
-                'discount_total' => 0,
-                'tax_total' => 0,
-                'grand_total' => 1750.00,
-                'notes' => null,
+                'grand_total' => 7000.00,
+                'notes' => 'Monthly bulk order',
             ],
         ];
+
+        $entries = array_merge($entries, $specialSales);
 
         $vatDefaults = [
             'vat_treatment' => 'exempt',
@@ -218,10 +133,11 @@ class SaleSeeder extends Seeder
                     [
                         'net_amount' => $entry['grand_total'],
                         'gross_amount' => $entry['grand_total'],
-                        'cashier_user_id' => $cashier->id,
                     ]
                 )
             );
         }
+
+        $this->command->info('Created ' . count($entries) . ' sales across ' . $cashiers->count() . ' cashiers over 15 days.');
     }
 }

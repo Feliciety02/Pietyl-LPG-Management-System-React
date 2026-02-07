@@ -12,19 +12,10 @@ class PaymentSeeder extends Seeder
 {
     public function run(): void
     {
-        $sales = Sale::all();
+        $sales = Sale::with('cashier')->get();
         
         if ($sales->isEmpty()) {
             $this->command->warn('No sales found. Run SaleSeeder first.');
-            return;
-        }
-
-        $cashier = User::whereHas('roles', function ($q) {
-            $q->where('name', 'cashier');
-        })->first();
-
-        if (!$cashier) {
-            $this->command->warn('No cashier user found.');
             return;
         }
 
@@ -33,64 +24,83 @@ class PaymentSeeder extends Seeder
         $gcash = PaymentMethod::where('method_key', 'gcash')->first();
         $card = PaymentMethod::where('method_key', 'card')->first();
 
-        // Payment for Sale 1 - Cash
-        if ($sales->count() >= 1 && $cash) {
-            Payment::create([
-                'sale_id' => $sales[0]->id,
-                'payment_method_id' => $cash->id,
-                'amount' => $sales[0]->grand_total,
-                'reference_no' => null,
-                'received_by_user_id' => $cashier->id,
-                'paid_at' => $sales[0]->sale_datetime,
-            ]);
+        if (!$cash || !$gcash || !$card) {
+            $this->command->warn('Payment methods not found. Run PaymentMethodSeeder first.');
+            return;
         }
 
-        // Payment for Sale 2 - GCash
-        if ($sales->count() >= 2 && $gcash) {
-            Payment::create([
-                'sale_id' => $sales[1]->id,
-                'payment_method_id' => $gcash->id,
-                'amount' => $sales[1]->grand_total,
-                'reference_no' => 'GCASH-' . strtoupper(substr(md5(rand()), 0, 10)),
+        $paymentMethods = [
+            ['method' => $cash, 'weight' => 60],      // 60% cash
+            ['method' => $gcash, 'weight' => 25],     // 25% gcash
+            ['method' => $card, 'weight' => 15],      // 15% card
+        ];
+
+        $createdCount = 0;
+
+        foreach ($sales as $sale) {
+            // Skip if payment already exists
+            if (Payment::where('sale_id', $sale->id)->exists()) {
+                continue;
+            }
+
+            // Get the cashier who made the sale
+            $cashier = $sale->cashier;
+            
+            if (!$cashier) {
+                $this->command->warn("Sale {$sale->sale_number} has no cashier. Skipping payment.");
+                continue;
+            }
+
+            // Randomly select payment method based on weights
+            $selectedMethod = $this->weightedRandom($paymentMethods);
+
+            $paymentData = [
+                'sale_id' => $sale->id,
+                'payment_method_id' => $selectedMethod->id,
+                'amount' => $sale->grand_total,
                 'received_by_user_id' => $cashier->id,
-                'paid_at' => $sales[1]->sale_datetime,
-            ]);
+                'paid_at' => $sale->sale_datetime,
+            ];
+
+            // Add reference number for non-cash payments
+            if ($selectedMethod->method_key !== 'cash') {
+                $prefix = strtoupper($selectedMethod->method_key);
+                $paymentData['reference_no'] = $prefix . '-' . strtoupper(substr(md5($sale->id . time()), 0, 10));
+            } else {
+                $paymentData['reference_no'] = null;
+            }
+
+            Payment::create($paymentData);
+            $createdCount++;
         }
 
-        // Payment for Sale 3 - Card
-        if ($sales->count() >= 3 && $card) {
-            Payment::create([
-                'sale_id' => $sales[2]->id,
-                'payment_method_id' => $card->id,
-                'amount' => $sales[2]->grand_total,
-                'reference_no' => 'CARD-' . strtoupper(substr(md5(rand()), 0, 10)),
-                'received_by_user_id' => $cashier->id,
-                'paid_at' => $sales[2]->sale_datetime,
-            ]);
-        }
+        $this->command->info("Created {$createdCount} payments for {$sales->count()} sales.");
+        
+        // Show payment method distribution
+        $cashCount = Payment::whereHas('paymentMethod', fn($q) => $q->where('method_key', 'cash'))->count();
+        $gcashCount = Payment::whereHas('paymentMethod', fn($q) => $q->where('method_key', 'gcash'))->count();
+        $cardCount = Payment::whereHas('paymentMethod', fn($q) => $q->where('method_key', 'card'))->count();
+        
+        $this->command->info("Payment distribution: Cash={$cashCount}, GCash={$gcashCount}, Card={$cardCount}");
+    }
 
-        // Payment for Sale 4 - Cash
-        if ($sales->count() >= 4 && $cash) {
-            Payment::create([
-                'sale_id' => $sales[3]->id,
-                'payment_method_id' => $cash->id,
-                'amount' => $sales[3]->grand_total,
-                'reference_no' => null,
-                'received_by_user_id' => $cashier->id,
-                'paid_at' => $sales[3]->sale_datetime,
-            ]);
+    /**
+     * Select a random payment method based on weights
+     */
+    private function weightedRandom(array $weightedItems)
+    {
+        $totalWeight = array_sum(array_column($weightedItems, 'weight'));
+        $random = rand(1, $totalWeight);
+        
+        $currentWeight = 0;
+        foreach ($weightedItems as $item) {
+            $currentWeight += $item['weight'];
+            if ($random <= $currentWeight) {
+                return $item['method'];
+            }
         }
-
-        // Payment for Sale 5 - GCash
-        if ($sales->count() >= 5 && $gcash) {
-            Payment::create([
-                'sale_id' => $sales[4]->id,
-                'payment_method_id' => $gcash->id,
-                'amount' => $sales[4]->grand_total,
-                'reference_no' => 'GCASH-' . strtoupper(substr(md5(rand()), 0, 10)),
-                'received_by_user_id' => $cashier->id,
-                'paid_at' => $sales[4]->sale_datetime,
-            ]);
-        }
+        
+        // Fallback to first item
+        return $weightedItems[0]['method'];
     }
 }
