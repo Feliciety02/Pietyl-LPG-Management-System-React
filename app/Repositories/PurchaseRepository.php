@@ -1,0 +1,113 @@
+<?php
+
+namespace App\Repositories;
+
+use App\Models\Purchase;
+use App\Models\PurchaseItem;
+use App\Models\InventoryBalance;
+use App\Models\StockMovement;
+use Carbon\Carbon;
+
+class PurchaseRepository
+{
+    public function getPaginatedPurchases(array $filters, int $perPage)
+    {
+        $query = Purchase::with([
+            'supplier',
+            'items.productVariant.product'
+        ]);
+
+        if (!empty($filters['q'])) {
+            $q = $filters['q'];
+            $query->where(function ($sub) use ($q) {
+                $sub->where('purchase_number', 'like', "%{$q}%")
+                    ->orWhereHas('supplier', fn ($s) =>
+                        $s->where('name', 'like', "%{$q}%")
+                    )
+                    ->orWhereHas('items.productVariant.product', fn ($p) =>
+                        $p->where('name', 'like', "%{$q}%")
+                    );
+            });
+        }
+
+        if (!empty($filters['status']) && $filters['status'] !== 'all') {
+            $query->where('status', $filters['status']);
+        }
+
+        return $query->orderByDesc('id')
+            ->paginate($perPage)
+            ->withQueryString();
+    }
+
+    public function findById(int $id)
+    {
+        return Purchase::with(['supplier', 'items.productVariant.product'])
+            ->findOrFail($id);
+    }
+
+    public function createPurchase(array $data)
+    {
+        return Purchase::create($data);
+    }
+
+    public function updatePurchase(Purchase $purchase, array $data)
+    {
+        return $purchase->update($data);
+    }
+
+    public function generatePurchaseNumber(): string
+    {
+        $lastPurchase = Purchase::orderBy('id', 'desc')->lockForUpdate()->first();
+        
+        if ($lastPurchase && preg_match('/P-(\d+)/', $lastPurchase->purchase_number, $matches)) {
+            $nextNumber = (int)$matches[1] + 1;
+        } else {
+            $nextNumber = 1;
+        }
+        
+        return 'P-' . str_pad($nextNumber, 6, '0', STR_PAD_LEFT);
+    }
+
+    public function createPurchaseItem(Purchase $purchase, array $data)
+    {
+        return $purchase->items()->create($data);
+    }
+
+    public function updatePurchaseItem(PurchaseItem $item, array $data)
+    {
+        return $item->update($data);
+    }
+
+    public function createStockMovement(array $data)
+    {
+        return StockMovement::create($data);
+    }
+
+    public function updateOrCreateInventoryBalance(int $locationId, int $productVariantId, float $qty)
+    {
+        $balance = InventoryBalance::firstOrCreate(
+            [
+                'location_id' => $locationId,
+                'product_variant_id' => $productVariantId,
+            ],
+            [
+                'qty_filled' => 0,
+                'qty_empty' => 0,
+                'qty_reserved' => 0,
+                'reorder_level' => 0,
+            ]
+        );
+
+        $balance->qty_filled += $qty;
+        $balance->save();
+
+        return $balance;
+    }
+
+    public function getProductVariantsWithSuppliers()
+    {
+        return \App\Models\ProductVariant::with(['product', 'suppliers'])
+            ->where('is_active', true)
+            ->get();
+    }
+}

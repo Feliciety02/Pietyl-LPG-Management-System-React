@@ -41,6 +41,13 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(SettingsService::class, function () {
             return new SettingsService();
         });
+
+        // Repositories
+        $this->app->singleton(\App\Repositories\DeliveryRepository::class);
+        
+        // Services
+        $this->app->singleton(\App\Services\Inventory\InventoryService::class);
+        $this->app->singleton(\App\Services\Rider\DeliveryService::class);
     }
 
     /**
