@@ -114,23 +114,23 @@ class StockController extends Controller
         }
     }
 
-    public function lowStock(Request $request, InventoryBalanceService $svc)
+    public function lowStock(Request $request, InventoryBalanceService $inventoryBalanceService)
     {
         $user = $request->user();
         if (!$user || !$user->can('inventory.stock.low_stock')) {
             abort(403);
         }
 
-        $filters = $request->only(['q', 'risk', 'req', 'per', 'page']);
-        $data = $svc->getLowStock($filters);
+        $filters = $request->only(['q', 'risk', 'req', 'scope', 'per', 'page']);
+        $data = $inventoryBalanceService->getLowStock($filters);
 
         return Inertia::render('InventoryPage/OrderStocks', [
             'low_stock' => $data['low_stock'],
             'product_hash' => $data['product_hash'],
+            'suppliersByProduct' => $data['suppliersByProduct'],
             'suppliers' => $data['suppliers'],
-            'suppliersByProduct' => $data['suppliersByProduct'] ?? [],
-            'products' => $data['products'] ?? [],
-            'scope' => $data['scope'] ?? 'low',
+            'products' => $data['products'],
+            'scope' => $data['scope'],
             'filters' => $filters,
         ]);
     }

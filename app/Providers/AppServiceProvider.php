@@ -20,6 +20,7 @@ use App\Models\RestockRequestItem;
 use App\Models\Role;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Models\PurchaseRequest;
 use App\Models\StockMovement;
 use App\Models\Supplier;
 use App\Models\SupplierProduct;
@@ -29,6 +30,7 @@ use App\Observers\AuditTrailObserver;
 use App\Services\SettingsService;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
+use App\Policies\PurchaseRequestPolicy;
 use Spatie\Permission\Models\Permission;
 
 class AppServiceProvider extends ServiceProvider
@@ -71,6 +73,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::before(function ($user) {
             return $user->hasRole('admin') ? true : null;
         });
+
+        Gate::policy(PurchaseRequest::class, PurchaseRequestPolicy::class);
 
         $models = [
             User::class,

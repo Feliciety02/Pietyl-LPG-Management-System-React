@@ -59,8 +59,14 @@ class PermissionSeeder extends Seeder
             'inventory.stock.view',
             'inventory.stock.adjust',
             'inventory.stock.low_stock',
+            'inventory.thresholds.view',
+            'inventory.purchase_requests.low_stock',
             'inventory.movements.view',
             'inventory.purchases.view',
+            'inventory.purchase_requests.view',
+            'inventory.purchase_requests.create',
+            'inventory.purchase_requests.submit',
+            'inventory.purchase_requests.receive',
             'inventory.purchases.create',
             'inventory.purchases.update',
             'inventory.purchases.confirm',
@@ -77,6 +83,8 @@ class PermissionSeeder extends Seeder
             // Accountant
             'accountant.remittances.view',
             'accountant.remittances.verify',
+            'accountant.purchase_requests.view',
+            'accountant.purchase_requests.export',
             'accountant.daily.view',
             'accountant.payables.view',
             'accountant.payables.pay',
@@ -84,6 +92,13 @@ class PermissionSeeder extends Seeder
             'accountant.ledger.view',
             'accountant.reports.view',
             'accountant.audit.view',
+
+            // Admin
+            'admin.purchase_requests.view',
+            'admin.purchase_requests.approve',
+            'admin.purchase_requests.reject',
+            'admin.purchase_requests.contact_supplier',
+            'admin.purchase_requests.cancel',
 
             // Rider
             'rider.deliveries.view',

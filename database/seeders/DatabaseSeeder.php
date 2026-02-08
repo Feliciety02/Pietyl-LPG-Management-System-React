@@ -34,6 +34,7 @@ class DatabaseSeeder extends Seeder
             RestockRequestSeeder::class,
             RestockRequestItemSeeder::class,
             LinkSuppliersToProductsSeeder::class,
+            PurchaseRequestSeeder::class,
         ]);
     }
 }

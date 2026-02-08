@@ -8,9 +8,8 @@ const ROLE_META = {
     items: [
       {
         type: "group",
-        label: "Overview",
+        label: "Intelligence",
         items: [
-          { label: "Overview", href: "/dashboard/admin", icon: "overview" },
           { label: "Reports", href: "/dashboard/admin/reports", icon: "reports", permission: "admin.reports.view" },
         ],
       },
@@ -24,18 +23,19 @@ const ROLE_META = {
           { label: "Customers", href: "/dashboard/admin/customers", icon: "customers", permission: "admin.customers.view" },
         ],
       },
-          {
-            type: "group",
-            label: "Catalog",
-            items: [
-              { label: "Products", href: "/dashboard/admin/products", icon: "products", permission: "admin.products.view" },
-              { label: "Suppliers", href: "/dashboard/admin/suppliers", icon: "suppliers", permission: "admin.suppliers.view" },
-              { label: "Stock Requests", href: "/dashboard/admin/stock-requests", icon: "purchases", permission: "inventory.purchases.view" },
-              { label: "Order Stocks", href: "/dashboard/inventory/order-stocks", icon: "lowStock", permission: "inventory.stock.low_stock" },
-              { label: "Thresholds", href: "/dashboard/inventory/thresholds", icon: "thresholds", permission: "inventory.stock.low_stock" },
-              { label: "Stock Counts", href: "/dashboard/inventory/counts", icon: "counts", permission: "inventory.stock.view" },
-            ],
-          },
+      {
+        type: "group",
+        label: "Catalog & Supply",
+        items: [
+          { label: "Products", href: "/dashboard/admin/products", icon: "products", permission: "admin.products.view" },
+          { label: "Suppliers", href: "/dashboard/admin/suppliers", icon: "suppliers", permission: "admin.suppliers.view" },
+          { label: "Purchase requests", href: "/dashboard/admin/purchase-requests", icon: "purchases", permission: "admin.purchase_requests.view" },
+          { label: "Stock Requests", href: "/dashboard/admin/stock-requests", icon: "purchases", permission: "inventory.purchases.view" },
+          { label: "Order Stocks", href: "/dashboard/inventory/order-stocks", icon: "lowStock", permission: "inventory.stock.low_stock" },
+          { label: "Thresholds", href: "/dashboard/inventory/thresholds", icon: "thresholds", permission: "inventory.thresholds.view" },
+          { label: "Stock Counts", href: "/dashboard/inventory/counts", icon: "counts", permission: "inventory.stock.view" },
+        ],
+      },
       {
         type: "group",
         label: "Finance",
@@ -57,17 +57,27 @@ const ROLE_META = {
   cashier: {
     title: "Cashier",
     items: [
-      { label: "Overview", href: "/dashboard/cashier", icon: "overview" },
-      { label: "Point of Sale", href: "/dashboard/cashier/POS", icon: "newSale", permission: "cashier.pos.use" },
-      { label: "Sales", href: "/dashboard/cashier/sales", icon: "transactions", permission: "cashier.sales.view" },
-      { label: "Customers", href: "/dashboard/cashier/customers", icon: "customers", permission: "cashier.customers.view" },
+      {
+        type: "group",
+        label: "Transactions",
+        items: [
+          { label: "Point of Sale", href: "/dashboard/cashier/POS", icon: "newSale", permission: "cashier.pos.use" },
+          { label: "Sales", href: "/dashboard/cashier/sales", icon: "transactions", permission: "cashier.sales.view" },
+        ],
+      },
+      {
+        type: "group",
+        label: "Customers",
+        items: [
+          { label: "Customers", href: "/dashboard/cashier/customers", icon: "customers", permission: "cashier.customers.view" },
+        ],
+      },
     ],
   },
 
   accountant: {
     title: "Accountant",
     items: [
-      { label: "Overview", href: "/dashboard/accountant", icon: "overview" },
       {
         type: "group",
         label: "Finance",
@@ -75,6 +85,13 @@ const ROLE_META = {
           { label: "Remittances", href: "/dashboard/accountant/remittances", icon: "remittance", permission: "accountant.remittances.view" },
           { label: "Ledger", href: "/dashboard/accountant/ledger", icon: "ledger", permission: "accountant.ledger.view" },
           { label: "Supplier Payables", href: "/dashboard/accountant/payables", icon: "payables", permission: "accountant.payables.view" },
+          { label: "Supplier purchases", href: "/dashboard/accountant/supplier-purchases", icon: "purchases", permission: "accountant.purchase_requests.view" },
+        ],
+      },
+      {
+        type: "group",
+        label: "Payroll & Reporting",
+        items: [
           { label: "Payroll", href: "/dashboard/accountant/payroll", icon: "payroll", permission: "accountant.payroll.view" },
           { label: "Reports", href: "/dashboard/accountant/reports", icon: "reports", permission: "accountant.reports.view" },
         ],
@@ -85,22 +102,39 @@ const ROLE_META = {
   rider: {
     title: "Rider",
     items: [
-      { label: "Overview", href: "/dashboard/rider", icon: "overview" },
-      { label: "My Deliveries", href: "/dashboard/rider/deliveries", icon: "deliveries", permission: "rider.deliveries.view" },
-      { label: "History", href: "/dashboard/rider/history", icon: "history", permission: "rider.history.view" },
+      {
+        type: "group",
+        label: "Deliveries",
+        items: [
+          { label: "My Deliveries", href: "/dashboard/rider/deliveries", icon: "deliveries", permission: "rider.deliveries.view" },
+          { label: "History", href: "/dashboard/rider/history", icon: "history", permission: "rider.history.view" },
+        ],
+      },
     ],
   },
 
   inventory_manager: {
     title: "Inventory",
     items: [
-      { label: "Overview", href: "/dashboard/inventory", icon: "overview" },
-      { label: "Stock Counts", href: "/dashboard/inventory/counts", icon: "counts", permission: "inventory.stock.view" },
-      { label: "Movements", href: "/dashboard/inventory/movements", icon: "movements", permission: "inventory.movements.view" },
-      { label: "Order Stocks", href: "/dashboard/inventory/order-stocks", icon: "lowStock", permission: "inventory.stock.low_stock" },
-      { label: "Thresholds", href: "/dashboard/inventory/thresholds", icon: "thresholds", permission: "inventory.stock.low_stock" },
-      { label: "Purchase history", href: "/dashboard/inventory/purchases", icon: "purchases", permission: "inventory.purchases.view" },
-      { label: "Suppliers", href: "/dashboard/inventory/suppliers", icon: "suppliers", permission: "inventory.suppliers.view" },
+      {
+        type: "group",
+        label: "Operations",
+        items: [
+          { label: "Stock Counts", href: "/dashboard/inventory/counts", icon: "counts", permission: "inventory.stock.view" },
+          { label: "Movements", href: "/dashboard/inventory/movements", icon: "movements", permission: "inventory.movements.view" },
+        ],
+      },
+      {
+        type: "group",
+        label: "Procurement",
+        items: [
+          { label: "Purchase requests", href: "/dashboard/inventory/purchase-requests", icon: "purchases", permission: "inventory.purchase_requests.view" },
+          { label: "Order Stocks", href: "/dashboard/inventory/order-stocks", icon: "lowStock", permission: "inventory.stock.low_stock" },
+          { label: "Thresholds", href: "/dashboard/inventory/thresholds", icon: "thresholds", permission: "inventory.thresholds.view" },
+          { label: "Purchase history", href: "/dashboard/inventory/purchases", icon: "purchases", permission: "inventory.purchases.view" },
+          { label: "Suppliers", href: "/dashboard/inventory/suppliers", icon: "suppliers", permission: "inventory.suppliers.view" },
+        ],
+      },
     ],
   },
 };

@@ -17,7 +17,10 @@ use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ReportsController;
 use App\Http\Controllers\Admin\VatSettingsController;
 use App\Http\Controllers\Inventory\PurchaseController;
+use App\Http\Controllers\Inventory\PurchaseRequestController as InventoryPurchaseRequestController;
 use App\Http\Controllers\Inventory\RestockRequestController;
+use App\Http\Controllers\Admin\PurchaseRequestController as AdminPurchaseRequestController;
+use App\Http\Controllers\Accountant\SupplierPurchaseController as AccountantSupplierPurchaseController;
 use App\Http\Controllers\Accountant\RemittanceController as AccountantRemittanceController;
 use App\Http\Controllers\Accountant\LedgerController as AccountantLedgerController;
 use App\Http\Controllers\Accountant\ReportController as AccountantReportController;
@@ -174,6 +177,26 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('permission:inventory.purchases.view')
             ->name('dash.admin.stock-requests.approve');
 
+        Route::get('/purchase-requests', [AdminPurchaseRequestController::class, 'queue'])
+            ->middleware('permission:admin.purchase_requests.view')
+            ->name('dash.admin.purchase-requests');
+
+        Route::post('/purchase-requests/{purchaseRequest}/approve', [AdminPurchaseRequestController::class, 'approve'])
+            ->middleware('permission:admin.purchase_requests.approve')
+            ->name('dash.admin.purchase-requests.approve');
+
+        Route::post('/purchase-requests/{purchaseRequest}/reject', [AdminPurchaseRequestController::class, 'reject'])
+            ->middleware('permission:admin.purchase_requests.reject')
+            ->name('dash.admin.purchase-requests.reject');
+
+        Route::post('/purchase-requests/{purchaseRequest}/supplier-contacted', [AdminPurchaseRequestController::class, 'supplierContacted'])
+            ->middleware('permission:admin.purchase_requests.contact_supplier')
+            ->name('dash.admin.purchase-requests.supplier-contacted');
+
+        Route::post('/purchase-requests/{purchaseRequest}/cancel', [AdminPurchaseRequestController::class, 'cancel'])
+            ->middleware('permission:admin.purchase_requests.cancel')
+            ->name('dash.admin.purchase-requests.cancel');
+
         Route::get('/stock-requests', [RestockRequestController::class, 'adminIndex'])
             ->middleware('permission:inventory.purchases.view')
             ->name('dash.admin.stock-requests');
@@ -258,6 +281,14 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('permission:accountant.remittances.verify')
             ->name('dash.accountant.remittances.daily-close');
 
+        Route::get('/supplier-purchases', [AccountantSupplierPurchaseController::class, 'index'])
+            ->middleware('permission:accountant.purchase_requests.view')
+            ->name('dash.accountant.purchase-requests');
+
+        Route::get('/supplier-purchases/export', [AccountantSupplierPurchaseController::class, 'export'])
+            ->middleware('permission:accountant.purchase_requests.export')
+            ->name('dash.accountant.purchase-requests.export');
+
         Route::get('/payroll', fn () => Inertia::render('AccountantPage/Payroll'))
             ->middleware('permission:accountant.payroll.view')
             ->name('dash.accountant.payroll');
@@ -340,12 +371,32 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('permission:inventory.stock.low_stock')
             ->name('dash.inventory.order-stocks');
 
+        Route::get('/purchase-requests', [InventoryPurchaseRequestController::class, 'index'])
+            ->middleware('permission:inventory.purchase_requests.view')
+            ->name('dash.inventory.purchase-requests');
+
+        Route::post('/purchase-requests', [InventoryPurchaseRequestController::class, 'store'])
+            ->middleware('permission:inventory.purchase_requests.create')
+            ->name('dash.inventory.purchase-requests.store');
+
+        Route::put('/purchase-requests/{purchaseRequest}', [InventoryPurchaseRequestController::class, 'update'])
+            ->middleware('permission:inventory.purchase_requests.create')
+            ->name('dash.inventory.purchase-requests.update');
+
+        Route::post('/purchase-requests/{purchaseRequest}/submit', [InventoryPurchaseRequestController::class, 'submit'])
+            ->middleware('permission:inventory.purchase_requests.submit')
+            ->name('dash.inventory.purchase-requests.submit');
+
+        Route::post('/purchase-requests/{purchaseRequest}/receipts', [InventoryPurchaseRequestController::class, 'receive'])
+            ->middleware('permission:inventory.purchase_requests.receive')
+            ->name('dash.inventory.purchase-requests.receive');
+
         Route::get('/thresholds', [StockController::class, 'thresholds'])
-            ->middleware('permission:inventory.stock.low_stock')
+            ->middleware('permission:inventory.thresholds.view')
             ->name('dash.inventory.thresholds');
 
         Route::post('/admin/inventory/thresholds', [StockController::class, 'updateThresholds'])
-            ->middleware('permission:inventory.stock.low_stock')
+            ->middleware('permission:inventory.thresholds.view')
             ->name('dash.inventory.thresholds.save');
 
         Route::get('/purchases', [PurchaseController::class, 'index'])

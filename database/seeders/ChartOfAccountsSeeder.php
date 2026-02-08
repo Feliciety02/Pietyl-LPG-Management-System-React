@@ -19,6 +19,7 @@ class ChartOfAccountsSeeder extends Seeder
             ['code' => '4010', 'name' => 'Sales Revenue', 'account_type' => 'revenue'],
             ['code' => '5000', 'name' => 'Cost of Goods Sold', 'account_type' => 'expense'],
             ['code' => '5100', 'name' => 'Cash Over/Short', 'account_type' => 'expense'],
+            ['code' => '5200', 'name' => 'Loss Due to Damaged Inventory', 'account_type' => 'expense'],
         ];
 
         foreach ($accounts as $account) {
