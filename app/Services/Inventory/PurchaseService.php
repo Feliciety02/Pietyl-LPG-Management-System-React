@@ -11,6 +11,7 @@ use App\Services\Accounting\LedgerService;
 use App\Services\Accounting\PayableService;
 use App\Enums\PurchaseStatus;
 use App\Exceptions\PurchaseStatusException;
+use App\Models\InventoryBalance;
 use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 
@@ -132,22 +133,46 @@ class PurchaseService
             'delivery_reference_no' => $payload['delivery_reference'] ?? null,
         ]);
 
-        if ($item) {
-            $lineTotal = round(((float) $item->unit_cost) * $receivedGood, 2);
-            $this->purchaseRepository->updatePurchaseItem($item, [
-                'received_qty' => $receivedGood,
-                'line_total' => $lineTotal,
-            ]);
+        if ($item && $receivedGood > 0) {
+            $location = Location::orderBy('id')->first();
+            
+            if ($location) {
+                // Create stock movement record
+                StockMovement::create([
+                    'location_id' => $location->id,
+                    'product_variant_id' => $item->product_variant_id,
+                    'movement_type' => StockMovement::TYPE_PURCHASE_IN,
+                    'qty' => $receivedGood,
+                    'reference_type' => Purchase::class,
+                    'reference_id' => $purchase->id,
+                    'performed_by_user_id' => $actor->id,
+                    'moved_at' => now(),
+                    'notes' => 'Stock-in from delivery: ' . $purchase->purchase_number,
+                ]);
+
+                // Update inventory balance - add to qty_filled
+                $balance = InventoryBalance::where('location_id', $location->id)
+                    ->where('product_variant_id', $item->product_variant_id)
+                    ->first();
+
+                if ($balance) {
+                    $balance->increment('qty_filled', $receivedGood);
+                } else {
+                    InventoryBalance::create([
+                        'location_id' => $location->id,
+                        'product_variant_id' => $item->product_variant_id,
+                        'qty_filled' => $receivedGood,
+                        'qty_empty' => 0,
+                        'qty_reserved' => 0,
+                        'reorder_level' => 0,
+                    ]);
+                }
+            }
         }
 
+        // Update payable with actual amounts after deductions
         $refreshedPurchase = $purchase->refresh();
-
-        /*
-          this updates the same payable row created at approval
-          now it gets net amount after deductions and references
-        */
         $this->payableService->syncPurchasePayable($refreshedPurchase, $actor);
-
         return $refreshedPurchase;
     }
 
