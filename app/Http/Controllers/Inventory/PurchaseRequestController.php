@@ -64,13 +64,14 @@ class PurchaseRequestController extends Controller
                 ];
             });
 
-        return Inertia::render('InventoryPage/PurchaseRequests', [
+        return Inertia::render('InventoryPage/Purchases', [
             'lowStock' => $lowStock,
             'myRequests' => $myRequests,
             'products' => Product::where('is_active', true)->get(['id', 'name', 'sku']),
             'suppliers' => Supplier::where('is_active', true)->get(['id', 'name']),
             'locations' => Location::orderBy('name')->get(['id', 'name']),
-        ]);
+                'canAutoGenerate' => $user->can('inventory.purchase_requests.create'),
+            ]);
     }
 
     public function store(Request $request)
@@ -334,4 +335,35 @@ class PurchaseRequestController extends Controller
 
         return sprintf('PR-%s-%04d', $date, $count);
     }
+
+    public function autoGenerate(Request $request)
+    {
+        $user = $request->user();
+        if (!$user || !$user->can('inventory.purchase_requests.create')) {
+            abort(403);
+        }
+
+        try {
+            $autoPRService = new \App\Services\Inventory\AutoPurchaseRequestService(
+                new \App\Services\Inventory\NotificationService()
+            );
+
+            $suggestions = $autoPRService->getSuggestions();
+
+            if (empty($suggestions)) {
+                return back()->with('info', 'No low stock items found.');
+            }
+
+            $createdIds = $autoPRService->generatePurchaseRequestsForLowStock($user->id);
+
+            if (empty($createdIds)) {
+                return back()->with('error', 'Failed to generate purchase requests.');
+            }
+
+            return back()->with('success', 'Purchase requests generated for ' . count($createdIds) . ' supplier(s).');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error: ' . $e->getMessage());
+        }
+    }
 }
+

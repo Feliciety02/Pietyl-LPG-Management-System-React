@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import axios from "axios";
 import ModalShell from "../ModalShell";
 import { posIcons } from "@/components/ui/Icons";
 import { Printer } from "lucide-react";
@@ -8,14 +9,33 @@ function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
-export default function ReprintReceiptModal({ open, onClose, sale }) {
+export default function ReprintReceiptModal({ open, onClose, sale, onReprint }) {
   if (!sale) return null;
 
+  const [loading, setLoading] = useState(false);
   const ReceiptIcon = posIcons.receipt || Printer;
 
-  const confirm = () => {
-    alert(`Reprinted ${sale.ref}`);
-    onClose?.();
+  const confirm = async () => {
+    if (!sale?.id) return;
+    setLoading(true);
+    try {
+      const { data } = await axios.post(`/dashboard/cashier/sales/${sale.id}/receipt/reprint`);
+      if (typeof onReprint === "function") {
+        onReprint(data);
+      }
+      // open printable page in a new tab for archival/printing
+      try {
+        window.open(`/dashboard/cashier/sales/${sale.id}/receipt/print`, "_blank");
+      } catch (err) {
+        // ignore popup errors
+      }
+    } catch (e) {
+      // fallback to alert on error
+      alert(`Failed to load receipt: ${e?.message || String(e)}`);
+    } finally {
+      setLoading(false);
+      onClose?.();
+    }
   };
 
   return (
@@ -40,12 +60,14 @@ export default function ReprintReceiptModal({ open, onClose, sale }) {
           <button
             type="button"
             onClick={confirm}
+            disabled={loading}
             className={cx(
               "rounded-2xl px-4 py-2 text-sm font-extrabold text-white ring-1",
-              "bg-slate-800 ring-slate-800 hover:bg-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-500/25"
+              "bg-slate-800 ring-slate-800 hover:bg-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-500/25",
+              loading ? "opacity-70 cursor-wait" : ""
             )}
           >
-            Reprint
+            {loading ? "Loading..." : "Reprint"}
           </button>
         </div>
       }

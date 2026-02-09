@@ -328,4 +328,67 @@ class StockController extends Controller
             'filters' => $request->only(['q', 'type', 'direction', 'per']),
         ]);
     }
+
+    public function exportInventoryReport(Request $request, \Maatwebsite\Excel\Excel $excel)
+    {
+        $user = $request->user();
+        if (!$user || !$user->can('inventory.stock.view')) {
+            abort(403);
+        }
+
+        $location = $this->stockService->getFirstLocation();
+        if (!$location) {
+            return back()->with('error', 'No location configured for inventory.');
+        }
+
+        // Get inventory balances
+        $balances = DB::table('inventory_balances as ib')
+            ->join('product_variants as pv', 'pv.id', '=', 'ib.product_variant_id')
+            ->join('products as p', 'p.id', '=', 'pv.product_id')
+            ->where('ib.location_id', $location->id)
+            ->select(
+                'p.sku',
+                'p.name as product_name',
+                'pv.variant_name',
+                'ib.qty_filled',
+                'ib.qty_empty',
+                'ib.reorder_level',
+                'ib.updated_at'
+            )
+            ->get();
+
+        // Get stock movements (last 90 days)
+        $movements = DB::table('inventory_movements as im')
+            ->join('products as p', 'p.id', '=', 'im.product_id')
+            ->join('locations as l', 'l.id', '=', 'im.location_id')
+            ->join('users as u', 'u.id', '=', 'im.created_by_user_id')
+            ->where('im.location_id', $location->id)
+            ->where('im.created_at', '>=', now()->subDays(90))
+            ->select(
+                'p.name as product_name',
+                'im.source_type',
+                'im.qty_in',
+                'im.qty_out',
+                'im.remarks',
+                'im.created_at',
+                'l.name as location_name',
+                'u.name as actor_name'
+            )
+            ->orderBy('im.created_at', 'desc')
+            ->get();
+
+        $from = $request->input('from', now()->subDays(90)->format('Y-m-d'));
+        $to = $request->input('to', now()->format('Y-m-d'));
+
+        return $excel->download(
+            new \App\Exports\InventoryReportExport(
+                collect($balances),
+                collect($movements),
+                $location->name,
+                $from,
+                $to
+            ),
+            'inventory-report-' . now()->format('Y-m-d-His') . '.xlsx'
+        );
+    }
 }

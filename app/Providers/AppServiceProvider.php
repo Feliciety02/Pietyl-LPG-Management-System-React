@@ -27,6 +27,7 @@ use App\Models\SupplierProduct;
 use App\Models\User;
 use App\Models\UserRole;
 use App\Observers\AuditTrailObserver;
+use App\Observers\LowStockObserver;
 use App\Services\SettingsService;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
@@ -105,5 +106,8 @@ class AppServiceProvider extends ServiceProvider
         foreach ($models as $model) {
             $model::observe(AuditTrailObserver::class);
         }
+
+        // Observe low stock changes
+        InventoryBalance::observe(LowStockObserver::class);
     }
 }

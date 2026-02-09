@@ -1,6 +1,6 @@
 // resources/js/pages/Inventory/Purchases.jsx
 import React, { useMemo, useState } from "react";
-import { router, usePage } from "@inertiajs/react";
+import { Link, router, usePage } from "@inertiajs/react";
 import axios from "axios";
 import Layout from "../Dashboard/Layout";
 
@@ -23,6 +23,7 @@ import {
   Truck,
   XCircle,
   CreditCard,
+  Zap,
 } from "lucide-react";
 
 import { createPurchaseColumns, createPurchaseFillerRows } from "./purchases/purchaseTableConfig";
@@ -53,6 +54,10 @@ export default function Purchases() {
   const page = usePage();
   const { auth } = page.props;
   const user = auth?.user;
+
+  const canAutoGenerate = page.props?.canAutoGenerate ?? false;
+  const myRequests = page.props?.myRequests ?? [];
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const rawRoleKey = user?.role || user?.role_name || "";
   const roleKey = normalizeRoleKey(rawRoleKey);
@@ -301,6 +306,27 @@ export default function Purchases() {
     <div className="flex items-center gap-2">
       <button
         type="button"
+        onClick={() => {
+          if (!confirm('Generate purchase requests for all low stock items?')) return;
+          setIsGenerating(true);
+          router.post('/dashboard/inventory/auto-purchase-requests', {}, {
+            onSuccess: () => setIsGenerating(false),
+            onError: () => setIsGenerating(false),
+          });
+        }}
+        disabled={isGenerating}
+        title="Auto-Generate (force-shown for testing)"
+        className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-extrabold transition ${
+          isGenerating
+            ? 'bg-slate-300 text-slate-600 cursor-not-allowed'
+            : 'bg-teal-600 text-white hover:bg-teal-700 focus:ring-4 focus:ring-teal-500/25'
+        }`}
+      >
+        <Zap className="h-4 w-4" />
+        {isGenerating ? 'Generating...' : 'Auto-Generate'}
+      </button>
+      <button
+        type="button"
         onClick={openNewPurchaseModal}
         className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 focus:ring-4 focus:ring-teal-500/25"
       >
@@ -309,6 +335,7 @@ export default function Purchases() {
       </button>
     </div>
   ) : null;
+
 
   return (
     <Layout title="Purchases">

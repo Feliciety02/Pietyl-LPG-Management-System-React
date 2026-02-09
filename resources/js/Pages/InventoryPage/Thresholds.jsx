@@ -21,7 +21,7 @@ function safeNum(v) {
 function diffCount(levels, initial) {
   let c = 0;
   for (const k in levels) {
-    if (levels[k] !== initial[k]) c += 1;
+    if (safeNum(levels[k]) !== safeNum(initial[k])) c += 1;
   }
   return c;
 }
@@ -174,8 +174,8 @@ export default function Thresholds() {
   ];
 
   const setLevel = (rowId, value) => {
-    const next = Math.max(0, safeNum(value));
-    setLevels((prev) => ({ ...prev, [rowId]: next }));
+    // store raw input to allow typing (empty string while typing)
+    setLevels((prev) => ({ ...prev, [rowId]: value }));
   };
 
   const resetAll = () => setLevels(initial);
@@ -183,14 +183,14 @@ export default function Thresholds() {
   const save = () => {
     const updates = [];
     for (const id in levels) {
-      if (levels[id] !== initial[id]) {
-        updates.push({ id: Number(id), reorder_level: levels[id] });
+      if (safeNum(levels[id]) !== safeNum(initial[id])) {
+        updates.push({ id: Number(id), reorder_level: safeNum(levels[id]) });
       }
     }
     if (!updates.length) return;
     setSaving(true);
     router.post(
-      "/dashboard/admin/inventory/thresholds",
+      "/dashboard/inventory/admin/inventory/thresholds",
       { updates },
       {
         preserveScroll: true,
@@ -243,7 +243,7 @@ export default function Thresholds() {
           <input
             type="number"
             min="0"
-            value={levels[row.id] ?? 0}
+            value={levels[row.id] ?? ""}
             onChange={(event) => setLevel(row.id, event.target.value)}
             className="w-24 rounded-2xl border border-slate-200 px-3 py-2 text-sm font-extrabold focus:ring-4 focus:ring-teal-500/15"
           />
@@ -280,7 +280,7 @@ export default function Thresholds() {
             <button
               type="button"
               onClick={resetAll}
-              disabled={saving || changed === 0}
+              disabled={saving}
               className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
             >
               <RotateCcw className="h-4 w-4 text-slate-600" />
@@ -289,10 +289,10 @@ export default function Thresholds() {
             <button
               type="button"
               onClick={save}
-              disabled={saving || changed === 0}
+              disabled={saving}
               className={cx(
                 "inline-flex items-center gap-2 rounded-2xl px-5 py-2 text-sm font-extrabold text-white focus:outline-none focus:ring-4",
-                saving || changed === 0
+                saving
                   ? "bg-slate-300 ring-slate-300 cursor-not-allowed"
                   : "bg-teal-600 hover:bg-teal-700 ring-teal-600 focus:ring-teal-500/25"
               )}

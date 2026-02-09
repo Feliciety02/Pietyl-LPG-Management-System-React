@@ -641,6 +641,11 @@ export default function Sales() {
         open={reprintOpen}
         onClose={() => setReprintOpen(false)}
         sale={activeSale}
+        onReprint={(payload) => {
+          setActiveSale(payload);
+          setViewOpen(true);
+          setReprintOpen(false);
+        }}
       />
     </Layout>
   );

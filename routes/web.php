@@ -28,6 +28,7 @@ use App\Http\Controllers\Accountant\ReportController as AccountantReportControll
 use App\Http\Controllers\Accountant\PayableController as AccountantPayableController;
 use App\Http\Controllers\Cashier\DailySummaryController as CashierDailySummaryController;
 use App\Http\Controllers\Rider\RiderDeliveryController;
+use App\Http\Controllers\NotificationController;
 
 Route::get('/', function () {
     if (Auth::check()) {
@@ -199,6 +200,15 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/sales', [SaleController::class, 'index'])
             ->middleware('permission:cashier.sales.view')
             ->name('dash.cashier.sales');
+        Route::get('/sales/{sale}/receipt', [SaleController::class, 'receipt'])
+            ->middleware('permission:cashier.sales.view')
+            ->name('dash.cashier.sales.receipt');
+        Route::post('/sales/{sale}/receipt/reprint', [SaleController::class, 'reprint'])
+            ->middleware('permission:cashier.sales.view')
+            ->name('dash.cashier.sales.reprint');
+        Route::get('/sales/{sale}/receipt/print', [SaleController::class, 'printReceipt'])
+            ->middleware('permission:cashier.sales.view')
+            ->name('dash.cashier.sales.print');
         Route::get('/sales/latest', [SaleController::class, 'latest'])
             ->middleware('permission:cashier.sales.view')
             ->name('dash.cashier.sales.latest');
@@ -452,6 +462,14 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/audit', [AuditLogController::class, 'index'])
             ->middleware('permission:inventory.audit.view')
             ->name('dash.inventory.audit');
+
+        Route::get('/export', [StockController::class, 'exportInventoryReport'])
+            ->middleware('permission:inventory.stock.view')
+            ->name('dash.inventory.export');
+
+        Route::post('/auto-purchase-requests', [InventoryPurchaseRequestController::class, 'autoGenerate'])
+            ->middleware(['role:admin|inventory_manager', 'permission:inventory.purchase_requests.create'])
+            ->name('dash.inventory.auto-purchase-requests');
     });
 
     Route::post('/dashboard/inventory/purchases/{purchase}/confirm', [PurchaseController::class, 'confirm'])
@@ -469,5 +487,15 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/dashboard/inventory/purchases/{purchase}/close', [PurchaseController::class, 'close'])
         ->middleware(['role:finance'])
         ->name('dash.inventory.purchases.close');
+
+    // Notification routes
+    Route::prefix('notifications')->middleware('auth')->name('notifications.')->group(function () {
+        Route::get('/', [NotificationController::class, 'index'])->name('index');
+        Route::get('/unread', [NotificationController::class, 'unread'])->name('unread');
+        Route::get('/{id}', [NotificationController::class, 'show'])->name('show');
+        Route::post('/{id}/read', [NotificationController::class, 'markAsRead'])->name('mark-read');
+        Route::post('/read-all', [NotificationController::class, 'markAllAsRead'])->name('mark-all-read');
+        Route::delete('/{id}', [NotificationController::class, 'delete'])->name('delete');
+    });
 
 });
