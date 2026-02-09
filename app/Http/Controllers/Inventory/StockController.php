@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use App\Services\InventoryBalanceService;
 use App\Services\Inventory\StockService;
 use App\Models\InventoryBalance;
+use App\Models\ProductVariant;
+use Illuminate\Pagination\LengthAwarePaginator;
 use App\Models\StockCount;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
@@ -124,7 +126,7 @@ class StockController extends Controller
         $filters = $request->only(['q', 'risk', 'req', 'scope', 'per', 'page']);
         $data = $inventoryBalanceService->getLowStock($filters);
 
-        return Inertia::render('InventoryPage/OrderStocks', [
+        return Inertia::render('InventoryPage/Lowstock', [
             'low_stock' => $data['low_stock'],
             'product_hash' => $data['product_hash'],
             'suppliersByProduct' => $data['suppliersByProduct'],
@@ -144,16 +146,138 @@ class StockController extends Controller
 
         $filters = $request->only(['q', 'risk', 'req', 'per', 'page']);
         $filters['scope'] = 'all';
-        $data = $svc->getLowStock($filters);
+
+        $location = $this->stockService->getFirstLocation();
+        if (!$location) {
+            return Inertia::render('InventoryPage/Thresholds', [
+                'thresholds' => [
+                    'data' => [],
+                    'meta' => [
+                        'current_page' => 1,
+                        'last_page' => 1,
+                        'from' => 0,
+                        'to' => 0,
+                        'total' => 0,
+                        'per_page' => (int) ($filters['per'] ?? 10),
+                    ],
+                ],
+                'filters' => $filters,
+            ]);
+        }
+
+        $this->ensureBalancesForLocation($location->id);
+
+        $perPage = (int) ($filters['per'] ?? 10);
+        $page = (int) ($filters['page'] ?? 1);
+        $q = trim((string) ($filters['q'] ?? ''));
+        $riskFilter = (string) ($filters['risk'] ?? 'all');
+
+        $balances = InventoryBalance::with(['productVariant.product'])
+            ->where('location_id', $location->id)
+            ->when($q !== '', function ($query) use ($q) {
+                $query->where(function ($sub) use ($q) {
+                    $sub->whereHas('productVariant.product', function ($prod) use ($q) {
+                        $prod->where('name', 'like', "%{$q}%")
+                            ->orWhere('sku', 'like', "%{$q}%");
+                    })->orWhereHas('productVariant', function ($variant) use ($q) {
+                        $variant->where('variant_name', 'like', "%{$q}%");
+                    });
+                });
+            })
+            ->get();
+
+        $mapped = $balances->map(function (InventoryBalance $balance) {
+            $available = ($balance->qty_filled + $balance->qty_empty) - $balance->qty_reserved;
+            $reorderLevel = (int) ($balance->reorder_level ?? 0);
+
+            if ($reorderLevel <= 0) {
+                $riskLevel = 'ok';
+            } else {
+                $ratio = $available / $reorderLevel;
+                if ($ratio <= 0.5) {
+                    $riskLevel = 'critical';
+                } elseif ($ratio < 1) {
+                    $riskLevel = 'warning';
+                } else {
+                    $riskLevel = 'ok';
+                }
+            }
+
+            return [
+                'id' => $balance->id,
+                'sku' => $balance->productVariant?->product?->sku,
+                'name' => $balance->productVariant?->product?->name ?? '—',
+                'variant' => $balance->productVariant?->variant_name ?? '',
+                'current_qty' => $available,
+                'reorder_level' => $reorderLevel,
+                'risk_level' => $riskLevel,
+                'last_movement_at' => $balance->updated_at?->format('M d, Y h:i A'),
+            ];
+        });
+
+        $filtered = $mapped->filter(function ($row) use ($riskFilter) {
+            if ($riskFilter !== 'all' && ($row['risk_level'] ?? '') !== $riskFilter) {
+                return false;
+            }
+            return true;
+        })->values();
+
+        $total = $filtered->count();
+        $page = max(1, $page);
+        $perPage = max(1, $perPage);
+        $slice = $filtered->slice(($page - 1) * $perPage, $perPage)->values();
+
+        $paginator = new LengthAwarePaginator(
+            $slice,
+            $total,
+            $perPage,
+            $page
+        );
 
         return Inertia::render('InventoryPage/Thresholds', [
-            'thresholds' => $data['low_stock'],
-            'suppliers' => $data['suppliers'],
-            'suppliersByProduct' => $data['suppliersByProduct'] ?? [],
-            'products' => $data['products'] ?? [],
-            'scope' => $data['scope'] ?? 'all',
+            'thresholds' => [
+                'data' => $paginator->items(),
+                'meta' => [
+                    'current_page' => $paginator->currentPage(),
+                    'last_page' => $paginator->lastPage(),
+                    'from' => $paginator->firstItem(),
+                    'to' => $paginator->lastItem(),
+                    'total' => $paginator->total(),
+                    'per_page' => $paginator->perPage(),
+                ],
+            ],
             'filters' => $filters,
         ]);
+    }
+
+    private function ensureBalancesForLocation(int $locationId): void
+    {
+        $existing = InventoryBalance::where('location_id', $locationId)
+            ->pluck('product_variant_id');
+
+        $missing = $existing->isEmpty()
+            ? ProductVariant::query()->pluck('id')
+            : ProductVariant::query()->whereNotIn('id', $existing)->pluck('id');
+
+        if ($missing->isEmpty()) {
+            return;
+        }
+
+        $now = now();
+        $rows = $missing->map(function ($variantId) use ($locationId, $now) {
+            return [
+                'location_id' => $locationId,
+                'product_variant_id' => $variantId,
+                'qty_filled' => 0,
+                'qty_empty' => 0,
+                'qty_reserved' => 0,
+                'reorder_level' => 0,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        })->all();
+
+        InventoryBalance::insert($rows);
     }
 
     public function updateThresholds(Request $request)

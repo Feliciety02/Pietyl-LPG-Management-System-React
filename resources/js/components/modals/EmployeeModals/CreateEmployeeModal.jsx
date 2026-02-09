@@ -12,34 +12,46 @@ function safeText(v) {
 
 function Field({ label, hint, required = false, children }) {
   return (
-    <div className="grid gap-2">
-      <div>
-        <div className="flex items-center gap-2">
-          <div className="text-xs font-extrabold text-slate-700">{label}</div>
-          {required ? <div className="text-[11px] font-semibold text-slate-400">required</div> : null}
-        </div>
-        {hint ? <div className="mt-0.5 text-[11px] text-slate-500">{hint}</div> : null}
+    <div>
+      <div className="flex items-center gap-2">
+        <div className="text-xs font-extrabold text-slate-700">{label}</div>
+        {required ? <div className="text-[11px] font-semibold text-slate-400">required</div> : null}
       </div>
-      {children}
+      {hint ? <div className="mt-0.5 text-[11px] text-slate-500">{hint}</div> : null}
+      <div className="mt-2">{children}</div>
     </div>
   );
 }
 
-function Input(props) {
+function Input({ icon: Icon, left, right, ...props }) {
   return (
-    <input
-      {...props}
-      className="w-full rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-slate-800 ring-1 ring-slate-200 outline-none focus:ring-4 focus:ring-teal-500/15"
-    />
+    <div className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-slate-200 px-3 py-2.5 focus-within:ring-teal-500/30">
+      {Icon ? <Icon className="h-4 w-4 text-slate-500" /> : null}
+
+      {left ? (
+        <div className="shrink-0 pr-2 border-r border-slate-200/70 text-xs font-extrabold text-slate-600">{left}</div>
+      ) : null}
+
+      <input
+        {...props}
+        className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+      />
+
+      {right ? (
+        <div className="shrink-0 pl-2 border-l border-slate-200/70 text-xs font-extrabold text-slate-600">{right}</div>
+      ) : null}
+    </div>
   );
 }
 
-function Select(props) {
+function Select({ icon: Icon, children, ...props }) {
   return (
-    <select
-      {...props}
-      className="w-full rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-slate-800 ring-1 ring-slate-200 outline-none focus:ring-4 focus:ring-teal-500/15"
-    />
+    <div className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-slate-200 px-3 py-2.5 focus-within:ring-teal-500/30">
+      {Icon ? <Icon className="h-4 w-4 text-slate-500" /> : null}
+      <select {...props} className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none">
+        {children}
+      </select>
+    </div>
   );
 }
 

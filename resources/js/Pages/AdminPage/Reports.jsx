@@ -157,6 +157,8 @@ export default function Reports() {
       low_stock_count: safe(report?.low_stock_count, "0"),
       remittance_total: safe(report?.remittance_total, "₱0"),
       gross_profit: report?.gross_profit,
+      cogs: report?.cogs,
+      inventory_valuation: report?.inventory_valuation,
     };
   }, [report]);
 
@@ -283,18 +285,37 @@ export default function Reports() {
                 />
               </div>
 
+              {(report?.cogs || report?.inventory_valuation) ? (
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  {report?.cogs ? (
+                    <MetricRow
+                      label="Cost of goods sold"
+                      value={safe(report?.cogs, "â‚±0")}
+                      hint="Weighted average cost of sold items"
+                    />
+                  ) : null}
+                  {report?.inventory_valuation ? (
+                    <MetricRow
+                      label="Inventory value"
+                      value={safe(report?.inventory_valuation, "â‚±0")}
+                      hint="Weighted average cost of on-hand stock"
+                    />
+                  ) : null}
+                </div>
+              ) : null}
+
               {kpi.gross_profit !== undefined && kpi.gross_profit !== null ? (
                 <div className="mt-3">
                   <MetricRow
                     label="Gross profit"
                     value={safe(kpi.gross_profit, "₱0")}
-                    hint="Optional, if costs are tracked"
+                    hint="Revenue minus cost of goods sold"
                   />
                 </div>
               ) : null}
 
               <div className="mt-4 text-xs text-slate-500">
-                Profit metrics appear only if cost tracking is implemented.
+                Cost and profit metrics rely on tracked supplier costs.
               </div>
             </Panel>
 
@@ -345,14 +366,6 @@ export default function Reports() {
               )}
             </div>
 
-            <div className="mt-4">
-              <Link
-                href="/dashboard/inventory/order-stocks"
-                className="inline-flex items-center rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 transition focus:ring-4 focus:ring-teal-500/25"
-              >
-                Open low stock
-              </Link>
-            </div>
           </Panel>
         </div>
       </div>

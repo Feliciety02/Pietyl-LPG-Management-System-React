@@ -4,6 +4,7 @@ import { router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
 import { calculateVat } from "@/services/vatCalculator";
 import { ArrowLeft, CheckCircle2, RotateCcw } from "lucide-react";
+import TableHeaderCell from "@/components/Table/TableHeaderCell";
 
 import { TableActionButton } from "@/components/Table/ActionTableButton";
 
@@ -405,7 +406,7 @@ export default function TurnoverReview() {
       await saveCashlessPromise();
 
       setConfirmedIds([]);
-      router.reload({ only: ["row", "remittances"], preserveState: true, preserveScroll: true });
+      router.visit(returnUrl, { preserveScroll: true, preserveState: true });
     } catch (err) {
       const msg = err?.response?.data?.message;
       if (msg) setTxError(msg);
@@ -555,21 +556,11 @@ export default function TurnoverReview() {
                 <table className="w-full text-left bg-white">
                   <thead className="bg-slate-50">
                     <tr className="border-b border-slate-200">
-                      <th className="px-4 py-3 text-[11px] font-extrabold text-slate-600 uppercase tracking-wide">
-                        Time
-                      </th>
-                      <th className="px-4 py-3 text-[11px] font-extrabold text-slate-600 uppercase tracking-wide">
-                        Method
-                      </th>
-                      <th className="px-4 py-3 text-[11px] font-extrabold text-slate-600 uppercase tracking-wide text-right">
-                        Amount
-                      </th>
-                      <th className="px-4 py-3 text-[11px] font-extrabold text-slate-600 uppercase tracking-wide">
-                        Reference
-                      </th>
-                      <th className="px-4 py-3 text-[11px] font-extrabold text-slate-600 uppercase tracking-wide text-right">
-                        Action
-                      </th>
+                        <TableHeaderCell label="Time" className="px-4 py-3 text-[11px] text-slate-600 font-extrabold uppercase tracking-wide" />
+                        <TableHeaderCell label="Method" className="px-4 py-3 text-[11px] text-slate-600 font-extrabold uppercase tracking-wide" />
+                        <TableHeaderCell label="Amount" className="px-4 py-3 text-[11px] text-slate-600 font-extrabold uppercase tracking-wide" contentClassName="justify-end" />
+                        <TableHeaderCell label="Reference" className="px-4 py-3 text-[11px] text-slate-600 font-extrabold uppercase tracking-wide" />
+                        <TableHeaderCell label="Action" className="px-4 py-3 text-[11px] text-slate-600 font-extrabold uppercase tracking-wide" contentClassName="justify-end" />
                     </tr>
                   </thead>
 

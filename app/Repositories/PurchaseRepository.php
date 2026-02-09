@@ -7,9 +7,16 @@ use App\Models\PurchaseItem;
 use App\Models\InventoryBalance;
 use App\Models\StockMovement;
 use Carbon\Carbon;
+use InvalidArgumentException;
 
 class PurchaseRepository
 {
+    private const PROTECTED_STATUSES = [
+        'completed',
+        'paid',
+        'received',
+    ];
+
     public function getPaginatedPurchases(array $filters, int $perPage)
     {
         $query = Purchase::with([
@@ -47,12 +54,45 @@ class PurchaseRepository
 
     public function createPurchase(array $data)
     {
+        if (!isset($data['created_by_user_id'])) {
+            throw new InvalidArgumentException('created_by_user_id is required when creating a purchase.');
+        }
+
         return Purchase::create($data);
     }
 
     public function updatePurchase(Purchase $purchase, array $data)
     {
         return $purchase->update($data);
+    }
+
+    public function deletePurchase(Purchase $purchase)
+    {
+        $purchase->items()->delete();
+        return $purchase->delete();
+    }
+
+    /**
+     * Permanently delete all purchases that are not yet completed/paid/received.
+     *
+     * @return int The number of deleted purchases.
+     */
+    public function purgeAllPurchases(): int
+    {
+        $query = Purchase::query()->whereNotIn('status', self::PROTECTED_STATUSES);
+        $purchaseIds = $query->pluck('id')->all();
+
+        if (empty($purchaseIds)) {
+            return 0;
+        }
+
+        StockMovement::where('reference_type', Purchase::class)
+            ->whereIn('reference_id', $purchaseIds)
+            ->delete();
+
+        PurchaseItem::whereIn('purchase_id', $purchaseIds)->delete();
+
+        return $query->delete();
     }
 
     public function generatePurchaseNumber(): string
@@ -106,7 +146,7 @@ class PurchaseRepository
 
     public function getProductVariantsWithSuppliers()
     {
-        return \App\Models\ProductVariant::with(['product', 'suppliers'])
+        return \App\Models\ProductVariant::with(['product.supplier', 'suppliers'])
             ->where('is_active', true)
             ->get();
     }

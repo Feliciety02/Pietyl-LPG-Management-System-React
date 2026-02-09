@@ -27,10 +27,17 @@ function clampNumericInput(raw) {
   return String(Number.isFinite(n) ? n : "");
 }
 
-function Field({ label, hint, error, children }) {
+/* ---------------- UI primitives ---------------- */
+
+function Field({ label, hint, error, required = false, children }) {
   return (
-    <div>
-      <div className="text-xs font-extrabold text-slate-700">{label}</div>
+    <div className="min-w-0">
+      <div className="flex items-center gap-2">
+        <div className="text-xs font-extrabold text-slate-700">{label}</div>
+        {required ? (
+          <div className="text-[11px] font-semibold text-slate-400">required</div>
+        ) : null}
+      </div>
       {hint ? <div className="mt-0.5 text-[11px] text-slate-500">{hint}</div> : null}
       <div className="mt-2">{children}</div>
       {error ? <div className="mt-2 text-xs font-semibold text-rose-700">{error}</div> : null}
@@ -38,7 +45,22 @@ function Field({ label, hint, error, children }) {
   );
 }
 
-function Metric({ label, value, tone = "slate", sub }) {
+function InputShell({ icon: Icon, children, className = "" }) {
+  return (
+    <div
+      className={cx(
+        "h-11 w-full flex items-center gap-2 rounded-2xl bg-white ring-1 ring-slate-200 px-3",
+        "focus-within:ring-teal-500/30",
+        className
+      )}
+    >
+      {Icon ? <Icon className="h-4 w-4 text-slate-500 shrink-0" /> : null}
+      {children}
+    </div>
+  );
+}
+
+function StatPill({ label, value, tone = "slate" }) {
   const tones = {
     slate: "bg-slate-50 ring-slate-200 text-slate-900",
     teal: "bg-teal-50 ring-teal-700/10 text-teal-950",
@@ -49,7 +71,6 @@ function Metric({ label, value, tone = "slate", sub }) {
     <div className={cx("rounded-2xl ring-1 px-4 py-3", tones[tone] || tones.slate)}>
       <div className="text-[11px] font-semibold text-slate-500">{label}</div>
       <div className="mt-1 text-lg font-extrabold tabular-nums">{value}</div>
-      {sub ? <div className="mt-1 text-[11px] text-slate-500">{sub}</div> : null}
     </div>
   );
 }
@@ -74,6 +95,29 @@ function DeltaPill({ delta }) {
       {sign}
       {Math.abs(n)}
     </span>
+  );
+}
+
+function ChangeRow({ label, current, next, deltaTone = "slate" }) {
+  const delta = safeInt(next) - safeInt(current);
+  const rowTone =
+    deltaTone === "teal" ? "bg-teal-50 ring-teal-700/10" : "bg-slate-50 ring-slate-200";
+
+  return (
+    <div className={cx("rounded-2xl ring-1 px-4 py-3", rowTone)}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-xs font-extrabold text-slate-700">{label}</div>
+          <div className="mt-1 text-sm font-extrabold text-slate-900 tabular-nums">
+            {safeInt(current)} <span className="text-slate-400 font-semibold">{"->"}</span> {safeInt(next)}
+          </div>
+        </div>
+
+        <div className="shrink-0 pt-0.5">
+          <DeltaPill delta={delta} />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -106,16 +150,19 @@ export default function RecountStockModal({
   const emptyErr = empty !== "" && !/^\d+$/.test(String(empty)) ? "Numbers only" : "";
   const reasonErr = !reasonTrim ? "Reason is required" : "";
 
-  const canSave = Boolean(reasonTrim) && !filledErr && !emptyErr && !submitting && Boolean(item || items.length === 0);
+  const canSave =
+    Boolean(reasonTrim) &&
+    !filledErr &&
+    !emptyErr &&
+    !submitting &&
+    Boolean(item || items.length === 0);
 
   const currentFilled = safeInt(item?.current_filled);
   const currentEmpty = safeInt(item?.current_empty);
   const currentTotal = currentFilled + currentEmpty;
 
-  const hasCurrent = Number.isFinite(Number(item?.current_filled)) || Number.isFinite(Number(item?.current_empty));
-  const deltaFilled = filledN - currentFilled;
-  const deltaEmpty = emptyN - currentEmpty;
-  const deltaTotal = total - currentTotal;
+  const hasCurrent =
+    Number.isFinite(Number(item?.current_filled)) || Number.isFinite(Number(item?.current_empty));
 
   const submit = () => {
     if (!canSave) return;
@@ -168,7 +215,7 @@ export default function RecountStockModal({
       }
     >
       <div className="grid gap-4">
-        {/* Item header */}
+        {/* Header / item selection */}
         <div className="rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm">
           <div className="p-5">
             <div className="flex items-start gap-4">
@@ -178,10 +225,10 @@ export default function RecountStockModal({
 
               <div className="min-w-0 flex-1">
                 {!item && items.length ? (
-                  <div className="max-w-xl">
+                  <div className="max-w-2xl">
                     <div className="text-xs font-extrabold text-slate-700">Select item</div>
                     <select
-                      className="mt-2 w-full rounded-2xl bg-white px-3 py-2 text-sm font-extrabold text-slate-900 ring-1 ring-slate-200 outline-none focus:ring-4 focus:ring-teal-500/15"
+                      className="mt-2 h-11 w-full rounded-2xl bg-white px-3 text-sm font-extrabold text-slate-900 ring-1 ring-slate-200 outline-none focus:ring-4 focus:ring-teal-500/15"
                       onChange={(e) => onPickItem?.(e.target.value)}
                       defaultValue=""
                       disabled={submitting}
@@ -210,119 +257,122 @@ export default function RecountStockModal({
                       SKU <span className="font-semibold text-slate-700">{niceText(item?.sku)}</span>
                     </div>
 
-                    <div className="mt-3 flex items-start gap-2 rounded-2xl bg-amber-50 ring-1 ring-amber-700/10 px-3 py-2">
-                      <ShieldAlert className="h-4 w-4 text-amber-700 mt-0.5" />
-                      <div className="text-xs font-semibold text-amber-900 leading-relaxed">
-                        Use this only to correct a physical count. Always provide a reason.
+                    <div className="mt-3 rounded-2xl bg-amber-50 ring-1 ring-amber-700/10 px-3 py-2">
+                      <div className="flex items-start gap-2">
+                        <ShieldAlert className="h-4 w-4 text-amber-700 mt-0.5" />
+                        <div className="text-xs font-semibold text-amber-900 leading-relaxed">
+                          Use this only to correct a physical count. Always provide a reason.
+                        </div>
                       </div>
                     </div>
                   </>
                 )}
               </div>
 
+              {/* Keep just 1 KPI here to avoid redundancy */}
               <div className="hidden lg:block">
-                <Metric label="Total after save" value={total} tone="teal" sub="Filled + Empty" />
+                <StatPill label="New total" value={total} tone="teal" />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Counts */}
+        {/* Main 2-column layout */}
         <div className="grid gap-4 lg:grid-cols-12">
+          {/* LEFT: inputs */}
           <div className="lg:col-span-7 rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm">
             <div className="p-5">
               <div className="text-xs font-extrabold text-slate-700">Enter new counts</div>
+
               <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                <Field label="Filled qty" hint="numbers only" error={filledErr}>
-                  <input
-                    value={filled}
-                    onChange={(e) => setFilled?.(clampNumericInput(e.target.value))}
-                    inputMode="numeric"
-                    placeholder="24"
-                    disabled={submitting}
-                    className="w-full rounded-2xl bg-white px-3 py-2 text-sm font-extrabold text-slate-900 ring-1 ring-slate-200 outline-none focus:ring-4 focus:ring-teal-500/15"
-                  />
+                <Field label="Filled qty" hint="numbers only" error={filledErr} required>
+                  <InputShell>
+                    <input
+                      value={filled}
+                      onChange={(e) => setFilled?.(clampNumericInput(e.target.value))}
+                      inputMode="numeric"
+                      placeholder="24"
+                      disabled={submitting}
+                      className="w-full bg-transparent text-sm font-extrabold text-slate-900 outline-none placeholder:text-slate-400"
+                    />
+                  </InputShell>
                 </Field>
-                <Field label="Empty qty" hint="numbers only" error={emptyErr}>
-                  <input
-                    value={empty}
-                    onChange={(e) => setEmpty?.(clampNumericInput(e.target.value))}
-                    inputMode="numeric"
-                    placeholder="18"
-                    disabled={submitting}
-                    className="w-full rounded-2xl bg-white px-3 py-2 text-sm font-extrabold text-slate-900 ring-1 ring-slate-200 outline-none focus:ring-4 focus:ring-teal-500/15"
-                  />
+
+                <Field label="Empty qty" hint="numbers only" error={emptyErr} required>
+                  <InputShell>
+                    <input
+                      value={empty}
+                      onChange={(e) => setEmpty?.(clampNumericInput(e.target.value))}
+                      inputMode="numeric"
+                      placeholder="18"
+                      disabled={submitting}
+                      className="w-full bg-transparent text-sm font-extrabold text-slate-900 outline-none placeholder:text-slate-400"
+                    />
+                  </InputShell>
                 </Field>
               </div>
 
               <div className="mt-4">
-                <Field label="Reason" hint="required for audit trail" error={reasonErr && !submitting ? reasonErr : ""}>
-                  <input
-                    value={reason}
-                    onChange={(e) => setReason?.(e.target.value)}
-                    placeholder="Example: recount after delivery return"
-                    disabled={submitting}
-                    className="w-full rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-slate-900 ring-1 ring-slate-200 outline-none focus:ring-4 focus:ring-teal-500/15"
-                  />
+                <Field
+                  label="Reason"
+                  hint="required for audit trail"
+                  error={reasonErr && !submitting ? reasonErr : ""}
+                  required
+                >
+                  <InputShell>
+                    <input
+                      value={reason}
+                      onChange={(e) => setReason?.(e.target.value)}
+                      placeholder="Example: recount after delivery return"
+                      disabled={submitting}
+                      className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+                    />
+                  </InputShell>
                 </Field>
                 {error ? <div className="mt-2 text-xs font-semibold text-rose-700">{error}</div> : null}
               </div>
             </div>
           </div>
 
+          {/* RIGHT: preview + totals (no redundant KPI grid) */}
           <div className="lg:col-span-5 rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm">
             <div className="p-5">
-              <div className="text-xs font-extrabold text-slate-700">Totals</div>
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-xs font-extrabold text-slate-700">Preview</div>
+                {hasCurrent ? (
+                  <div className="inline-flex items-center gap-2 text-xs text-slate-500">
+                    <ArrowRightLeft className="h-4 w-4" />
+                    current {"->"} new
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Compact totals (3 pills, not a big KPI wall) */}
               <div className="mt-3 grid grid-cols-3 gap-3">
-                <Metric label="Filled" value={filledN} />
-                <Metric label="Empty" value={emptyN} />
-                <Metric label="Total" value={total} tone="teal" />
+                <StatPill label="Filled" value={filledN} />
+                <StatPill label="Empty" value={emptyN} />
+                <StatPill label="Total" value={total} tone="teal" />
               </div>
 
               {hasCurrent ? (
-                <div className="mt-4 rounded-2xl bg-slate-50 ring-1 ring-slate-200 px-4 py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-xs font-extrabold text-slate-700">Change preview</div>
-                    <div className="inline-flex items-center gap-2 text-xs text-slate-500">
-                      <ArrowRightLeft className="h-4 w-4" />
-                      current {"->"} new
-                    </div>
+                <div className="mt-4 rounded-2xl bg-slate-50 ring-1 ring-slate-200 p-4">
+                  <div className="text-xs font-extrabold text-slate-700">Change breakdown</div>
+
+                  <div className="mt-3 grid gap-3">
+                    <ChangeRow label="Filled" current={currentFilled} next={filledN} />
+                    <ChangeRow label="Empty" current={currentEmpty} next={emptyN} />
+                    <ChangeRow label="Total" current={currentTotal} next={total} deltaTone="teal" />
                   </div>
 
-                  <div className="mt-3 grid grid-cols-1 gap-3">
-                    <Metric
-                      label="Filled"
-                      value={`${currentFilled} -> ${filledN}`}
-                      tone="slate"
-                      sub={
-                        <span className="inline-flex mt-1">
-                          <DeltaPill delta={deltaFilled} />
-                        </span>
-                      }
-                    />
-                    <Metric
-                      label="Empty"
-                      value={`${currentEmpty} -> ${emptyN}`}
-                      tone="slate"
-                      sub={
-                        <span className="inline-flex mt-1">
-                          <DeltaPill delta={deltaEmpty} />
-                        </span>
-                      }
-                    />
-                    <Metric
-                      label="Total"
-                      value={`${currentTotal} -> ${total}`}
-                      tone="teal"
-                      sub={
-                        <span className="inline-flex mt-1">
-                          <DeltaPill delta={deltaTotal} />
-                        </span>
-                      }
-                    />
+                  <div className="mt-3 text-[11px] text-slate-500">
+                    Deltas show how much the saved values will adjust the recorded stock.
                   </div>
                 </div>
-              ) : null}
+              ) : (
+                <div className="mt-4 rounded-2xl bg-slate-50 ring-1 ring-slate-200 px-4 py-3 text-xs text-slate-600">
+                  Current counts are not available for comparison. You can still save the new recount.
+                </div>
+              )}
             </div>
           </div>
         </div>

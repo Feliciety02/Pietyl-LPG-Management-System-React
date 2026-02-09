@@ -16,6 +16,8 @@ class PurchaseItem extends Model
         'received_qty',
         'unit_cost',
         'line_total',
+        'damaged_qty',
+        'damage_reason',
     ];
 
     protected $casts = [
@@ -23,6 +25,7 @@ class PurchaseItem extends Model
         'received_qty' => 'decimal:3',
         'unit_cost' => 'decimal:2',
         'line_total' => 'decimal:2',
+        'damaged_qty' => 'decimal:3',
     ];
 
     /**

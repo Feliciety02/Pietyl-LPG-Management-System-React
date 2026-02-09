@@ -207,16 +207,6 @@ class RoleController extends Controller
         $guard = config('auth.defaults.guard', 'web');
 
         $names = $data['permissions'] ?? [];
-        if ($role->isProtectedAdmin()) {
-            $allNames = Permission::query()
-                ->where('guard_name', $guard)
-                ->pluck('name')
-                ->filter()
-                ->unique()
-                ->values()
-                ->all();
-            $names = array_unique(array_merge($names, $allNames));
-        }
 
         $permissions = Permission::query()
             ->where('guard_name', $guard)

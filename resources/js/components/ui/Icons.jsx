@@ -101,6 +101,7 @@ export const sidebarIconMap = {
   payroll: BadgeDollarSign,
   vatSettings: Banknote,
   payables: Wallet,
+  costTracking: Banknote,
 };
 
 /**

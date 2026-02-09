@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import axios from "axios";
 import { Link, router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
 import DataTable from "@/components/Table/DataTable";
@@ -9,17 +10,24 @@ import { ShieldCheck, FileText } from "lucide-react";
 
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 import { TableActionButton } from "@/components/Table/ActionTableButton";
-
+import CashlessVerificationModal from "@/components/modals/AccountantModals/CashlessVerificationModal";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
 function money(v) {
-  if (v === null || v === undefined || v === "") return "—";
+  if (v === null || v === undefined || v === "") return "--";
   const n = Number(String(v).replace(/[^\d.-]/g, ""));
   if (Number.isNaN(n)) return String(v);
   return n.toLocaleString("en-PH", { style: "currency", currency: "PHP" });
+}
+
+function number(v) {
+  if (v === null || v === undefined || v === "") return "--";
+  const n = Number(v);
+  if (Number.isNaN(n)) return String(v);
+  return n.toLocaleString("en-PH");
 }
 
 function titleCase(s = "") {
@@ -31,7 +39,19 @@ function titleCase(s = "") {
     .join(" ");
 }
 
-function StatusPill({ status }) {
+function KPIStat({ label, value, helper, tone }) {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</div>
+      <div className={cx("mt-2 text-2xl font-extrabold leading-tight", tone || "text-slate-900")}>
+        {value}
+      </div>
+      {helper ? <div className="mt-1 text-xs text-slate-500">{helper}</div> : null}
+    </div>
+  );
+}
+
+function StatusPill({ status, label }) {
   const s = String(status || "pending").toLowerCase();
 
   const map = {
@@ -40,6 +60,7 @@ function StatusPill({ status }) {
     cashless_verified: "bg-amber-50 text-amber-800 ring-amber-200",
     ready_to_finalize: "bg-teal-600/10 text-teal-900 ring-teal-700/10",
     finalized: "bg-slate-900/10 text-slate-900 ring-slate-900/20",
+    finalized_attention: "bg-amber-600/10 text-amber-900 ring-amber-700/10",
     pending: "bg-amber-600/10 text-amber-900 ring-amber-700/10",
     verified: "bg-teal-600/10 text-teal-900 ring-teal-700/10",
     flagged: "bg-rose-600/10 text-rose-900 ring-rose-700/10",
@@ -52,7 +73,7 @@ function StatusPill({ status }) {
         map[s] || map.pending
       )}
     >
-      {titleCase(s)}
+      {label || titleCase(s)}
     </span>
   );
 }
@@ -91,15 +112,50 @@ export default function Remittances() {
 
   const remittances = page.props?.remittances?.data || [];
   const meta = page.props?.remittances?.meta || null;
-  const methods = page.props?.methods || [];
-  const nonCashMethods = useMemo(
-    () =>
-      methods.filter(
-        (method) =>
-          String(method.method_key).toLowerCase() !== "cash" && method.is_cashless
-      ),
-    [methods]
-  );
+
+  const remittanceKpis = page.props?.remittance_kpis || {};
+  const projectedIncome = remittanceKpis.projected_income ?? null;
+  const expectedCash = remittanceKpis.expected_cash ?? null;
+  const expectedNonCash = remittanceKpis.expected_non_cash ?? null;
+  const cashRecorded = remittanceKpis.cash_recorded ?? null;
+  const cashlessVerified = remittanceKpis.cashless_verified_total ?? null;
+  const verifiedTxnCount = remittanceKpis.cashless_verified_count ?? 0;
+  const varianceTotal = remittanceKpis.cash_variance ?? null;
+  const finalizedCount = remittanceKpis.finalized_count ?? 0;
+  const varianceTone =
+    varianceTotal === null
+      ? "text-slate-900"
+      : varianceTotal === 0
+      ? "text-slate-900"
+      : varianceTotal < 0
+      ? "text-rose-700"
+      : "text-teal-700";
+  const finalizedHelper = finalizedCount
+    ? `${number(finalizedCount)} finalized closures`
+    : "Based on current rows";
+  const kpiCards = [
+    {
+      label: "Projected income",
+      value: money(projectedIncome),
+      helper: `Cash ${money(expectedCash)} | Cashless ${money(expectedNonCash)}`,
+    },
+    {
+      label: "Cash recorded",
+      value: money(cashRecorded),
+      helper: "Recorded cash remittances",
+    },
+    {
+      label: "Cashless verified",
+      value: money(cashlessVerified),
+      helper: `${number(verifiedTxnCount)} verified transactions`,
+    },
+    {
+      label: "Cash variance",
+      value: money(varianceTotal),
+      helper: finalizedHelper,
+      tone: varianceTone,
+    },
+  ];
 
   const query = page.props?.filters || {};
   const qInitial = query?.q || "";
@@ -110,9 +166,8 @@ export default function Remittances() {
   const [q, setQ] = useState(qInitial);
   const [status, setStatus] = useState(statusInitial);
   const [date, setDate] = useState(dateInitial);
-
-  const [verifyOpen, setVerifyOpen] = useState(false);
-  const [activeNonCashRow, setActiveNonCashRow] = useState(null);
+  const [cashlessModalOpen, setCashlessModalOpen] = useState(false);
+  const [cashlessRow, setCashlessRow] = useState(null);
 
   const loading = Boolean(page.props?.loading);
 
@@ -147,14 +202,43 @@ export default function Remittances() {
     pushQuery({ date: value, page: 1 });
   };
 
-  const openVerifyModal = (row) => {
-    setActiveNonCashRow(row);
-    setVerifyOpen(true);
+  const issueFlagsForRow = (row) => {
+    const expectedCash = Number(row?.expected_cash ?? 0);
+    const cashRecorded =
+      row?.remitted_cash_amount !== null &&
+      row?.remitted_cash_amount !== undefined &&
+      row?.remitted_cash_amount !== "";
+    const varianceValue = Number.isFinite(Number(row?.cash_variance))
+      ? Number(row?.cash_variance)
+      : cashRecorded && Number.isFinite(Number(row?.remitted_cash_amount))
+      ? Number(row?.remitted_cash_amount) - expectedCash
+      : null;
+    const hasCashIssue =
+      (expectedCash > 0 && !cashRecorded) ||
+      (Number.isFinite(varianceValue) && Math.abs(varianceValue) >= 0.01);
+
+    const expectedNonCash = Number(row?.expected_noncash_total ?? 0);
+    const verifiedNonCash = Number(
+      row?.noncash_verified_total ?? row?.noncash_verification?.amount ?? 0
+    );
+    const pendingNonCash = expectedNonCash - verifiedNonCash;
+    const hasCashlessIssue = Math.abs(pendingNonCash) >= 0.01;
+
+    return { hasCashIssue, hasCashlessIssue };
   };
 
-  const closeVerifyModal = () => {
-    setVerifyOpen(false);
-    setActiveNonCashRow(null);
+  const openCashlessModal = (row) => {
+    setCashlessRow(row);
+    setCashlessModalOpen(true);
+  };
+
+  const closeCashlessModal = () => {
+    setCashlessModalOpen(false);
+    setCashlessRow(null);
+  };
+
+  const handleCashlessVerified = () => {
+    router.reload({ only: ["remittances", "remittance_kpis"], preserveState: true });
   };
 
   const goToTurnoverReview = (row) => {
@@ -172,6 +256,27 @@ export default function Remittances() {
       },
       { preserveState: true }
     );
+  };
+
+  const handleReopenBusinessDate = async (row) => {
+    if (!row?.business_date) return;
+    if (
+      !window.confirm(
+        `Reopen business date ${row.business_date}? This will unfinalize the day for all cashiers.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await axios.post("/dashboard/accountant/remittances/reopen", {
+        business_date: row.business_date,
+      });
+      router.reload({ only: ["remittances", "remittance_kpis"], preserveState: true });
+    } catch (err) {
+      const msg = err?.response?.data?.message || "Unable to reopen the business date.";
+      window.alert(msg);
+    }
   };
 
   const fillerRows = useMemo(
@@ -202,7 +307,7 @@ export default function Remittances() {
         r?.__filler ? (
           <SkeletonLine w="w-24" />
         ) : (
-          <div className="text-sm font-semibold text-slate-900">{r?.business_date || "—"}</div>
+          <div className="text-sm font-semibold text-slate-900">{r?.business_date || "--"}</div>
         ),
     },
     {
@@ -216,14 +321,14 @@ export default function Remittances() {
           </div>
         ) : (
           <div>
-            <div className="text-sm font-extrabold text-slate-900">{r?.cashier_name || "—"}</div>
+            <div className="text-sm font-extrabold text-slate-900">{r?.cashier_name || "--"}</div>
             <div className="mt-1 text-xs text-slate-600">Cashier turnover</div>
           </div>
         ),
     },
     {
       key: "cash_step",
-      label: "Cash step",
+      label: "Cash",
       render: (r) => {
         if (r?.__filler) {
           return (
@@ -251,14 +356,24 @@ export default function Remittances() {
             : varianceValue < 0
             ? "text-rose-700"
             : "text-amber-800";
+        const varianceLabel =
+          varianceValue === null
+            ? "Variance"
+            : varianceValue === 0
+            ? "Balanced"
+            : varianceValue < 0
+            ? "Short by"
+            : "Over by";
 
         return (
           <div className="space-y-1">
             <div className="text-xs font-semibold text-slate-500">Expected {money(expected)}</div>
             <div className="text-xs font-semibold text-slate-500">Counted {money(counted)}</div>
             <div className="text-xs font-semibold">
-              Variance{" "}
-              <span className={varianceTone}>{varianceValue === null ? "—" : money(varianceValue)}</span>
+              {varianceLabel}{" "}
+              <span className={varianceTone}>
+                {varianceValue === null ? "--" : money(Math.abs(varianceValue))}
+              </span>
             </div>
           </div>
         );
@@ -266,7 +381,7 @@ export default function Remittances() {
     },
     {
       key: "cashless_step",
-      label: "Cashless step",
+      label: "Cashless",
       render: (r) => {
         if (r?.__filler) {
           return (
@@ -286,6 +401,25 @@ export default function Remittances() {
           ? verification.transaction_ids.length
           : 0;
         const cashlessVerified = Boolean(r?.noncash_verified_at);
+        const pendingValue = Number.isFinite(Number(cashlessExpected))
+          ? Number(cashlessExpected) - Number(verifiedAmount)
+          : null;
+        const pendingTone =
+          pendingValue === null
+            ? "text-slate-400"
+            : pendingValue === 0
+            ? "text-teal-700"
+            : pendingValue < 0
+            ? "text-rose-700"
+            : "text-amber-800";
+        const pendingLabel =
+          pendingValue === null
+            ? "Pending"
+            : pendingValue === 0
+            ? "Balanced"
+            : pendingValue < 0
+            ? "Over by"
+            : "Pending";
 
         return (
           <div className="space-y-1">
@@ -293,16 +427,22 @@ export default function Remittances() {
               Expected {money(cashlessExpected)}
             </div>
             <div className="text-xs font-semibold text-slate-500">
-              Verified {money(verifiedAmount)} · {verifiedCount} txn
+              Verified {money(verifiedAmount)} | {verifiedCount} txn
+            </div>
+            <div className="text-xs font-semibold">
+              {pendingLabel}{" "}
+              <span className={pendingTone}>
+                {pendingValue === null ? "--" : money(Math.abs(pendingValue))}
+              </span>
             </div>
             {cashlessVerified ? (
               <div className="text-[11px] text-slate-500">
-                Verified on {r?.noncash_verified_at || "—"}
+                Verified on {r?.noncash_verified_at || "--"}
               </div>
             ) : (
               <button
                 type="button"
-                onClick={() => openVerifyModal(r)}
+                onClick={() => openCashlessModal(r)}
                 className="text-[11px] font-extrabold text-teal-700 hover:text-teal-900 transition"
               >
                 Verify cashless
@@ -315,26 +455,26 @@ export default function Remittances() {
     {
       key: "status",
       label: "Status",
-      render: (r) =>
-        r?.__filler ? (
-          <SkeletonPill w="w-24" />
-        ) : (
-          <StatusPill status={deriveRemittanceStatus(r)} />
-        ),
+      render: (r) => {
+        if (r?.__filler) {
+          return <SkeletonPill w="w-24" />;
+        }
+
+        const status = deriveRemittanceStatus(r);
+        const { hasCashIssue, hasCashlessIssue } = issueFlagsForRow(r);
+        const hasIssues = status === "finalized" && (hasCashIssue || hasCashlessIssue);
+
+        return (
+          <StatusPill
+            status={hasIssues ? "finalized_attention" : status}
+            label={hasIssues ? "Finalized - Pending" : undefined}
+          />
+        );
+      },
     },
   ];
 
   const columns = turnoverColumns;
-
-  const submitCashlessVerification = async (payload) => {
-    await axios.post("/dashboard/accountant/remittances/cashless-transactions/verify", {
-      business_date: payload.business_date,
-      cashier_user_id: payload.cashier_user_id,
-      transaction_ids: payload.verified_transaction_ids,
-    });
-
-    router.reload({ only: ["remittances"], preserveState: true });
-  };
 
   return (
     <Layout title="Turnover">
@@ -353,6 +493,12 @@ export default function Remittances() {
           }
         />
 
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {kpiCards.map((card) => (
+            <KPIStat key={card.label} {...card} />
+          ))}
+        </div>
+
         <div className="rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm p-4 flex flex-col gap-4">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
@@ -360,13 +506,19 @@ export default function Remittances() {
               <div className="mt-1 text-xs text-slate-500">
                 One table for each cashier per date; cash and cashless steps progress together.
               </div>
+              <div className="mt-2 text-[11px] text-slate-500">
+                Cash shows expected, counted, and variance. Cashless shows expected, verified, and pending.
+              </div>
+              <div className="mt-1 text-[11px] text-slate-500">
+                If a day is finalized with pending items, use Reopen to resolve.
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-bold text-slate-600">
-                Cash step
+                Cash
               </span>
               <span className="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-bold text-slate-600">
-                Cashless step
+                Cashless
               </span>
               <span className="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-bold text-slate-600">
                 Status
@@ -426,22 +578,43 @@ export default function Remittances() {
               </div>
             ) : (
               <div className="flex items-center justify-end gap-2">
-            <TableActionButton
-              icon={FileText}
-              onClick={() => goToTurnoverReview(r)}
-              title="Review cash and cashless"
-            >
-              Review
-            </TableActionButton>
-            {deriveRemittanceStatus(r) === "finalized" ? (
-              <TableActionButton
-                icon={ShieldCheck}
-                onClick={() => goToTurnoverReview(r)}
-                title="View final closure"
-              >
-                View
-                  </TableActionButton>
-                ) : null}
+                <TableActionButton
+                  icon={FileText}
+                  onClick={() => goToTurnoverReview(r)}
+                  title="Review cash and cashless"
+                >
+                  Review
+                </TableActionButton>
+                {(() => {
+                  const status = deriveRemittanceStatus(r);
+                  const { hasCashIssue, hasCashlessIssue } = issueFlagsForRow(r);
+                  const hasIssues = status === "finalized" && (hasCashIssue || hasCashlessIssue);
+
+                  if (status === "finalized") {
+                    return (
+                      <>
+                        <TableActionButton
+                          icon={ShieldCheck}
+                          onClick={() => goToTurnoverReview(r)}
+                          title="View final closure"
+                        >
+                          View
+                        </TableActionButton>
+                        {hasIssues ? (
+                          <TableActionButton
+                            tone="danger"
+                            onClick={() => handleReopenBusinessDate(r)}
+                            title="Reopen this business date to resolve pending items"
+                          >
+                            Reopen
+                          </TableActionButton>
+                        ) : null}
+                      </>
+                    );
+                  }
+
+                  return null;
+                })()}
               </div>
             )
           }
@@ -460,7 +633,12 @@ export default function Remittances() {
         />
       </div>
 
-  
+      <CashlessVerificationModal
+        open={cashlessModalOpen}
+        onClose={closeCashlessModal}
+        row={cashlessRow}
+        onVerified={handleCashlessVerified}
+      />
     </Layout>
   );
 }

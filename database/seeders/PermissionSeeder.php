@@ -113,11 +113,17 @@ class PermissionSeeder extends Seeder
 
         $all = Permission::where('guard_name', $guard)->get();
 
+        $inventoryConfirmPermission = $all->firstWhere('name', 'inventory.purchases.confirm');
+        $accountantPermissions = $all->filter(fn ($p) => str_starts_with($p->name, 'accountant.'));
+        if ($inventoryConfirmPermission) {
+            $accountantPermissions = $accountantPermissions->push($inventoryConfirmPermission)->unique('id');
+        }
+
         $rolePermissions = [
             'admin' => $all,
             'cashier' => $all->filter(fn ($p) => str_starts_with($p->name, 'cashier.')),
             'inventory_manager' => $all->filter(fn ($p) => str_starts_with($p->name, 'inventory.')),
-            'accountant' => $all->filter(fn ($p) => str_starts_with($p->name, 'accountant.')),
+            'accountant' => $accountantPermissions,
             'rider' => $all->filter(fn ($p) => str_starts_with($p->name, 'rider.')),
         ];
 

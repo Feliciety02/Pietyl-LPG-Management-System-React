@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
 use App\Models\Location;
-use App\Models\Supplier;
 use App\Services\RestockRequestService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -16,44 +15,6 @@ class RestockRequestController extends Controller
     public function __construct(RestockRequestService $svc)
     {
         $this->svc = $svc;
-    }
-
-    public function adminIndex(Request $request)
-    {
-        $user = $request->user();
-        if (!$user || !$user->can('inventory.purchases.view')) {
-            abort(403);
-        }
-
-        $filters = $request->only(['q', 'status', 'priority', 'per', 'page']);
-        $requests = $this->svc->getRequestsForPage($filters);
-        $summary = $this->svc->getKPIs();
-
-        return Inertia::render('AdminPage/StockRequests', [
-            'stock_requests' => $requests,
-            'filters' => $filters,
-            'summary' => $summary,
-        ]);
-    }
-
-    public function approvalForm(Request $request, int $id)
-    {
-        $user = $request->user();
-        if (!$user || !$user->can('inventory.purchases.view')) {
-            abort(403);
-        }
-
-        $stockRequest = $this->svc->getRequestForReceiving($id);
-        if (!$stockRequest) {
-            abort(404);
-        }
-
-        $suppliers = Supplier::where('is_active', true)->get(['id', 'name']);
-
-        return Inertia::render('AdminPage/StockRequestApprove', [
-            'stock_request' => $this->svc->formatRequest($stockRequest),
-            'suppliers' => $suppliers,
-        ]);
     }
 
     public function store(Request $request)

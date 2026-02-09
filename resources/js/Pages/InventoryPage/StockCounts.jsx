@@ -8,7 +8,7 @@ import DataTablePagination from "@/components/Table/DataTablePagination";
 import { Boxes, CheckCircle2, ClipboardCheck } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 import RecountStockModal from "@/components/modals/StockCountModals/RecountStockModal";
-import ReviewStockCountModal from "@/components/modals/StockCountModals/ReviewStockCountModal";
+import SubmitStockCountModal from "@/components/modals/StockCountModals/SubmitStockCountModal";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -660,7 +660,7 @@ export default function StockCounts() {
           submitLabel="Submit count"
         />
 
-        <ReviewStockCountModal
+        <SubmitStockCountModal
           open={reviewOpen}
           onClose={() => setReviewOpen(false)}
           item={activeRow}

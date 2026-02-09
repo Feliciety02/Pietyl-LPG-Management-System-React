@@ -385,22 +385,6 @@ export default function Ledger() {
   const columns = useMemo(() => {
     const common = [
       {
-        key: "posted_at",
-        label: "Posted",
-        render: (r) =>
-          r?.__filler ? (
-            <div className="space-y-2">
-              <SkeletonLine w="w-24" />
-              <SkeletonLine w="w-20" />
-            </div>
-          ) : (
-            <div className="min-w-0">
-              <div className="text-sm font-extrabold text-slate-900">{formatDate(r?.posted_at)}</div>
-              <div className="mt-1 text-xs text-slate-500">{r?.posted_by || "System"}</div>
-            </div>
-          ),
-      },
-      {
         key: "recorded_at",
         label: "Recorded",
         render: (r) =>

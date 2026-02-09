@@ -82,7 +82,7 @@ class UserController extends Controller
         return redirect()->back()->with('success', 'User created successfully.');
     }
 
-    public function resetPassword(Request $request, User $target)
+    public function resetPassword(Request $request, $userId)
     {
         $admin = $request->user();
         if (!$admin || !$admin->can('admin.users.update')) {
@@ -98,8 +98,10 @@ class UserController extends Controller
             return response()->json(['message' => 'Incorrect password.'], 422);
         }
 
-        $target->password = Hash::make($validated['new_password']);
-        $target->save();
+        $target = User::findOrFail($userId);
+        $target->update([
+            'password' => Hash::make($validated['new_password']),
+        ]);
 
         DB::table('password_reset_audits')->insert([
             'admin_user_id' => $admin->id,

@@ -141,7 +141,11 @@ export default function Suppliers() {
   const meta = suppliers?.meta || null;
 
   const filters = page.props?.filters || {};
-  const per = Number(filters.per || 10);
+  const DEFAULT_PER = 10;
+  const per = Number(filters.per ?? DEFAULT_PER);
+  const totalSuppliers = meta?.total ?? 0;
+  const canShowAllSuppliers = totalSuppliers > 0 && per < totalSuppliers;
+  const isShowingAllSuppliers = totalSuppliers > 0 && per >= totalSuppliers;
 
   const [q, setQ] = useState(filters.q || "");
   const [status, setStatus] = useState(filters.status || "all");
@@ -190,6 +194,15 @@ export default function Suppliers() {
     setSupplierDetails(null);
     setActiveSupplier(null);
     pushQuery({ status: nextStatus, page: options.page ?? 1, ...options });
+  };
+
+  const showAllSuppliers = () => {
+    if (!meta?.total) return;
+    pushQuery({ per: meta.total, page: 1 });
+  };
+
+  const resetPerPage = () => {
+    pushQuery({ per: DEFAULT_PER, page: 1 });
   };
 
   const fetchSupplierDetails = async (supplierId) => {
@@ -424,6 +437,34 @@ export default function Suppliers() {
                 ],
               },
             ]}
+            rightSlot={
+              meta?.total ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  {canShowAllSuppliers ? (
+                    <button
+                      type="button"
+                      onClick={showAllSuppliers}
+                      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-slate-800 hover:bg-slate-50"
+                    >
+                      Show all {meta.total} suppliers
+                    </button>
+                  ) : (
+                    <span className="text-[11px] font-semibold text-slate-500">
+                      Showing all {meta.total} suppliers
+                    </span>
+                  )}
+                  {isShowingAllSuppliers && (
+                    <button
+                      type="button"
+                      onClick={resetPerPage}
+                      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-slate-800 hover:bg-slate-50"
+                    >
+                      Show {DEFAULT_PER} per page
+                    </button>
+                  )}
+                </div>
+              ) : null
+            }
           />
         </div>
 

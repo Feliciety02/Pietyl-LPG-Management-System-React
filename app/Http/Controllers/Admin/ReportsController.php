@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Delivery;
 use App\Models\Remittance;
 use App\Models\Sale;
+use App\Services\Accounting\CostingService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,6 +14,10 @@ use Inertia\Inertia;
 
 class ReportsController extends Controller
 {
+    public function __construct(private CostingService $costing)
+    {
+    }
+
     public function index(Request $request)
     {
         $filters = $this->resolveFilters($request);
@@ -152,6 +157,9 @@ class ReportsController extends Controller
             ->sum('remitted_amount');
 
         $inventoryRisk = $this->buildInventoryRisk();
+        $cogs = $this->calculateCostOfGoodsSold($from, $to);
+        $inventoryValue = $this->inventoryValuationAsOf($to);
+        $grossProfit = $salesTotal - $cogs;
 
         return [
             'sales_total' => $this->formatCurrency($salesTotal),
@@ -171,7 +179,10 @@ class ReportsController extends Controller
             'low_stock_count' => (string) $inventoryRisk['count'],
             'inventory_risk' => $inventoryRisk['records'],
 
-            'gross_profit' => null,
+            'cogs' => $this->formatCurrency($cogs),
+            'gross_profit' => $this->formatCurrency($grossProfit),
+            'inventory_valuation' => $this->formatCurrency($inventoryValue),
+
             'top_products' => [],
             'top_customers' => [],
             'rider_perf' => [],
@@ -218,6 +229,53 @@ class ReportsController extends Controller
         ];
     }
 
+    private function calculateCostOfGoodsSold(Carbon $from, Carbon $to): float
+    {
+        $items = DB::table('sale_items as si')
+            ->join('sales as s', 's.id', '=', 'si.sale_id')
+            ->whereBetween('s.sale_datetime', [$from, $to])
+            ->select('si.product_variant_id', 'si.qty', 's.sale_datetime')
+            ->get();
+
+        $cogs = 0.0;
+        foreach ($items as $item) {
+            $avgCost = $this->costing->getWeightedAverageCost(
+                (int) $item->product_variant_id,
+                Carbon::parse($item->sale_datetime)
+            );
+
+            $cogs += ((float) $item->qty) * $avgCost;
+        }
+
+        return $cogs;
+    }
+
+    private function inventoryValuationAsOf(Carbon $asOf): float
+    {
+        $rows = DB::table('stock_movements')
+            ->whereDate('moved_at', '<=', $asOf->toDateString())
+            ->selectRaw('product_variant_id, SUM(qty) as on_hand')
+            ->groupBy('product_variant_id')
+            ->get();
+
+        $value = 0.0;
+        foreach ($rows as $row) {
+            $onHand = (float) $row->on_hand;
+            if ($onHand <= 0) {
+                continue;
+            }
+
+            $avgCost = $this->costing->getWeightedAverageCost(
+                (int) $row->product_variant_id,
+                $asOf
+            );
+
+            $value += $onHand * $avgCost;
+        }
+
+        return $value;
+    }
+
     private function formatCurrency(float $value): string
     {
         return '₱' . number_format($value, 2, '.', ',');
@@ -229,6 +287,9 @@ class ReportsController extends Controller
             ['Sales total', $report['sales_total'] ?? '₱0.00'],
             ['Sales count', $report['sales_count'] ?? '0'],
             ['Revenue total', $report['revenue_total'] ?? '₱0.00'],
+            ['COGS', $report['cogs'] ?? '₱0.00'],
+            ['Gross profit', $report['gross_profit'] ?? '₱0.00'],
+            ['Inventory valuation', $report['inventory_valuation'] ?? '₱0.00'],
             ['Deliveries total', $report['deliveries_total'] ?? '0'],
             ['Deliveries completed', $report['deliveries_completed'] ?? '0'],
             ['Low stock count', $report['low_stock_count'] ?? '0'],

@@ -238,7 +238,10 @@ class RestockRequestService
                 $request->receiving_started_at = now();
             }
 
-            if ($request->isFullyReceived()) {
+            $request->load('items');
+            $fullyReceived = $request->isFullyReceived();
+
+            if ($fullyReceived) {
                 $request->status = RestockRequest::STATUS_RECEIVED;
                 $request->received_at = now();
                 $request->received_by_user_id = $receiverId;
@@ -248,7 +251,7 @@ class RestockRequestService
 
             $request->save();
 
-            if ($request->isFullyReceived()) {
+            if ($fullyReceived) {
                 $this->ensurePayableForRequest($request, $receiverId);
             }
 
@@ -334,6 +337,19 @@ class RestockRequestService
         $expectedQty = (float) $request->items->sum(fn ($item) => (float) $item->approved_qty);
         $receivedQty = (float) $request->items->sum(fn ($item) => (float) $item->received_qty);
         $receivedCost = (float) $request->items->sum(fn ($item) => (float) $item->unit_cost * min((float) $item->received_qty, (float) $item->approved_qty));
+        $estimatedCost = (float) $request->items->sum(fn ($item) =>
+            round(
+                (((float) $item->unit_cost ?: (float) ($item->productVariant?->product?->supplier_cost ?? 0)) *
+                    (float) $item->requested_qty),
+                2
+            )
+        );
+        $subtotalCost = (float) $request->subtotal_cost ?: $estimatedCost;
+        $totalCost = (float) $request->total_cost ?: $estimatedCost;
+        $firstItem = $request->items->first();
+        $primarySupplier = $request->supplier?->name
+            ?? $firstItem?->supplier?->name
+            ?? $firstItem?->productVariant?->product?->supplier?->name;
 
         return [
             'id' => $request->id,
@@ -341,13 +357,14 @@ class RestockRequestService
             'location' => $request->location?->name ?? '—',
             'status' => $request->status,
             'priority' => $request->priority,
+            'notes' => $request->notes,
             'requested_by' => $request->requestedBy?->name,
             'submitted_by' => $request->submittedBy?->name,
-            'supplier_name' => $request->supplier?->name,
+            'supplier_name' => $primarySupplier,
             'supplier_invoice_ref' => $request->supplier_invoice_ref,
             'supplier_invoice_date' => optional($request->supplier_invoice_date)?->toDateString(),
-            'subtotal_cost' => (float) $request->subtotal_cost,
-            'total_cost' => (float) $request->total_cost,
+            'subtotal_cost' => $subtotalCost,
+            'total_cost' => $totalCost,
             'received_cost' => round($receivedCost, 2),
             'expected_qty' => $expectedQty,
             'received_qty' => $receivedQty,

@@ -6,6 +6,7 @@ use App\Models\RestockRequest;
 use App\Models\Location;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Carbon;
 
 class RestockRequestSeeder extends Seeder
 {
@@ -33,52 +34,76 @@ class RestockRequestSeeder extends Seeder
 
         $mainLocation = $locations->first();
 
-        // Request 1 - Pending (Urgent)
-        RestockRequest::create([
-            'request_number' => 'RR-' . now()->format('Ymd') . '-0001',
-            'location_id' => $mainLocation->id,
-            'requested_by_user_id' => $inventoryManager->id,
-            'approved_by_user_id' => null,
-            'status' => 'pending',
-            'priority' => 'urgent',
-            'needed_by_date' => now()->addDays(2),
-            'notes' => 'Stock critically low on 11kg cylinders',
-        ]);
+        $today = Carbon::now();
+        $yesterday = $today->copy()->subDay();
+        $twoDaysAgo = $today->copy()->subDays(2);
 
-        // Request 2 - Approved
-        RestockRequest::create([
-            'request_number' => 'RR-' . now()->subDay()->format('Ymd') . '-0001',
-            'location_id' => $mainLocation->id,
-            'requested_by_user_id' => $inventoryManager->id,
-            'approved_by_user_id' => $admin?->id,
-            'status' => 'approved',
-            'priority' => 'normal',
-            'needed_by_date' => now()->addWeek(),
-            'notes' => 'Regular restock for 22kg cylinders',
-        ]);
+        $requestDefinitions = [
+            [
+                'date' => $today,
+                'needed_by_date' => $today->copy()->addDays(2),
+                'status' => 'pending',
+                'priority' => 'urgent',
+                'notes' => 'Stock critically low on 11kg cylinders',
+                'approved_by_admin' => false,
+            ],
+            [
+                'date' => $yesterday,
+                'needed_by_date' => $yesterday->copy()->addWeek(),
+                'status' => 'approved',
+                'priority' => 'normal',
+                'notes' => 'Regular restock for 22kg cylinders',
+                'approved_by_admin' => true,
+            ],
+            [
+                'date' => $today,
+                'needed_by_date' => $today->copy()->addDays(5),
+                'status' => 'pending',
+                'priority' => 'normal',
+                'notes' => 'Restock accessories',
+                'approved_by_admin' => false,
+            ],
+            [
+                'date' => $twoDaysAgo,
+                'needed_by_date' => $twoDaysAgo->copy()->addDays(3),
+                'status' => 'rejected',
+                'priority' => 'normal',
+                'notes' => 'Declined - overstocked already',
+                'approved_by_admin' => true,
+            ],
+        ];
 
-        // Request 3 - Pending (Normal)
-        RestockRequest::create([
-            'request_number' => 'RR-' . now()->format('Ymd') . '-0002',
-            'location_id' => $mainLocation->id,
-            'requested_by_user_id' => $inventoryManager->id,
-            'approved_by_user_id' => null,
-            'status' => 'pending',
-            'priority' => 'normal',
-            'needed_by_date' => now()->addDays(5),
-            'notes' => 'Restock accessories',
-        ]);
+        foreach ($requestDefinitions as $definition) {
+            RestockRequest::firstOrCreate(
+                [
+                    'location_id' => $mainLocation->id,
+                    'notes' => $definition['notes'],
+                ],
+                [
+                    'request_number' => $this->generateRequestNumberForDate($definition['date']),
+                    'requested_by_user_id' => $inventoryManager->id,
+                    'approved_by_user_id' => $definition['approved_by_admin'] ? $admin?->id : null,
+                    'status' => $definition['status'],
+                    'priority' => $definition['priority'],
+                    'needed_by_date' => $definition['needed_by_date'],
+                ]
+            );
+        }
+    }
 
-        // Request 4 - Rejected
-        RestockRequest::create([
-            'request_number' => 'RR-' . now()->subDays(2)->format('Ymd') . '-0001',
-            'location_id' => $mainLocation->id,
-            'requested_by_user_id' => $inventoryManager->id,
-            'approved_by_user_id' => $admin?->id,
-            'status' => 'rejected',
-            'priority' => 'normal',
-            'needed_by_date' => now()->addDays(3),
-            'notes' => 'Declined - overstocked already',
-        ]);
+    private function generateRequestNumberForDate(Carbon $date): string
+    {
+        $prefix = 'RR-' . $date->format('Ymd') . '-';
+        $latestNumber = RestockRequest::where('request_number', 'like', $prefix . '%')
+            ->orderBy('request_number', 'desc')
+            ->value('request_number');
+
+        $nextSequence = 1;
+
+        if ($latestNumber !== null && preg_match('/-(\d+)$/', $latestNumber, $matches)) {
+            $nextSequence = (int) $matches[1] + 1;
+        }
+
+        return $prefix . str_pad($nextSequence, 4, '0', STR_PAD_LEFT);
     }
 }

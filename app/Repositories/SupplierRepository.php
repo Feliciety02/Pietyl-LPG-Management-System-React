@@ -21,6 +21,7 @@ class SupplierRepository
             $q = $filters['q'];
             $this->query->where(function ($query) use ($q) {
                 $query->where('name', 'like', "%$q%")
+                      ->orWhere('contact_name', 'like', "%$q%")
                       ->orWhere('email', 'like', "%$q%")
                       ->orWhere('phone', 'like', "%$q%");
             });

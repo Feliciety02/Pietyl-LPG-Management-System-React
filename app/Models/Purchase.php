@@ -14,10 +14,19 @@ class Purchase extends Model
         'supplier_id',
         'created_by_user_id',
         'status',
+        'rejection_reason',
         'ordered_at',
         'received_at',
+        'supplier_reference_no',
+        'delivery_reference_no',
+        'delivered_qty',
+        'damaged_qty',
+        'missing_qty',
+        'damage_category',
+        'damage_reason',
         'subtotal',
         'grand_total',
+        'supplier_payable_id',
     ];
 
     protected $casts = [
@@ -25,6 +34,9 @@ class Purchase extends Model
         'received_at' => 'datetime',
         'subtotal' => 'decimal:2',
         'grand_total' => 'decimal:2',
+        'delivered_qty' => 'decimal:3',
+        'damaged_qty' => 'decimal:3',
+        'missing_qty' => 'decimal:3',
     ];
 
     /**
@@ -51,6 +63,16 @@ class Purchase extends Model
         return $this->hasMany(PurchaseItem::class);
     }
 
+    public function payable()
+    {
+        return $this->belongsTo(\App\Models\SupplierPayable::class, 'supplier_payable_id');
+    }
+
+    public function supplierPayable()
+    {
+        return $this->hasOne(\App\Models\SupplierPayable::class, 'purchase_id');
+    }
+
     /**
      * Get the stock movements for this purchase.
      */
@@ -58,6 +80,36 @@ class Purchase extends Model
     //{
         //return $this->morphMany(StockMovement::class, 'reference');
     //}
+
+    public function getPrimaryItemUnitCost(): float
+    {
+        $item = $this->items->first();
+        return (float) ($item?->unit_cost ?? 0);
+    }
+
+    public function getOrderedQuantity(): float
+    {
+        return (float) $this->items->sum('qty');
+    }
+
+    public function getSubtotalAmount(float $unitCost = null): float
+    {
+        $cost = $unitCost ?? $this->getPrimaryItemUnitCost();
+        return round($this->getOrderedQuantity() * $cost, 2);
+    }
+
+    public function getDamageDeductionAmount(float $unitCost = null): float
+    {
+        $cost = $unitCost ?? $this->getPrimaryItemUnitCost();
+        return round(max(0, (float) $this->damaged_qty) * $cost, 2);
+    }
+
+    public function getNetPayableAmount(float $unitCost = null): float
+    {
+        $subtotal = $this->getSubtotalAmount($unitCost);
+        $deduction = $this->getDamageDeductionAmount($unitCost);
+        return round(max(0, $subtotal - $deduction), 2);
+    }
 
     /**
      * Scope a query to only include purchases with a given status.

@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronUp, ChevronDown } from "lucide-react";
+import TableHeaderCell from "@/components/Table/TableHeaderCell";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -17,6 +17,7 @@ export default function DataTable({
   searchQuery,
   searchAccessor,
   rowKey,
+  onRowClick,
 }) {
   const colCount = columns.length + (renderActions ? 1 : 0);
   const normalizedQuery = String(searchQuery || "").trim().toLowerCase();
@@ -56,8 +57,8 @@ export default function DataTable({
 
   const displayRows = loading ? rows : filteredRows;
 
-  const handleSort = (key, sortable) => {
-    if (!sortable || !onSort) return;
+  const handleSort = (key) => {
+    if (!onSort) return;
     onSort(key);
   };
 
@@ -67,47 +68,23 @@ export default function DataTable({
         {/* HEADER */}
         <thead>
           <tr className="text-[11px] uppercase tracking-wide text-slate-500">
-            {columns.map((col) => {
-              const isSorted = sort?.key === col.key;
-              const dir = isSorted ? sort?.dir : null;
-
-              return (
-                <th
-                  key={col.key}
-                  onClick={() => handleSort(col.key, col.sortable)}
-                  className={cx(
-                    "px-4 py-3 font-semibold border-b border-slate-200",
-                    col.sortable && "cursor-pointer hover:text-slate-800"
-                  )}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <span>{col.label}</span>
-
-                    {col.sortable && (
-                      <span className="flex flex-col leading-none opacity-40">
-                        <ChevronUp
-                          className={cx(
-                            "h-3 w-3",
-                            isSorted && dir === "asc" && "opacity-100 text-slate-700"
-                          )}
-                        />
-                        <ChevronDown
-                          className={cx(
-                            "h-3 w-3 -mt-1",
-                            isSorted && dir === "desc" && "opacity-100 text-slate-700"
-                          )}
-                        />
-                      </span>
-                    )}
-                  </div>
-                </th>
-              );
-            })}
+            {columns.map((col) => (
+              <TableHeaderCell
+                key={col.key}
+                label={col.label}
+                sortable={Boolean(col.sortable)}
+                sortKey={col.key}
+                activeSortKey={sort?.key}
+                sortDir={sort?.dir}
+                onSort={handleSort}
+                className={col.headerClassName}
+                buttonClassName={col.headerButtonClassName}
+                contentClassName={col.headerContentClassName}
+              />
+            ))}
 
             {renderActions && (
-              <th className="px-4 py-3 text-right border-b border-slate-200">
-                Actions
-              </th>
+              <th className="px-4 py-3 text-right border-b border-slate-200">Actions</th>
             )}
           </tr>
         </thead>
@@ -143,7 +120,14 @@ export default function DataTable({
               return (
                 <tr
                   key={computedKey}
-                  className="hover:bg-teal-50/40 transition-colors"
+                  className={cx(
+                    "hover:bg-teal-50/40 transition-colors",
+                    onRowClick && !row?.__filler ? "cursor-pointer" : ""
+                  )}
+                  onClick={() => {
+                    if (!onRowClick || row?.__filler) return;
+                    onRowClick(row);
+                  }}
                 >
                   {columns.map((col) => (
                     <td

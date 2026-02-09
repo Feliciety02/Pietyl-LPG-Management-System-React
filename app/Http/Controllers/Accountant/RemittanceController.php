@@ -102,6 +102,28 @@ class RemittanceController extends Controller
             $rows = $rows->filter(fn ($row) => $row['status'] === $filters['status']);
         }
 
+        $rows = $rows->values();
+
+        $totalExpectedCash = $rows->sum(fn ($row) => (float) ($row['expected_cash'] ?? 0));
+        $totalExpectedNonCash = $rows->sum(fn ($row) => (float) ($row['expected_noncash_total'] ?? 0));
+        $totalProjectedIncome = $totalExpectedCash + $totalExpectedNonCash;
+        $totalCashRecorded = $rows->sum(fn ($row) => (float) ($row['remitted_cash_amount'] ?? 0));
+        $totalVariance = $rows->sum(fn ($row) => (float) ($row['cash_variance'] ?? 0));
+        $totalCashlessVerified = $rows->sum(fn ($row) => (float) ($row['noncash_verified_total'] ?? 0));
+        $totalCashlessTxnCount = $rows->sum(fn ($row) => (int) ($row['noncash_verified_count'] ?? 0));
+        $finalizedCount = $rows->filter(fn ($row) => !empty($row['finalized']))->count();
+
+        $remittanceKpis = [
+            'projected_income' => round($totalProjectedIncome, 2),
+            'expected_cash' => round($totalExpectedCash, 2),
+            'expected_non_cash' => round($totalExpectedNonCash, 2),
+            'cash_recorded' => round($totalCashRecorded, 2),
+            'cash_variance' => round($totalVariance, 2),
+            'cashless_verified_total' => round($totalCashlessVerified, 2),
+            'cashless_verified_count' => $totalCashlessTxnCount,
+            'finalized_count' => $finalizedCount,
+        ];
+
         $per = max(1, $filters['per']);
         $page = max(1, $filters['page']);
         $total = $rows->count();
@@ -130,6 +152,7 @@ class RemittanceController extends Controller
                 ],
             ],
             'filters' => $filters,
+            'remittance_kpis' => $remittanceKpis,
             'methods' => $methods->map(fn ($method) => [
                 'method_key' => $method->method_key,
                 'name' => $method->name,
@@ -377,6 +400,49 @@ class RemittanceController extends Controller
         } catch (InvalidArgumentException $ex) {
             return response()->json(['message' => $ex->getMessage()], 422);
         }
+    }
+
+    public function reopen(Request $request)
+    {
+        $user = $request->user();
+        if (!$user || !$user->can('accountant.remittances.verify')) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'business_date' => 'required|date',
+        ]);
+
+        $close = DailyClose::where('business_date', $validated['business_date'])->first();
+        if (!$close) {
+            if ($request->wantsJson()) {
+                return response()->json(['message' => 'Business date is not finalized.'], 422);
+            }
+
+            return back()->with('error', 'Business date is not finalized.');
+        }
+
+        $close->delete();
+
+        AuditLog::create([
+            'actor_user_id' => $user->id,
+            'action' => 'remittance.daily.reopen',
+            'entity_type' => DailyClose::class,
+            'entity_id' => $close->id,
+            'message' => "Reopened daily close for {$validated['business_date']}",
+            'after_json' => [
+                'status' => 'open',
+                'business_date' => $validated['business_date'],
+            ],
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        if ($request->wantsJson()) {
+            return response()->json(['status' => 'open']);
+        }
+
+        return back()->with('success', 'Business date reopened.');
     }
 
     private function persistCashlessVerification(

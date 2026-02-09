@@ -258,7 +258,11 @@ export default function Products() {
   const statusInitial = filters?.status || "all";
   const supplierInitial = String(filters?.supplier_id || "all");
   const typeInitial = filters?.type || "all";
-  const perInitial = Number(filters?.per || 10) || 10;
+  const DEFAULT_PER = 10;
+  const perInitial = Number(filters?.per ?? DEFAULT_PER) || DEFAULT_PER;
+  const totalProducts = meta?.total ?? 0;
+  const canShowAllProducts = totalProducts > 0 && perInitial < totalProducts;
+  const isShowingAllProducts = totalProducts > 0 && perInitial >= totalProducts;
 
   const [q, setQ] = useState(qInitial);
   const [status, setStatus] = useState(statusInitial);
@@ -288,6 +292,15 @@ export default function Products() {
       preserveState: true,
       replace: true,
     });
+  };
+
+  const showAllProducts = () => {
+    if (!totalProducts) return;
+    pushQuery({ per: totalProducts, page: 1 });
+  };
+
+  const resetPerPage = () => {
+    pushQuery({ per: DEFAULT_PER, page: 1 });
   };
 
   const statusTabs = [
@@ -635,6 +648,34 @@ export default function Products() {
                 options: categoryOptions,
               },
             ]}
+            rightSlot={
+              meta?.total ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  {canShowAllProducts ? (
+                    <button
+                      type="button"
+                      onClick={showAllProducts}
+                      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-slate-800 hover:bg-slate-50"
+                    >
+                      Show all {meta.total} products
+                    </button>
+                  ) : (
+                    <span className="text-[11px] font-semibold text-slate-500">
+                      Showing all {meta.total} products
+                    </span>
+                  )}
+                  {isShowingAllProducts && (
+                    <button
+                      type="button"
+                      onClick={resetPerPage}
+                      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-slate-800 hover:bg-slate-50"
+                    >
+                      Show {DEFAULT_PER} per page
+                    </button>
+                  )}
+                </div>
+              ) : null
+            }
           />
         </div>
 
@@ -643,7 +684,7 @@ export default function Products() {
           rows={tableRows}
           loading={loading}
           searchQuery={q}
-          emptyTitle="No products found"
+          emptyTitle="No Products Found"
           emptyHint="Create a new product or adjust filters."
           renderActions={(p) =>
               p?.__filler ? (
@@ -657,7 +698,7 @@ export default function Products() {
                       <TableActionButton
                         icon={Pencil}
                         onClick={() => openEdit(p)}
-                        title="Edit product"
+                        title="Edit Product"
                       >
                         Edit
                       </TableActionButton>
@@ -666,7 +707,7 @@ export default function Products() {
                         tone="danger"
                         icon={Archive}
                         onClick={() => openArchive(p)}
-                        title="Archive product"
+                        title="Archive Product"
                       >
                         Archive
                       </TableActionButton>
@@ -675,7 +716,7 @@ export default function Products() {
                     <TableActionButton
                       icon={RotateCcw}
                       onClick={() => openRestore(p)}
-                      title="Restore product"
+                      title="Restore Product"
                     >
                       Restore
                     </TableActionButton>

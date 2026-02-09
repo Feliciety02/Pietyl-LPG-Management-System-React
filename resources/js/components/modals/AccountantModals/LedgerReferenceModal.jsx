@@ -1,5 +1,7 @@
 import React, { useMemo } from "react";
 import { AlertTriangle, CheckCircle2, Columns, CalendarDays } from "lucide-react";
+import TableHeaderCell from "@/components/Table/TableHeaderCell";
+
 import ModalShell from "../ModalShell";
 
 function cx(...classes) {
@@ -139,10 +141,10 @@ export default function LedgerReferenceModal({
           <table className="min-w-full text-left">
             <thead className="bg-white">
               <tr className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500">
-                <th className="px-5 py-3">Account</th>
-                <th className="px-5 py-3">Description</th>
-                <th className="px-5 py-3 text-right">Debit</th>
-                <th className="px-5 py-3 text-right">Credit</th>
+                <TableHeaderCell label="Account" className="px-5 py-3" />
+                <TableHeaderCell label="Description" className="px-5 py-3" />
+                <TableHeaderCell label="Debit" className="px-5 py-3" contentClassName="justify-end" />
+                <TableHeaderCell label="Credit" className="px-5 py-3" contentClassName="justify-end" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm text-slate-700">

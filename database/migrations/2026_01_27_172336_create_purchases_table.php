@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('purchase_number', 50)->unique();
             $table->unsignedBigInteger('supplier_id');
             $table->unsignedBigInteger('created_by_user_id');
-            $table->string('status', 50)->default('draft');
+            $table->enum('status', \App\Enums\PurchaseStatus::values())->default(\App\Enums\PurchaseStatus::DRAFT);
             $table->dateTime('ordered_at')->nullable();
             $table->dateTime('received_at')->nullable();
             $table->decimal('subtotal', 12, 2)->default(0);

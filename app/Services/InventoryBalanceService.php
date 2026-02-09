@@ -180,7 +180,7 @@ class InventoryBalanceService
                 'variant' => $row->variant_name,
                 'product_variant_id' => $row->product_variant_id,
                 'supplier_id' => $supplier?->supplier_id,
-                'supplier_name' => $supplier?->supplier_name ?? '—',
+                'supplier_name' => $supplier?->supplier_name ?? '-',
                 'current_qty' => $available,
                 'reorder_level' => $reorderLevel,
                 'est_days_left' => rand(1, 5),
@@ -223,7 +223,7 @@ class InventoryBalanceService
         );
 
         // Build product hash
-        $allVariants = ProductVariant::with(['product', 'suppliers'])->get();
+        $allVariants = ProductVariant::with(['product.supplier', 'suppliers'])->get();
         $productHash = [];
         $suppliersByProduct = [];
         $products = [];
@@ -240,6 +240,8 @@ class InventoryBalanceService
                     'variant' => $variant->variant_name,
                     'default_supplier_id' => $primarySupplier?->id,
                     'supplier_ids' => $variant->suppliers->pluck('id')->toArray(),
+                    'supplier_cost' => (float) ($variant->product?->supplier_cost ?? 0),
+                    'price' => (float) ($variant->product?->price ?? 0),
                 ];
             } else {
                 $productHash[$key]['supplier_ids'] = array_unique(array_merge(
@@ -248,20 +250,45 @@ class InventoryBalanceService
                 ));
             }
 
-            $variantSuppliers = $variant->suppliers->map(fn($s) => [
-                'id' => $s->id,
-                'name' => $s->name,
-                'is_primary' => $s->pivot->is_primary,
-                'lead_time_days' => $s->pivot->lead_time_days,
-                'unit_cost' => (float) ($s->pivot->unit_cost ?? 0),
-            ])->values();
+            $baseCost = (float) ($variant->product?->supplier_cost ?? 0);
+
+            $variantSuppliers = $variant->suppliers->map(function ($s) use ($baseCost) {
+                $pivotCost = (float) ($s->pivot->supplier_cost ?? 0);
+                $resolvedCost = $pivotCost > 0 ? $pivotCost : $baseCost;
+
+                return [
+                    'id' => $s->id,
+                    'name' => $s->name,
+                    'is_primary' => $s->pivot->is_primary,
+                    'lead_time_days' => $s->pivot->lead_time_days,
+                    'unit_cost' => $resolvedCost,
+                    'supplier_cost' => $resolvedCost,
+                ];
+            })->values();
+
+            if ($variantSuppliers->isEmpty() && $variant->product?->supplier_id) {
+                $fallbackSupplier = $variant->product?->supplier;
+                $variantSuppliers = collect([[
+                    'id' => $variant->product->supplier_id,
+                    'name' => $fallbackSupplier?->name ?? 'Supplier',
+                    'is_primary' => true,
+                    'lead_time_days' => null,
+                    'unit_cost' => $baseCost,
+                    'supplier_cost' => $baseCost,
+                ]]);
+            }
 
             $suppliersByProduct[$variant->id] = ['suppliers' => $variantSuppliers];
 
+
             $products[] = [
                 'id' => $variant->id,
-                'product_name' => $variant->product?->name ?? '—',
+                'product_id' => $variant->product_id,
+                'sku' => $variant->product?->sku,
+                'product_name' => $variant->product?->name ?? '-',
                 'variant_name' => $variant->variant_name ?? '',
+                'supplier_cost' => (float) ($variant->product?->supplier_cost ?? 0),
+                'price' => (float) ($variant->product?->price ?? 0),
             ];
         }
 

@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import HeaderLogo from "../../../images/Header_Logo.png";
 import { Search, Bell, ChevronRight, Command } from "lucide-react";
 import Sidebar from "../../components/layouts/Sidebar";
+import ToastMessage from "../../components/layouts/ToastMessage";
 
 function normalize(u = "") {
   return String(u).split("?")[0];
@@ -77,6 +78,7 @@ export default function DashboardShell({
 
   return (
     <div className="min-h-screen bg-slate-50">
+      <ToastMessage />
       <div className="flex">
         <Sidebar title={sidebarTitle} subtitle="Pietyl LPG" items={items} />
 

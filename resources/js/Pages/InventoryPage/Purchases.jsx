@@ -1,6 +1,7 @@
 // resources/js/pages/Inventory/Purchases.jsx
 import React, { useMemo, useState } from "react";
 import { router, usePage } from "@inertiajs/react";
+import axios from "axios";
 import Layout from "../Dashboard/Layout";
 
 import DataTable from "@/components/Table/DataTable";
@@ -8,50 +9,31 @@ import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
 
 import ViewPurchaseModal from "@/components/modals/InventoryModals/ViewPurchaseModal";
+import RequestRestockModal from "@/components/modals/InventoryModals/RequestRestockModal";
+import SubmittedActionModal from "@/components/modals/InventoryModals/SubmittedActionModal";
+import DeliveryArrivalModal from "@/components/modals/InventoryModals/DeliveryArrivalModal";
 
-import { FileText } from "lucide-react";
+import { TableActionButton } from "@/components/Table/ActionTableButton";
+import { SkeletonButton } from "@/components/ui/Skeleton";
 
-import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
+import {
+  CheckCircle2,
+  FileText,
+  PlusCircle,
+  Truck,
+  XCircle,
+  CreditCard,
+} from "lucide-react";
 
-function cx(...classes) {
-  return classes.filter(Boolean).join(" ");
-}
-
-function normalizeStatus(status) {
-  return String(status || "").toLowerCase().replace(/\s+/g, "_");
-}
-
-function StatusPill({ status }) {
-  const s = normalizeStatus(status);
-
-  const tone =
-    s === "approved"
-      ? "bg-teal-600/10 text-teal-900 ring-teal-700/10"
-      : s === "pending"
-      ? "bg-amber-600/10 text-amber-900 ring-amber-700/10"
-      : s === "rejected"
-      ? "bg-rose-600/10 text-rose-900 ring-rose-700/10"
-      : s === "delivered" || s === "awaiting_confirmation"
-      ? "bg-sky-600/10 text-sky-900 ring-sky-700/10"
-      : s === "completed"
-      ? "bg-emerald-600/10 text-emerald-900 ring-emerald-700/10"
-      : s === "discrepancy_reported"
-      ? "bg-orange-600/10 text-orange-900 ring-orange-700/10"
-      : "bg-slate-100 text-slate-700 ring-slate-200";
-
-  const label =
-    s === "awaiting_confirmation"
-      ? "AWAITING CONFIRMATION"
-      : s === "discrepancy_reported"
-      ? "DISCREPANCY"
-      : String(status || "pending").toUpperCase();
-
-  return (
-    <span className={cx("inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1", tone)}>
-      {label}
-    </span>
-  );
-}
+import { createPurchaseColumns, createPurchaseFillerRows } from "./purchases/purchaseTableConfig";
+import {
+  PurchaseAction,
+  getPurchaseStatusActionsForRole,
+  getPurchaseStatusInfo,
+  normalizePurchaseStatus,
+  normalizeRoleKey,
+  PURCHASE_STATUS_OPTIONS,
+} from "@/Pages/InventoryPage/purchases/purchaseStatus";
 
 function TopCard({ title, subtitle, right }) {
   return (
@@ -71,59 +53,23 @@ export default function Purchases() {
   const page = usePage();
   const { auth } = page.props;
   const user = auth?.user;
-  const roleKey = user?.role || "";
 
-  const SAMPLE_PURCHASES = {
-    data: [
-      {
-        id: 1,
-        reference_no: "P-000051",
-        supplier_name: "Petron LPG Supply",
-        product_name: "LPG Cylinder",
-        variant: "11kg",
-        qty: 12,
-        unit_cost: 980,
-        total_cost: 11760,
-        status: "pending",
-        created_at: "Today 09:12 AM",
-      },
-      {
-        id: 2,
-        reference_no: "P-000050",
-        supplier_name: "Shellane Distributors",
-        product_name: "LPG Cylinder",
-        variant: "22kg",
-        qty: 6,
-        unit_cost: 1850,
-        total_cost: 11100,
-        status: "approved",
-        created_at: "Yesterday 04:40 PM",
-      },
-      {
-        id: 3,
-        reference_no: "P-000049",
-        supplier_name: "Regasco Trading",
-        product_name: "LPG Cylinder",
-        variant: "50kg",
-        qty: 2,
-        unit_cost: 4200,
-        total_cost: 8400,
-        status: "awaiting_confirmation",
-        created_at: "Jan 17 01:15 PM",
-      },
-    ],
-    meta: {
-      current_page: 1,
-      last_page: 1,
-      from: 1,
-      to: 3,
-      total: 3,
-    },
-  };
+  const rawRoleKey = user?.role || user?.role_name || "";
+  const roleKey = normalizeRoleKey(rawRoleKey);
 
-  const purchases =
-    page.props?.purchases ?? (import.meta.env.DEV ? SAMPLE_PURCHASES : { data: [], meta: null });
+  const permissions = Array.isArray(user?.permissions) ? user.permissions : [];
+  const permissionSet = useMemo(() => new Set(permissions), [permissions]);
+  const can = (perm) => !perm || permissionSet.has(perm);
 
+  const isInventoryManager = roleKey === "inventory_manager";
+  const isAdmin = roleKey === "admin";
+  const isAccountant = roleKey === "accountant";
+  const isFinance = roleKey === "finance";
+
+  const canCreatePurchase = can("inventory.purchases.create") && isInventoryManager;
+  const canApprovePurchase = can("inventory.purchases.approve") && isAdmin;
+
+  const purchases = page.props?.purchases ?? { data: [], meta: null };
   const rows = purchases?.data || [];
   const meta = purchases?.meta || null;
 
@@ -135,16 +81,7 @@ export default function Purchases() {
   const [q, setQ] = useState(qInitial);
   const [status, setStatus] = useState(statusInitial);
 
-  const statusOptions = [
-    { value: "all", label: "All status" },
-    { value: "pending", label: "Pending" },
-    { value: "approved", label: "Approved" },
-    { value: "delivered", label: "Delivered" },
-    { value: "awaiting_confirmation", label: "Awaiting confirmation" },
-    { value: "completed", label: "Completed" },
-    { value: "discrepancy_reported", label: "Discrepancy" },
-    { value: "rejected", label: "Rejected" },
-  ];
+  const statusOptions = PURCHASE_STATUS_OPTIONS;
 
   const pushQuery = (patch) => {
     router.get(
@@ -165,81 +102,29 @@ export default function Purchases() {
 
   const loading = Boolean(page.props?.loading);
 
-  const fillerRows = useMemo(() => {
-    return Array.from({ length: perInitial }).map((_, i) => ({
-      id: `__filler__${i}`,
-      __filler: true,
-    }));
-  }, [perInitial]);
-
+  const fillerRows = useMemo(() => createPurchaseFillerRows(perInitial), [perInitial]);
   const tableRows = loading ? fillerRows : rows;
-
-  const columns = useMemo(
-    () => [
-      {
-        key: "ref",
-        label: "Reference",
-        render: (x) =>
-          x?.__filler ? <SkeletonLine w="w-28" /> : <div className="font-extrabold text-slate-900">{x.reference_no}</div>,
-      },
-      {
-        key: "supplier",
-        label: "Supplier",
-        render: (x) => (x?.__filler ? <SkeletonLine w="w-40" /> : <div className="text-sm text-slate-800">{x.supplier_name}</div>),
-      },
-      {
-        key: "item",
-        label: "Item",
-        render: (x) =>
-          x?.__filler ? (
-            <SkeletonLine w="w-36" />
-          ) : (
-            <div className="font-semibold text-slate-900">
-              {x.product_name} <span className="text-slate-500">({x.variant})</span>
-            </div>
-          ),
-      },
-      {
-        key: "qty",
-        label: "Ordered",
-        render: (x) => (x?.__filler ? <SkeletonLine w="w-10" /> : <span className="text-sm font-extrabold text-slate-900">{x.qty}</span>),
-      },
-      {
-        key: "received",
-        label: "Received",
-        render: (x) =>
-          x?.__filler ? (
-            <SkeletonLine w="w-10" />
-          ) : (
-            <span className="text-sm text-slate-700">{x.received_qty != null ? x.received_qty : "—"}</span>
-          ),
-      },
-      {
-        key: "cost",
-        label: "Total cost",
-        render: (x) =>
-          x?.__filler ? (
-            <SkeletonLine w="w-24" />
-          ) : (
-            <span className="text-sm font-semibold text-slate-800">₱{Number(x.total_cost).toLocaleString()}</span>
-          ),
-      },
-      {
-        key: "status",
-        label: "Status",
-        render: (x) => (x?.__filler ? <SkeletonPill w="w-28" /> : <StatusPill status={x.status} />),
-      },
-      {
-        key: "date",
-        label: "Created",
-        render: (x) => (x?.__filler ? <SkeletonLine w="w-28" /> : <span className="text-sm text-slate-700">{x.created_at}</span>),
-      },
-    ],
-    []
-  );
+  const columns = useMemo(() => createPurchaseColumns({ loading }), [loading]);
 
   const [viewOpen, setViewOpen] = useState(false);
   const [viewItem, setViewItem] = useState(null);
+
+  const [orderModalOpen, setOrderModalOpen] = useState(false);
+
+  const [submittedTarget, setSubmittedTarget] = useState(null);
+  const [submittedAction, setSubmittedAction] = useState(null);
+
+  const [deliveryTarget, setDeliveryTarget] = useState(null);
+  const [closeTarget, setCloseTarget] = useState(null);
+
+  const [deliveryError, setDeliveryError] = useState("");
+  const [modalLoading, setModalLoading] = useState(false);
+
+  const postOptions = { preserveScroll: true, preserveState: true };
+
+  const refreshPurchases = () => {
+    router.reload({ preserveScroll: true, preserveState: true });
+  };
 
   const openView = (row) => {
     if (!row || row.__filler) return;
@@ -252,13 +137,183 @@ export default function Purchases() {
     setViewItem(null);
   };
 
+  const openNewPurchaseModal = () => setOrderModalOpen(true);
+  const closeNewPurchaseModal = () => setOrderModalOpen(false);
+
+  const closeSubmittedModal = () => {
+    setSubmittedTarget(null);
+    setSubmittedAction(null);
+  };
+
+  const openApproveModal = (row) => {
+    if (!row || row.__filler) return;
+    setSubmittedTarget(row);
+    setSubmittedAction("approve");
+  };
+
+  const openRejectModal = (row) => {
+    if (!row || row.__filler) return;
+    setSubmittedTarget(row);
+    setSubmittedAction("reject");
+  };
+
+  const openDeliveryModal = (row) => {
+    if (!row || row.__filler) return;
+    setDeliveryError("");
+    setDeliveryTarget(row);
+  };
+
+  const closeDeliveryModal = () => {
+    setDeliveryTarget(null);
+    setDeliveryError("");
+  };
+
+  const openCloseModal = (row) => {
+    if (!row || row.__filler) return;
+    setCloseTarget(row);
+  };
+
+  const handleApproveSubmit = (purchase) => {
+    if (!purchase?.id) return;
+    setModalLoading(true);
+
+    router
+      .post(
+        `/dashboard/inventory/purchases/${purchase.id}/approve`,
+        {},
+        {
+          ...postOptions,
+          onSuccess: () => {
+            closeSubmittedModal();
+            refreshPurchases();
+          },
+        }
+      )
+      .finally(() => setModalLoading(false));
+  };
+
+  const handleRejectSubmit = (purchase, reason) => {
+    if (!purchase?.id) return;
+    setModalLoading(true);
+
+    router
+      .post(
+        `/dashboard/inventory/purchases/${purchase.id}/reject`,
+        { reason },
+        {
+          ...postOptions,
+          onSuccess: () => {
+            closeSubmittedModal();
+            refreshPurchases();
+          },
+        }
+      )
+      .finally(() => setModalLoading(false));
+  };
+
+  const handleMarkDelivered = (purchase, payload) => {
+    if (!purchase?.id) return Promise.resolve();
+
+    setModalLoading(true);
+    setDeliveryError("");
+
+    const body = payload && typeof payload === "object" ? payload : {};
+
+    return axios
+      .post(`/dashboard/inventory/purchases/${purchase.id}/mark-delivered`, body)
+      .then(() => {
+        closeDeliveryModal();
+        refreshPurchases();
+      })
+      .catch((error) => {
+        const message =
+          error?.response?.data?.message ||
+          error?.response?.statusText ||
+          error?.message ||
+          "Unable to confirm delivery.";
+        setDeliveryError(message);
+        throw error;
+      })
+      .finally(() => setModalLoading(false));
+  };
+
+  const handleCompletePurchase = (purchase) => {
+    if (!purchase?.id) return;
+    if (!window.confirm("Mark this purchase as completed?")) return;
+
+    setModalLoading(true);
+
+    router
+      .post(`/dashboard/inventory/purchases/${purchase.id}/complete`, {}, {
+        ...postOptions,
+        onSuccess: () => {
+          refreshPurchases();
+        },
+      })
+      .finally(() => setModalLoading(false));
+  };
+
+  const handleClosePurchase = (purchase, notes) => {
+    if (!purchase?.id) return;
+    setModalLoading(true);
+
+    router
+      .post(`/dashboard/inventory/purchases/${purchase.id}/close`, { notes }, {
+        ...postOptions,
+        onSuccess: () => {
+          setCloseTarget(null);
+          refreshPurchases();
+        },
+      })
+      .finally(() => setModalLoading(false));
+  };
+
+  const handleNewPurchaseSubmit = (payload) => {
+    if (!payload) return;
+
+    router.post("/dashboard/inventory/purchases", payload, {
+      ...postOptions,
+      onSuccess: () => closeNewPurchaseModal(),
+    });
+  };
+
+  const topCardTitle = canApprovePurchase
+    ? "Purchase Requests"
+    : isInventoryManager
+    ? "Purchase Requests"
+    : isAccountant
+    ? "Purchases for COD Payment"
+    : isFinance
+    ? "Purchases for Closing"
+    : "Purchases";
+
+  const topCardSubtitle = canApprovePurchase
+    ? "Approve or reject submitted restock requests."
+    : isInventoryManager
+    ? "Create restock requests and confirm deliveries."
+    : isAccountant
+    ? "Record COD payments after receiving."
+    : isFinance
+    ? "Close completed purchases."
+    : "Review purchases.";
+
+  const topCardRight = canCreatePurchase ? (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={openNewPurchaseModal}
+        className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 focus:ring-4 focus:ring-teal-500/25"
+      >
+        <PlusCircle className="h-4 w-4" />
+        Request Restock
+      </button>
+    </div>
+  ) : null;
+
   return (
-    <Layout title="Purchase history">
+    <Layout title="Purchases">
       <div className="grid gap-6">
-        <TopCard
-          title="Purchase history"
-          subtitle="Review historic purchases."
-        />
+        <TopCard title={topCardTitle} subtitle={topCardSubtitle} right={topCardRight} />
 
         <DataTableFilters
           q={q}
@@ -280,22 +335,111 @@ export default function Purchases() {
           rows={tableRows}
           loading={loading}
           searchQuery={q}
-          emptyTitle="No purchase requests found"
-          emptyHint="Create a purchase request when stock is low."
-          renderActions={(x) =>
-            x?.__filler ? (
+          emptyTitle="No purchases found"
+          emptyHint="Create a restock request to start."
+          renderActions={(row) =>
+            row?.__filler ? (
               <SkeletonButton w="w-28" />
             ) : (
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => openView(x)}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
-                >
-                  <FileText className="h-4 w-4 text-slate-600" />
-                  View
-                </button>
-              </div>
+              (() => {
+                const statusKey = normalizePurchaseStatus(row?.status);
+                const allowedActions = getPurchaseStatusActionsForRole(statusKey, roleKey);
+                const statusInfo = getPurchaseStatusInfo(statusKey, roleKey);
+
+                const canUseAction = (action) => allowedActions.includes(action);
+                const completeAllowed = canUseAction(PurchaseAction.COMPLETE);
+                const showCompleteButton =
+                  roleKey === "inventory_manager" && ["received", "paid"].includes(statusKey);
+                const actionButtons = [];
+
+                actionButtons.push(
+                  <TableActionButton
+                    key="view"
+                    icon={FileText}
+                    onClick={() => openView(row)}
+                    title="View purchase"
+                    size="sm"
+                  >
+                    View
+                  </TableActionButton>
+                );
+
+                if (canUseAction(PurchaseAction.APPROVE)) {
+                  actionButtons.push(
+                    <TableActionButton
+                      key="approve"
+                      icon={CheckCircle2}
+                      tone="primary"
+                      onClick={() => openApproveModal(row)}
+                      title="Approve request"
+                    >
+                      Approve
+                    </TableActionButton>
+                  );
+                }
+
+                if (canUseAction(PurchaseAction.REJECT)) {
+                  actionButtons.push(
+                    <TableActionButton
+                      key="reject"
+                      icon={XCircle}
+                      tone="danger"
+                      onClick={() => openRejectModal(row)}
+                      title="Reject request"
+                    >
+                      Reject
+                    </TableActionButton>
+                  );
+                }
+
+                if (canUseAction(PurchaseAction.ARRIVAL)) {
+                  actionButtons.push(
+                    <TableActionButton
+                      key="arrival"
+                      icon={Truck}
+                      onClick={() => openDeliveryModal(row)}
+                      title="Confirm arrival"
+                    >
+                      Delivered
+                    </TableActionButton>
+                  );
+                }
+
+                if (showCompleteButton) {
+                  actionButtons.push(
+                    <TableActionButton
+                      key="complete"
+                      icon={CheckCircle2}
+                      tone="primary"
+                      onClick={completeAllowed ? () => handleCompletePurchase(row) : undefined}
+                      title="Complete purchase"
+                      disabled={!completeAllowed}
+                    >
+                      Complete
+                    </TableActionButton>
+                  );
+                }
+
+                if (canUseAction(PurchaseAction.CLOSE)) {
+                  actionButtons.push(
+                    <TableActionButton
+                      key="close"
+                      icon={CreditCard}
+                      onClick={() => openCloseModal(row)}
+                      title="Close purchase"
+                    >
+                      Close
+                    </TableActionButton>
+                  );
+                }
+
+                return (
+                  <div className="flex items-center justify-end gap-3">
+                    {statusInfo ? <span className="text-xs text-slate-500">{statusInfo}</span> : null}
+                    <div className="flex items-center gap-2">{actionButtons}</div>
+                  </div>
+                );
+              })()
             )
           }
         />
@@ -310,7 +454,37 @@ export default function Purchases() {
           disableNext={!meta || meta.current_page >= meta.last_page}
         />
 
+        <RequestRestockModal
+          open={orderModalOpen}
+          onClose={closeNewPurchaseModal}
+          products={page.props?.products ?? []}
+          suppliers={page.props?.suppliersByProduct ?? {}}
+          mode="purchase"
+          onSubmit={handleNewPurchaseSubmit}
+          loading={loading}
+        />
+
         <ViewPurchaseModal open={viewOpen} onClose={closeView} purchase={viewItem} />
+
+        <SubmittedActionModal
+          open={Boolean(submittedTarget)}
+          loading={modalLoading}
+          onClose={closeSubmittedModal}
+          purchase={submittedTarget}
+          onApprove={handleApproveSubmit}
+          onReject={handleRejectSubmit}
+          action={submittedAction}
+        />
+
+        <DeliveryArrivalModal
+          open={Boolean(deliveryTarget)}
+          loading={modalLoading}
+          onClose={closeDeliveryModal}
+          purchase={deliveryTarget}
+          onConfirm={handleMarkDelivered}
+          error={deliveryError}
+        />
+
       </div>
     </Layout>
   );

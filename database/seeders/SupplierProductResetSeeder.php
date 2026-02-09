@@ -33,19 +33,43 @@ class SupplierProductResetSeeder extends Seeder
 
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
-        $supplierNames = [
-            'Cotabato Roma Enterprises',
-            'CYBS Marketing',
-            'Towngas LPG Trading',
-            'M.Conpinco Home Improvement Super Center Inc',
+        $seedSuppliers = [
+            'Cotabato Roma Enterprises' => [
+                'contact_name' => 'Ramon Cruz',
+                'phone' => '09171234567',
+                'email' => 'ramon.cruz@cotabatoroma.ph',
+                'address' => 'Davao City, Digos Highway',
+                'notes' => 'Primary bulk LPG distributor.',
+            ],
+            'CYBS Marketing' => [
+                'contact_name' => 'Grace Lim',
+                'phone' => '09223334444',
+                'email' => 'hello@cybsmarketing.ph',
+                'address' => 'Tagum City, Km 6.5 Circumferential Road',
+                'notes' => 'Supplies City and Tagum locations.',
+            ],
+            'Towngas LPG Trading' => [
+                'contact_name' => 'Jose Ramirez',
+                'phone' => '09335556677',
+                'email' => 'sales@towngaslpg.ph',
+                'address' => 'Panabo City, National Highway',
+                'notes' => 'Specializes in residential LPG delivery.',
+            ],
+            'M.Conpinco Home Improvement Super Center Inc' => [
+                'contact_name' => 'Marcel Monte',
+                'phone' => '09181234567',
+                'email' => 'info@conpincohome.ph',
+                'address' => 'Davao City, McArthur Highway',
+                'notes' => 'Provides accessories and stoves alongside LPG.',
+            ],
         ];
 
         $supplierMap = [];
-        foreach ($supplierNames as $name) {
-            $supplier = Supplier::create([
-                'name' => $name,
-                'is_active' => true,
-            ]);
+        foreach ($seedSuppliers as $name => $details) {
+            $supplier = Supplier::create(array_merge(
+                ['name' => $name, 'is_active' => true],
+                $details
+            ));
             $supplierMap[$name] = $supplier->id;
         }
 

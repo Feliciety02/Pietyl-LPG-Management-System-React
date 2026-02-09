@@ -12,14 +12,12 @@ import { TableActionButton } from "@/components/Table/ActionTableButton";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 
 import ConfirmActionModal from "@/components/modals/InventoryModals/ConfirmActionModal";
-import PurchaseRequestModal from "@/components/modals/InventoryModals/PurchaseRequestModal";
-import NewPurchaseModal from "@/components/modals/InventoryModals/OrderStockModal";
+import RequestRestockModal from "@/components/modals/InventoryModals/RequestRestockModal";
 import StockViewModal from "@/components/modals/InventoryModals/StockViewModal";
 
 import {
   AlertTriangle,
   ArrowRight,
-  PlusCircle,
   CheckCircle2,
   XCircle,
   SlidersHorizontal,
@@ -225,7 +223,7 @@ function normalizePaginator(p) {
   return { data, meta };
 }
 
-export default function OrderStocks() {
+export default function Lowstock() {
   const page = usePage();
 
   const roleKey = page.props?.auth?.user?.role || "inventory_manager";
@@ -240,28 +238,28 @@ export default function OrderStocks() {
   const { data: rows, meta } = normalizePaginator(page.props?.low_stock);
   const [localRows, setLocalRows] = useState(rows);
 
-    const { query, set, setPer, prevPage, nextPage, canPrev, canNext } = useTableQuery({
-      endpoint: "/dashboard/inventory/order-stocks",
-      meta,
-      defaults: { q: "", risk: "all", req: "all", scope: "all", per: 10, page: 1 },
-    });
+  const { query, set, setPer, prevPage, nextPage, canPrev, canNext } = useTableQuery({
+    endpoint: "/dashboard/inventory/order-stocks",
+    meta,
+    defaults: { q: "", risk: "all", req: "all", scope: "all", per: 10, page: 1 },
+  });
 
-    const [q, setQ] = useState(query.q);
-    const risk = query.risk;
-    const req = query.req;
-    const scope = query.scope;
-    const baseSubtitle = isAdmin
-      ? "Owner view. Approve requests, set restock levels, and create purchases."
-      : "Request restock for items that are low based on your restock levels.";
-    const scopeSubtitle =
-      scope === "all"
-        ? "Displaying every product with its current stock and thresholds."
-        : "Highlighted items are at or below their restock levels.";
-    const emptyTitle = scope === "all" ? "No products found" : "No low stock items";
-    const emptyHint =
-      scope === "all"
-        ? "Try widening the search or add new products."
-        : "Try changing the search or restock levels.";
+  const [q, setQ] = useState(query.q);
+  const risk = query.risk;
+  const req = query.req;
+  const scope = query.scope;
+  const baseSubtitle = isAdmin
+    ? "Owner view. Approve requests, set restock levels, and create purchases."
+    : "Request restock for items that are low based on your restock levels.";
+  const scopeSubtitle =
+    scope === "all"
+      ? "Displaying every product with its current stock and thresholds."
+      : "Highlighted items are at or below their restock levels.";
+  const emptyTitle = scope === "all" ? "No Products Found" : "No Low Stock Items";
+  const emptyHint =
+    scope === "all"
+      ? "Try widening the search or add new products."
+      : "Try changing the search or restock levels.";
   const per = query.per;
 
   useEffect(() => {
@@ -272,11 +270,11 @@ export default function OrderStocks() {
     setLocalRows(rows);
   }, [rows]);
 
-  const [purchaseReqOpen, setPurchaseReqOpen] = useState(false);
-  const [purchaseReqItem, setPurchaseReqItem] = useState(null);
-
-  const [newPurchaseOpen, setNewPurchaseOpen] = useState(false);
-  const [newPurchaseItem, setNewPurchaseItem] = useState(null);
+  const [orderModal, setOrderModal] = useState({
+    open: false,
+    mode: "purchase",
+    item: null,
+  });
 
   const [viewOpen, setViewOpen] = useState(false);
   const [viewItem, setViewItem] = useState(null);
@@ -310,30 +308,35 @@ export default function OrderStocks() {
   ];
 
   const filteredRows = useMemo(() => {
-  // Don't filter by purchase request status - show all low stock items
-  return localRows;
-}, [localRows]);
+    // Don't filter by purchase request status - show all low stock items
+    return localRows;
+  }, [localRows]);
 
   const urgentCount = useMemo(
     () => filteredRows.filter((r) => String(r.risk_level) === "critical").length,
     [filteredRows]
   );
 
-  const openRequestModal = (row) => {
-    setPurchaseReqItem(row || null);
-    setPurchaseReqOpen(true);
-  };
+  const closeOrderModal = () =>
+    setOrderModal({
+      open: false,
+      mode: "purchase",
+      item: null,
+    });
 
-  const openNewPurchaseModal = (row) => {
-    setNewPurchaseItem(row || null);
-    setNewPurchaseOpen(true);
+  const openRequestModal = (row) => {
+    setOrderModal({
+      open: true,
+      mode: "request",
+      item: row || null,
+    });
   };
 
   const approveRequest = (row) => {
     setConfirm({
       open: true,
       tone: "teal",
-      title: "Approve request",
+      title: "Approve Request",
       message: `Approve restock request for ${row.name} (${row.variant})?`,
       onConfirm: () => {
         setConfirm((p) => ({ ...p, open: false }));
@@ -358,7 +361,7 @@ export default function OrderStocks() {
     setConfirm({
       open: true,
       tone: "rose",
-      title: "Decline request",
+      title: "Decline Request",
       message: `Decline restock request for ${row.name} (${row.variant})?`,
       onConfirm: () => {
         setConfirm((p) => ({ ...p, open: false }));
@@ -375,6 +378,47 @@ export default function OrderStocks() {
               ),
           }
         );
+      },
+    });
+  };
+
+  const handleOrderSubmit = (payload) => {
+    if (orderModal.mode === "request") {
+      const row = orderModal.item;
+      const merged = {
+        ...payload,
+        current_qty: row?.current_qty ?? 0,
+        reorder_level: row?.reorder_level ?? 0,
+        supplier_id: row?.supplier_id ?? null,
+        location_id: row?.location_id ?? null,
+      };
+
+      router.post("/dashboard/inventory/purchase-requests", merged, {
+        preserveScroll: true,
+        onSuccess: () => {
+          closeOrderModal();
+          if (!row) return;
+          setLocalRows((prev) =>
+            prev.map((r) =>
+              r.id === row.id
+                ? {
+                    ...r,
+                    purchase_request_status: "pending",
+                    requested_by_name: page.props?.auth?.user?.name || r.requested_by_name,
+                    requested_at: "Just now",
+                  }
+                : r
+            )
+          );
+        },
+      });
+      return;
+    }
+
+    router.post("/dashboard/inventory/purchases", payload, {
+      preserveScroll: true,
+      onSuccess: () => {
+        closeOrderModal();
       },
     });
   };
@@ -463,10 +507,10 @@ export default function OrderStocks() {
   };
 
   return (
-    <Layout title="Order stocks">
+    <Layout title="Low stock">
       <div className="grid gap-6">
         <TopCard
-          title="Order stocks"
+          title="Low stock"
           subtitle={
             <div className="space-y-1">
               <div>{baseSubtitle}</div>
@@ -478,18 +522,6 @@ export default function OrderStocks() {
               <div className="rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200">
                 {urgentCount} urgent
               </div>
-
-              {!isAdmin ? (
-                <button
-                  type="button"
-                  onClick={() => openNewPurchaseModal(null)}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 focus:ring-4 focus:ring-teal-500/25"
-                >
-                  <PlusCircle className="h-4 w-4" />
-                  New purchase
-                </button>
-              ) : null}
-
             </div>
           }
         />
@@ -528,37 +560,37 @@ export default function OrderStocks() {
                 <SkeletonButton w="w-28" />
               ) : (
                 <div className="flex items-center justify-end gap-2">
-                  <TableActionButton icon={Eye} title="Quick view" onClick={() => openView(row)}>
+                  <TableActionButton icon={Eye} title="Quick View" onClick={() => openView(row)}>
                     View
                   </TableActionButton>
 
                   {!isAdmin ? (
                     String(row.purchase_request_status || "none") === "pending" ? (
-                      <TableActionButton icon={ArrowRight} disabled title="Pending request">
+                      <TableActionButton icon={ArrowRight} disabled title="Pending Request">
                         Pending
                       </TableActionButton>
                     ) : (
-                      <TableActionButton icon={ArrowRight} title="Request restock" onClick={() => openRequestModal(row)}>
+                      <TableActionButton icon={ArrowRight} title="Request Restock" onClick={() => openRequestModal(row)}>
                         Request
                       </TableActionButton>
                     )
                   ) : String(row.purchase_request_status || "none") === "pending" ? (
                     <>
-                      <TableActionButton
-                        tone="primary"
-                        icon={CheckCircle2}
-                        title="Approve request"
-                        onClick={() => approveRequest(row)}
-                      >
+                        <TableActionButton
+                          tone="primary"
+                          icon={CheckCircle2}
+                          title="Approve Request"
+                          onClick={() => approveRequest(row)}
+                        >
                         Approve
                       </TableActionButton>
 
-                      <TableActionButton
-                        tone="danger"
-                        icon={XCircle}
-                        title="Decline request"
-                        onClick={() => rejectRequest(row)}
-                      >
+                        <TableActionButton
+                          tone="danger"
+                          icon={XCircle}
+                          title="Decline Request"
+                          onClick={() => rejectRequest(row)}
+                        >
                         Decline
                       </TableActionButton>
                     </>
@@ -579,64 +611,15 @@ export default function OrderStocks() {
           disableNext={!canNext}
         />
 
-        <PurchaseRequestModal
-          open={purchaseReqOpen}
-          onClose={() => {
-            setPurchaseReqOpen(false);
-            setPurchaseReqItem(null);
-          }}
-          item={purchaseReqItem}
-          products={productHash}
-          suppliersByProduct={suppliers}
-          onSubmit={(payload) => {
-            const merged = {
-              ...payload,
-              current_qty: purchaseReqItem?.current_qty ?? 0,
-              reorder_level: purchaseReqItem?.reorder_level ?? 0,
-              supplier_id: purchaseReqItem?.supplier_id ?? null,
-              location_id: purchaseReqItem?.location_id ?? null,
-            };
-
-            router.post("/dashboard/inventory/purchase-requests", merged, {
-              preserveScroll: true,
-              onSuccess: () => {
-                setPurchaseReqOpen(false);
-                setPurchaseReqItem(null);
-                setLocalRows((prev) =>
-                  prev.map((r) =>
-                    r.id === purchaseReqItem?.id
-                      ? {
-                          ...r,
-                          purchase_request_status: "pending",
-                          requested_by_name: page.props?.auth?.user?.name || r.requested_by_name,
-                          requested_at: "Just now",
-                        }
-                      : r
-                  )
-                );
-              },
-            });
-          }}
-        />
-
-        <NewPurchaseModal
-          open={newPurchaseOpen}
-          onClose={() => {
-            setNewPurchaseOpen(false);
-            setNewPurchaseItem(null);
-          }}
-          item={newPurchaseItem}
-          products={products}
+        <RequestRestockModal
+          open={orderModal.open}
+          onClose={closeOrderModal}
+          item={orderModal.item}
+          products={orderModal.mode === "request" ? productHash : products}
           suppliers={suppliers}
-          onSubmit={(payload) => {
-            router.post("/dashboard/inventory/purchases", payload, {
-              preserveScroll: true,
-              onSuccess: () => {
-                setNewPurchaseOpen(false);
-                setNewPurchaseItem(null);
-              },
-            });
-          }}
+          mode={orderModal.mode}
+          onSubmit={handleOrderSubmit}
+          loading={loading}
         />
 
         <ConfirmActionModal

@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { Building2, UserRound, Phone, Mail, MapPin, Copy } from "lucide-react";
+import TableHeaderCell from "@/components/Table/TableHeaderCell";
+
 import ModalShell from "../ModalShell";
 
 function cx(...classes) {
@@ -137,12 +139,12 @@ export default function SupplierDetailsModal({
                 <table className="min-w-full text-left text-sm text-slate-700">
                   <thead className="bg-slate-50 text-[11px] uppercase tracking-tight text-slate-500">
                     <tr>
-                      <th className="px-3 py-2 font-semibold">Item</th>
-                      <th className="px-3 py-2 font-semibold">Category</th>
-                      <th className="px-3 py-2 font-semibold">SKU</th>
-                      <th className="px-3 py-2 font-semibold">Price</th>
-                      <th className="px-3 py-2 font-semibold">Stock</th>
-                      <th className="px-3 py-2 font-semibold">Status</th>
+                      <TableHeaderCell label="Item" className="px-3 py-2 font-semibold" />
+                      <TableHeaderCell label="Category" className="px-3 py-2 font-semibold" />
+                      <TableHeaderCell label="SKU" className="px-3 py-2 font-semibold" />
+                      <TableHeaderCell label="Price" className="px-3 py-2 font-semibold" />
+                      <TableHeaderCell label="Stock" className="px-3 py-2 font-semibold" />
+                      <TableHeaderCell label="Status" className="px-3 py-2 font-semibold" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">

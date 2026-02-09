@@ -25,6 +25,13 @@ class HandleInertiaRequests extends Middleware
         $user = $request->user();
         $vatSettings = app(SettingsService::class)->getVatSnapshot();
 
+        $flash = [
+            'success' => $request->session()->get('success'),
+            'error' => $request->session()->get('error'),
+            'warning' => $request->session()->get('warning'),
+            'info' => $request->session()->get('info'),
+        ];
+
         return [
             ...parent::share($request),
 
@@ -38,6 +45,7 @@ class HandleInertiaRequests extends Middleware
                 ] : null,
             ],
             'vat_settings' => $vatSettings,
+            'flash' => $flash,
         ];
     }
 }

@@ -23,7 +23,7 @@ class ProductVariant extends Model
     public function suppliers()
     {
         return $this->belongsToMany(Supplier::class, 'supplier_products')
-            ->withPivot('supplier_sku', 'lead_time_days', 'is_primary')
+            ->withPivot('supplier_sku', 'lead_time_days', 'supplier_cost', 'is_primary')
             ->withTimestamps();
     }
 }

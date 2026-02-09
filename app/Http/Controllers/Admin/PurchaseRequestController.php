@@ -5,56 +5,13 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\PurchaseRequest;
 use App\Models\PurchaseRequestItem;
-use App\Models\Supplier;
 use App\Models\SupplierPurchaseCommitment;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Inertia\Inertia;
 
 class PurchaseRequestController extends Controller
 {
-    public function queue(Request $request)
-    {
-        $this->authorize('viewAny', PurchaseRequest::class);
-
-        $requests = PurchaseRequest::with(['requestedBy', 'supplier', 'items.product', 'commitment'])
-            ->whereIn('status', [
-                PurchaseRequest::STATUS_SUBMITTED,
-                PurchaseRequest::STATUS_APPROVED_PENDING_SUPPLIER,
-                PurchaseRequest::STATUS_SUPPLIER_CONTACTED_WAITING_DELIVERY,
-            ])
-            ->orderByDesc('created_at')
-            ->get()
-            ->map(function (PurchaseRequest $request) {
-                return [
-                    'id' => $request->id,
-                    'pr_number' => $request->pr_number,
-                    'status' => $request->status,
-                    'requested_by' => $request->requestedBy?->only(['id', 'name']),
-                    'supplier' => $request->supplier?->only(['id', 'name']),
-                    'items' => $request->items->map(fn (PurchaseRequestItem $item) => [
-                        'id' => $item->id,
-                        'product_id' => $item->product_id,
-                        'product_name' => $item->product?->name,
-                        'requested_qty' => $item->requested_qty,
-                        'approved_qty' => $item->approved_qty,
-                        'unit_cost_estimated' => $item->unit_cost_estimated,
-                    ]),
-                    'total_estimated_cost' => $request->total_estimated_cost,
-                    'notes' => $request->notes,
-                    'reason' => $request->reason,
-                    'expected_delivery_date' => $request->expected_delivery_date?->toDateString(),
-                    'commitment_status' => $request->commitment?->status,
-                ];
-            });
-
-        return Inertia::render('AdminPage/PurchaseRequestQueue', [
-            'requests' => $requests,
-            'suppliers' => Supplier::where('is_active', true)->get(['id', 'name']),
-        ]);
-    }
-
     public function approve(Request $request, PurchaseRequest $purchaseRequest)
     {
         $this->authorize('approve', $purchaseRequest);

@@ -6,7 +6,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role as SpatieRole;
 
 class Role extends SpatieRole
@@ -19,16 +18,6 @@ class Role extends SpatieRole
         'guard_name',
         'description',
     ];
-
-    public function syncPermissions(...$permissions)
-    {
-        if ($this->isProtectedAdmin()) {
-            $guard = config('auth.defaults.guard', 'web');
-            $permissions = [Permission::where('guard_name', $guard)->get()];
-        }
-
-        return parent::syncPermissions(...$permissions);
-    }
 
     public function isProtectedAdmin(): bool
     {

@@ -27,8 +27,23 @@ function diffCount(levels, initial) {
 }
 
 function normalizePaginator(raw) {
-  const meta = raw?.meta || raw?.pagination || raw?.page || {};
-  const rows = Array.isArray(raw?.data) ? raw.data : [];
+  if (Array.isArray(raw)) {
+    return { data: raw, meta: null };
+  }
+
+  const rows = Array.isArray(raw?.data)
+    ? raw.data
+    : Array.isArray(raw?.data?.data)
+    ? raw.data.data
+    : [];
+
+  const meta =
+    raw?.meta ||
+    raw?.data?.meta ||
+    raw?.pagination ||
+    raw?.page ||
+    (raw && typeof raw === "object" ? raw : null);
+
   return { data: rows, meta };
 }
 
@@ -114,10 +129,13 @@ function StockMini({ current = 0, threshold = 0 }) {
 
 export default function Thresholds() {
   const page = usePage();
-  const thresholds = page.props?.thresholds;
+  const thresholds =
+    page.props?.thresholds ??
+    page.props?.low_stock ??
+    (page.props?.data?.low_stock ? page.props.data.low_stock : null);
   const loading = Boolean(page.props?.loading);
 
-  const { data: rows, meta } = normalizePaginator(thresholds);
+  const { data: rows, meta } = normalizePaginator(thresholds ?? {});
   const { query, set, setPer, prevPage, nextPage, canPrev, canNext } = useTableQuery({
     endpoint: "/dashboard/inventory/thresholds",
     meta,
@@ -308,12 +326,12 @@ export default function Thresholds() {
 
           <DataTablePagination
             meta={meta}
-            per={query.per}
-            onPerChange={(value) => setPer(Number(value))}
-            prevPage={prevPage}
-            nextPage={nextPage}
-            canPrev={canPrev}
-            canNext={canNext}
+            perPage={query.per}
+            onPerPage={(value) => setPer(Number(value))}
+            onPrev={prevPage}
+            onNext={nextPage}
+            disablePrev={!canPrev}
+            disableNext={!canNext}
           />
         </div>
       </div>

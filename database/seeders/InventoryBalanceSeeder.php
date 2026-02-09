@@ -53,7 +53,9 @@ class InventoryBalanceSeeder extends Seeder
                 }
 
                 $existing->qty_reserved = 0; // Always 0
-                $existing->reorder_level = $existing->reorder_level ?? rand(10, 30);
+                if ($existing->reorder_level === null || $existing->reorder_level <= 0) {
+                    $existing->reorder_level = rand(10, 15);
+                }
                 $existing->save();
 
                 $count++;

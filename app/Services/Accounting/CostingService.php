@@ -9,29 +9,12 @@ class CostingService
 {
     public function getWeightedAverageCost(int $variantId, Carbon $asOfDate): float
     {
-        $row = DB::table('purchase_items as pi')
-            ->join('purchases as p', 'p.id', '=', 'pi.purchase_id')
-            ->where('pi.product_variant_id', $variantId)
-            ->whereNotNull('p.received_at')
-            ->whereDate('p.received_at', '<=', $asOfDate->toDateString())
-            ->selectRaw(
-                'SUM(COALESCE(NULLIF(pi.received_qty, 0), pi.qty) * pi.unit_cost) as total_cost,
-                 SUM(COALESCE(NULLIF(pi.received_qty, 0), pi.qty)) as total_qty'
-            )
+        $row = DB::table('product_variants as pv')
+            ->join('products as p', 'pv.product_id', '=', 'p.id')
+            ->where('pv.id', $variantId)
+            ->select('p.supplier_cost')
             ->first();
 
-        $totalQty = (float) ($row->total_qty ?? 0);
-        if ($totalQty <= 0) {
-            $fallback = DB::table('purchase_items as pi')
-                ->join('purchases as p', 'p.id', '=', 'pi.purchase_id')
-                ->where('pi.product_variant_id', $variantId)
-                ->orderByDesc('p.received_at')
-                ->orderByDesc('p.id')
-                ->value('pi.unit_cost');
-
-            return (float) ($fallback ?? 0);
-        }
-
-        return (float) $row->total_cost / $totalQty;
+        return (float) ($row->supplier_cost ?? 0.0);
     }
 }
