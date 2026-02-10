@@ -162,25 +162,31 @@ export default function RequestRestockModal({
   const supplierMissing = Boolean(productId) && variantSuppliers.length === 0;
 
   useEffect(() => {
-    if (!open) return;
+  if (!open) return;
 
-    const presetProductId = item?.product_variant_id
-      ? String(item.product_variant_id)
-      : item?.id
-      ? String(item.id)
-      : "";
+  const presetProductId = item?.product_variant_id
+    ? String(item.product_variant_id)
+    : item?.id
+    ? String(item.id)
+    : "";
 
-    setProductId(presetProductId);
-    setQty(item?.suggest_qty ? String(item.suggest_qty) : "");
-    setNotes("");
-    setNegativeQty(false);
+  setProductId(presetProductId);
+  
+  // Calculate suggested quantity based on reorder level
+  const currentQty = item?.qty_filled ?? item?.current_qty ?? 0;
+  const reorderLevel = item?.reorder_level ?? 0;
+  const suggestedQty = Math.max(reorderLevel - currentQty, 0);
+  
+  setQty(suggestedQty > 0 ? String(suggestedQty) : "");
+  setNotes("");
+  setNegativeQty(false);
 
-    const presetSuppliers = suppliers?.[presetProductId]?.suppliers || [];
-    const defaultSupplier = pickDefaultSupplier(presetSuppliers);
+  const presetSuppliers = suppliers?.[presetProductId]?.suppliers || [];
+  const defaultSupplier = pickDefaultSupplier(presetSuppliers);
 
-    setSupplierId(defaultSupplier ? String(defaultSupplier.id) : "");
-    setUnitCost(defaultSupplier ? supplierUnitCost(defaultSupplier) : 0);
-  }, [open, item, suppliers]);
+  setSupplierId(defaultSupplier ? String(defaultSupplier.id) : "");
+  setUnitCost(defaultSupplier ? supplierUnitCost(defaultSupplier) : 0);
+}, [open, item, suppliers]);
 
   const qtyClean = useMemo(() => decimalOnly(qty), [qty]);
   const qtyValue = useMemo(() => safeNum(qtyClean), [qtyClean]);
