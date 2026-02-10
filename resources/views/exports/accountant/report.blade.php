@@ -52,6 +52,8 @@
         $typeLabel = strtoupper($reportType ?? 'sales');
         $rangeLabel = ($from?->toDateString() ?? '') . ' to ' . ($to?->toDateString() ?? '');
         $metrics = [];
+        $transactionHeaders = [];
+        $transactionRows = $transactions ?? [];
 
         if (($reportType ?? '') === 'sales') {
             $metrics = [
@@ -64,15 +66,18 @@
                 ['Gross profit', $payload['gross_profit'] ?? 0],
                 ['Inventory valuation', $payload['inventory_valuation'] ?? 0],
             ];
+            $transactionHeaders = ['Sale #', 'Date/Time', 'Customer', 'Cashier', 'Items', 'Qty', 'Cash', 'Non Cash', 'Net', 'VAT', 'Gross'];
         } elseif (($reportType ?? '') === 'remittances') {
             $metrics = [
                 ['Total remitted', $payload['total_remitted'] ?? 0],
                 ['Variance total', $payload['variance_total'] ?? 0],
             ];
+            $transactionHeaders = ['Business Date', 'Cashier', 'Expected Total', 'Expected Cash', 'Expected Non Cash', 'Remitted', 'Variance', 'Status', 'Recorded At', 'Accountant'];
         } else {
             $metrics = [
                 ['Variance total', $payload['variance_total'] ?? 0],
             ];
+            $transactionHeaders = ['Business Date', 'Cashier', 'Expected Total', 'Expected Cash', 'Expected Non Cash', 'Remitted', 'Variance', 'Status', 'Recorded At', 'Accountant'];
         }
     @endphp
 
@@ -96,5 +101,49 @@
             @endforeach
         </tbody>
     </table>
+
+    @if (!empty($transactionRows))
+        <table>
+            <thead>
+                <tr>
+                    @foreach ($transactionHeaders as $header)
+                        <th>{{ $header }}</th>
+                    @endforeach
+                </tr>
+            </thead>
+            <tbody>
+                @foreach ($transactionRows as $row)
+                    @if (($reportType ?? '') === 'sales')
+                        <tr>
+                            <td>{{ $row['reference'] ?? '' }}</td>
+                            <td>{{ $row['sale_datetime'] ?? '' }}</td>
+                            <td>{{ $row['customer'] ?? '' }}</td>
+                            <td>{{ $row['cashier'] ?? '' }}</td>
+                            <td class="text-right">{{ number_format((float) ($row['items_count'] ?? 0), 0) }}</td>
+                            <td class="text-right">{{ number_format((float) ($row['items_qty'] ?? 0), 0) }}</td>
+                            <td class="text-right">{{ number_format((float) ($row['cash_amount'] ?? 0), 2) }}</td>
+                            <td class="text-right">{{ number_format((float) ($row['non_cash_amount'] ?? 0), 2) }}</td>
+                            <td class="text-right">{{ number_format((float) ($row['net_amount'] ?? 0), 2) }}</td>
+                            <td class="text-right">{{ number_format((float) ($row['vat_amount'] ?? 0), 2) }}</td>
+                            <td class="text-right">{{ number_format((float) ($row['gross_amount'] ?? 0), 2) }}</td>
+                        </tr>
+                    @else
+                        <tr>
+                            <td>{{ $row['business_date'] ?? '' }}</td>
+                            <td>{{ $row['cashier'] ?? '' }}</td>
+                            <td class="text-right">{{ number_format((float) ($row['expected_amount'] ?? 0), 2) }}</td>
+                            <td class="text-right">{{ number_format((float) ($row['expected_cash'] ?? 0), 2) }}</td>
+                            <td class="text-right">{{ number_format((float) ($row['expected_noncash_total'] ?? 0), 2) }}</td>
+                            <td class="text-right">{{ number_format((float) ($row['remitted_amount'] ?? 0), 2) }}</td>
+                            <td class="text-right">{{ number_format((float) ($row['variance_amount'] ?? 0), 2) }}</td>
+                            <td>{{ $row['status'] ?? '' }}</td>
+                            <td>{{ $row['recorded_at'] ?? '' }}</td>
+                            <td>{{ $row['accountant'] ?? '' }}</td>
+                        </tr>
+                    @endif
+                @endforeach
+            </tbody>
+        </table>
+    @endif
 </body>
 </html>

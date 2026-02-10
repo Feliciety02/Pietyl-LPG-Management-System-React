@@ -13,7 +13,8 @@ class AccountingReportExport implements FromArray, ShouldAutoSize, WithTitle
         protected string $type,
         protected Carbon $from,
         protected Carbon $to,
-        protected array $payload
+        protected array $payload,
+        protected array $transactions
     ) {}
 
     public function array(): array
@@ -34,16 +35,108 @@ class AccountingReportExport implements FromArray, ShouldAutoSize, WithTitle
             $rows[] = ['COGS', (float) ($this->payload['cogs'] ?? 0)];
             $rows[] = ['Gross Profit', (float) ($this->payload['gross_profit'] ?? 0)];
             $rows[] = ['Inventory Valuation', (float) ($this->payload['inventory_valuation'] ?? 0)];
+            if (!empty($this->transactions)) {
+                $rows[] = [];
+                $rows[] = ['Transactions'];
+                $rows[] = [
+                    'Sale #',
+                    'Date/Time',
+                    'Customer',
+                    'Cashier',
+                    'Items',
+                    'Qty',
+                    'Cash',
+                    'Non Cash',
+                    'Net',
+                    'VAT',
+                    'Gross',
+                ];
+                foreach ($this->transactions as $row) {
+                    $rows[] = [
+                        $row['reference'] ?? '',
+                        $row['sale_datetime'] ?? '',
+                        $row['customer'] ?? '',
+                        $row['cashier'] ?? '',
+                        $row['items_count'] ?? 0,
+                        $row['items_qty'] ?? 0,
+                        $row['cash_amount'] ?? 0,
+                        $row['non_cash_amount'] ?? 0,
+                        $row['net_amount'] ?? 0,
+                        $row['vat_amount'] ?? 0,
+                        $row['gross_amount'] ?? 0,
+                    ];
+                }
+            }
             return $rows;
         }
 
         if ($this->type === 'remittances') {
             $rows[] = ['Total Remitted', (float) ($this->payload['total_remitted'] ?? 0)];
             $rows[] = ['Variance Total', (float) ($this->payload['variance_total'] ?? 0)];
+            if (!empty($this->transactions)) {
+                $rows[] = [];
+                $rows[] = ['Transactions'];
+                $rows[] = [
+                    'Business Date',
+                    'Cashier',
+                    'Expected Total',
+                    'Expected Cash',
+                    'Expected Non Cash',
+                    'Remitted',
+                    'Variance',
+                    'Status',
+                    'Recorded At',
+                    'Accountant',
+                ];
+                foreach ($this->transactions as $row) {
+                    $rows[] = [
+                        $row['business_date'] ?? '',
+                        $row['cashier'] ?? '',
+                        $row['expected_amount'] ?? 0,
+                        $row['expected_cash'] ?? 0,
+                        $row['expected_noncash_total'] ?? 0,
+                        $row['remitted_amount'] ?? 0,
+                        $row['variance_amount'] ?? 0,
+                        $row['status'] ?? '',
+                        $row['recorded_at'] ?? '',
+                        $row['accountant'] ?? '',
+                    ];
+                }
+            }
             return $rows;
         }
 
         $rows[] = ['Variance Total', (float) ($this->payload['variance_total'] ?? 0)];
+        if (!empty($this->transactions)) {
+            $rows[] = [];
+            $rows[] = ['Transactions'];
+            $rows[] = [
+                'Business Date',
+                'Cashier',
+                'Expected Total',
+                'Expected Cash',
+                'Expected Non Cash',
+                'Remitted',
+                'Variance',
+                'Status',
+                'Recorded At',
+                'Accountant',
+            ];
+            foreach ($this->transactions as $row) {
+                $rows[] = [
+                    $row['business_date'] ?? '',
+                    $row['cashier'] ?? '',
+                    $row['expected_amount'] ?? 0,
+                    $row['expected_cash'] ?? 0,
+                    $row['expected_noncash_total'] ?? 0,
+                    $row['remitted_amount'] ?? 0,
+                    $row['variance_amount'] ?? 0,
+                    $row['status'] ?? '',
+                    $row['recorded_at'] ?? '',
+                    $row['accountant'] ?? '',
+                ];
+            }
+        }
         return $rows;
     }
 

@@ -74,6 +74,7 @@ export default function Reports() {
     }
     filters: { q, type, from, to, page, per }
     loading: boolean (optional)
+    transactions: array (per type range)
 
     Export endpoints idea:
     - GET /dashboard/accountant/reports/export?type=sales&from=YYYY-MM-DD&to=YYYY-MM-DD&format=pdf
@@ -83,6 +84,7 @@ export default function Reports() {
   const reports = page.props?.reports || { data: [], meta: null };
   const rows = reports?.data || [];
   const meta = reports?.meta || null;
+  const transactions = Array.isArray(page.props?.transactions) ? page.props.transactions : [];
 
   const query = page.props?.filters || {};
   const qInitial = query?.q || "";
@@ -184,6 +186,199 @@ export default function Reports() {
   );
 
   const tableRows = loading ? fillerRows : effectiveRows;
+
+  const transactionFiller = useMemo(
+    () => Array.from({ length: Math.min(perInitial, 10) }).map((_, i) => ({ id: `__txn_filler__${i}`, __filler: true })),
+    [perInitial]
+  );
+
+  const transactionRows = loading ? transactionFiller : transactions;
+
+  const transactionColumns = useMemo(() => {
+    if (type === "sales") {
+      const base = [
+        {
+          key: "sale_datetime",
+          label: "Date/Time",
+          render: (r) =>
+            r?.__filler ? (
+              <SkeletonLine w="w-28" />
+            ) : (
+              <div className="text-sm text-slate-700">{r?.sale_datetime || "â€”"}</div>
+            ),
+        },
+        {
+          key: "reference",
+          label: "Sale #",
+          render: (r) =>
+            r?.__filler ? (
+              <SkeletonLine w="w-20" />
+            ) : (
+              <div className="text-sm font-extrabold text-slate-900">{r?.reference || "â€”"}</div>
+            ),
+        },
+        {
+          key: "customer",
+          label: "Customer",
+          render: (r) =>
+            r?.__filler ? <SkeletonLine w="w-24" /> : <div className="text-sm text-slate-700">{r?.customer || "Walk in"}</div>,
+        },
+        {
+          key: "cashier",
+          label: "Cashier",
+          render: (r) =>
+            r?.__filler ? <SkeletonLine w="w-24" /> : <div className="text-sm text-slate-700">{r?.cashier || "System"}</div>,
+        },
+        {
+          key: "items",
+          label: "Items",
+          render: (r) =>
+            r?.__filler ? (
+              <SkeletonLine w="w-12" />
+            ) : (
+              <div className="text-sm text-slate-700">
+                <span className="font-semibold text-slate-900">{r?.items_count ?? 0}</span>
+                <span className="text-slate-500"> / {r?.items_qty ?? 0} qty</span>
+              </div>
+            ),
+        },
+        {
+          key: "payments",
+          label: "Payments",
+          render: (r) =>
+            r?.__filler ? (
+              <SkeletonLine w="w-24" />
+            ) : (
+              <div className="text-sm text-slate-700 space-y-1">
+                <div>
+                  <span className="font-semibold text-slate-900">{money(r?.cash_amount || 0)}</span>
+                  <span className="text-slate-500"> cash</span>
+                </div>
+                <div className="text-xs text-slate-500">
+                  {money(r?.non_cash_amount || 0)} non-cash
+                </div>
+              </div>
+            ),
+        },
+      ];
+
+      const amountColumns = [
+        {
+          key: "net_amount",
+          label: "Net",
+          render: (r) =>
+            r?.__filler ? (
+              <SkeletonLine w="w-20" />
+            ) : (
+              <div className="text-sm font-semibold text-slate-800">{money(r?.net_amount || 0)}</div>
+            ),
+        },
+        {
+          key: "vat_amount",
+          label: "VAT",
+          render: (r) =>
+            r?.__filler ? (
+              <SkeletonLine w="w-20" />
+            ) : (
+              <div className="text-sm font-semibold text-slate-800">{money(r?.vat_amount || 0)}</div>
+            ),
+        },
+        {
+          key: "gross_amount",
+          label: "Gross",
+          render: (r) =>
+            r?.__filler ? (
+              <SkeletonLine w="w-20" />
+            ) : (
+              <div className="text-sm font-semibold text-slate-900">{money(r?.gross_amount || 0)}</div>
+            ),
+        },
+      ];
+
+      if (vatActive) {
+        return [...base, ...amountColumns];
+      }
+
+      return [
+        ...base,
+        {
+          key: "gross_amount",
+          label: "Total",
+          render: (r) =>
+            r?.__filler ? <SkeletonLine w="w-20" /> : <div className="text-sm font-semibold text-slate-900">{money(r?.gross_amount || 0)}</div>,
+        },
+      ];
+    }
+
+    return [
+      {
+        key: "business_date",
+        label: "Business date",
+        render: (r) =>
+          r?.__filler ? <SkeletonLine w="w-24" /> : <div className="text-sm text-slate-700">{r?.business_date || "â€”"}</div>,
+      },
+      {
+        key: "cashier",
+        label: "Cashier",
+        render: (r) =>
+          r?.__filler ? <SkeletonLine w="w-24" /> : <div className="text-sm text-slate-700">{r?.cashier || "System"}</div>,
+      },
+      {
+        key: "expected",
+        label: "Expected",
+        render: (r) =>
+          r?.__filler ? (
+            <SkeletonLine w="w-24" />
+          ) : (
+            <div className="text-sm text-slate-700 space-y-1">
+              <div>
+                <span className="font-semibold text-slate-900">{money(r?.expected_amount || 0)}</span>
+                <span className="text-slate-500"> total</span>
+              </div>
+              <div className="text-xs text-slate-500">
+                {money(r?.expected_cash || 0)} cash / {money(r?.expected_noncash_total || 0)} non-cash
+              </div>
+            </div>
+          ),
+      },
+      {
+        key: "remitted",
+        label: "Remitted",
+        render: (r) =>
+          r?.__filler ? <SkeletonLine w="w-20" /> : <div className="text-sm font-semibold text-slate-900">{money(r?.remitted_amount || 0)}</div>,
+      },
+      {
+        key: "variance",
+        label: "Variance",
+        render: (r) =>
+          r?.__filler ? (
+            <SkeletonLine w="w-20" />
+          ) : (
+            <div className={cx("text-sm font-extrabold", Number(r?.variance_amount || 0) === 0 ? "text-teal-700" : "text-amber-800")}>
+              {money(r?.variance_amount || 0)}
+            </div>
+          ),
+      },
+      {
+        key: "status",
+        label: "Status",
+        render: (r) =>
+          r?.__filler ? <SkeletonPill w="w-20" /> : <div className="text-xs font-extrabold text-slate-700">{String(r?.status || "pending").toUpperCase()}</div>,
+      },
+      {
+        key: "recorded_at",
+        label: "Recorded",
+        render: (r) =>
+          r?.__filler ? <SkeletonLine w="w-24" /> : <div className="text-sm text-slate-700">{r?.recorded_at || "â€”"}</div>,
+      },
+      {
+        key: "accountant",
+        label: "Accountant",
+        render: (r) =>
+          r?.__filler ? <SkeletonLine w="w-24" /> : <div className="text-sm text-slate-700">{r?.accountant || "System"}</div>,
+      },
+    ];
+  }, [type, vatActive]);
 
   const columns = useMemo(
     () => [
@@ -415,6 +610,26 @@ export default function Reports() {
           disablePrev={!meta || meta.current_page <= 1}
           disableNext={!meta || meta.current_page >= meta.last_page}
         />
+
+        <div className="rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm p-6 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-extrabold text-slate-900">Transactions in range</div>
+              <div className="text-xs text-slate-500">
+                {transactions.length} transaction{transactions.length === 1 ? "" : "s"} for {type}
+              </div>
+            </div>
+          </div>
+
+          <DataTable
+            columns={transactionColumns}
+            rows={transactionRows}
+            loading={loading}
+            searchQuery={q}
+            emptyTitle="No transactions found"
+            emptyHint="Try changing the date range or report type."
+          />
+        </div>
       </div>
     </Layout>
   );

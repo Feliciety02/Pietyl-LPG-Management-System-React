@@ -39,6 +39,14 @@ class ReportController extends Controller
             $query->where('report_type', $filters['type']);
         }
 
+        if (!empty($filters['from'])) {
+            $query->whereDate('date_from', '>=', $filters['from']);
+        }
+
+        if (!empty($filters['to'])) {
+            $query->whereDate('date_to', '<=', $filters['to']);
+        }
+
         $reports = $query->orderByDesc('generated_at')
             ->paginate($filters['per'])
             ->withQueryString();
@@ -59,6 +67,11 @@ class ReportController extends Controller
             ];
         });
 
+        $fromDate = Carbon::parse($filters['from'])->startOfDay();
+        $toDate = Carbon::parse($filters['to'])->endOfDay();
+
+        $transactions = $this->buildReportTransactions($filters['type'], $fromDate, $toDate);
+
         return Inertia::render('AccountantPage/Reports', [
             'reports' => [
                 'data' => $data,
@@ -71,6 +84,7 @@ class ReportController extends Controller
                 ],
             ],
             'filters' => $filters,
+            'transactions' => $transactions,
         ]);
     }
 
@@ -96,6 +110,7 @@ class ReportController extends Controller
         $toDate = Carbon::parse($to)->endOfDay();
 
         $payload = $this->buildReportPayload($reportType, $fromDate, $toDate, $costing);
+        $transactions = $this->buildReportTransactions($reportType, $fromDate, $toDate);
 
         $record = AccountingReport::create([
             'report_type' => $reportType,
@@ -120,6 +135,7 @@ class ReportController extends Controller
                 'from' => $fromDate,
                 'to' => $toDate,
                 'payload' => $payload,
+                'transactions' => $transactions,
             ])->render();
 
             return Pdf::loadHTML($html)
@@ -129,12 +145,12 @@ class ReportController extends Controller
 
         if ($format === 'xlsx') {
             return Excel::download(
-                new AccountingReportExport($reportType, $fromDate, $toDate, $payload),
+                new AccountingReportExport($reportType, $fromDate, $toDate, $payload, $transactions),
                 "{$filenameBase}.xlsx"
             );
         }
 
-        $csv = $this->payloadToCsv($reportType, $fromDate, $toDate, $payload);
+        $csv = $this->payloadToCsv($reportType, $fromDate, $toDate, $payload, $transactions);
         return response($csv, 200, [
             'Content-Type' => 'text/csv',
             'Content-Disposition' => "attachment; filename=\"{$filenameBase}.csv\"",
@@ -227,7 +243,7 @@ class ReportController extends Controller
         return $value;
     }
 
-    protected function payloadToCsv(string $type, Carbon $from, Carbon $to, array $payload): string
+    protected function payloadToCsv(string $type, Carbon $from, Carbon $to, array $payload, array $transactions): string
     {
         $lines = [];
         $lines[] = "report_type,from,to";
@@ -246,6 +262,26 @@ class ReportController extends Controller
                 $payload['gross_profit'] ?? 0,
                 $payload['inventory_valuation'] ?? 0,
             ]);
+            if (!empty($transactions)) {
+                $lines[] = "";
+                $lines[] = "sale_number,sale_datetime,customer,cashier,items_count,items_qty,cash_amount,non_cash_amount,net_amount,vat_amount,gross_amount";
+                foreach ($transactions as $row) {
+                    $lines[] = implode(',', [
+                        $row['reference'] ?? '',
+                        $row['sale_datetime'] ?? '',
+                        $this->escapeCsvValue($row['customer'] ?? ''),
+                        $this->escapeCsvValue($row['cashier'] ?? ''),
+                        $row['items_count'] ?? 0,
+                        $row['items_qty'] ?? 0,
+                        $row['cash_amount'] ?? 0,
+                        $row['non_cash_amount'] ?? 0,
+                        $row['net_amount'] ?? 0,
+                        $row['vat_amount'] ?? 0,
+                        $row['gross_amount'] ?? 0,
+                    ]);
+                }
+            }
+
             return implode("\n", $lines);
         }
 
@@ -255,11 +291,123 @@ class ReportController extends Controller
                 $payload['total_remitted'] ?? 0,
                 $payload['variance_total'] ?? 0,
             ]);
+            if (!empty($transactions)) {
+                $lines[] = "";
+                $lines[] = "business_date,cashier,expected_amount,expected_cash,expected_noncash_total,remitted_amount,variance_amount,status,recorded_at,accountant";
+                foreach ($transactions as $row) {
+                    $lines[] = implode(',', [
+                        $row['business_date'] ?? '',
+                        $this->escapeCsvValue($row['cashier'] ?? ''),
+                        $row['expected_amount'] ?? 0,
+                        $row['expected_cash'] ?? 0,
+                        $row['expected_noncash_total'] ?? 0,
+                        $row['remitted_amount'] ?? 0,
+                        $row['variance_amount'] ?? 0,
+                        $this->escapeCsvValue($row['status'] ?? ''),
+                        $row['recorded_at'] ?? '',
+                        $this->escapeCsvValue($row['accountant'] ?? ''),
+                    ]);
+                }
+            }
+
             return implode("\n", $lines);
         }
 
         $lines[] = "variance_total";
         $lines[] = (string) ($payload['variance_total'] ?? 0);
+        if (!empty($transactions)) {
+            $lines[] = "";
+            $lines[] = "business_date,cashier,expected_amount,expected_cash,expected_noncash_total,remitted_amount,variance_amount,status,recorded_at,accountant";
+            foreach ($transactions as $row) {
+                $lines[] = implode(',', [
+                    $row['business_date'] ?? '',
+                    $this->escapeCsvValue($row['cashier'] ?? ''),
+                    $row['expected_amount'] ?? 0,
+                    $row['expected_cash'] ?? 0,
+                    $row['expected_noncash_total'] ?? 0,
+                    $row['remitted_amount'] ?? 0,
+                    $row['variance_amount'] ?? 0,
+                    $this->escapeCsvValue($row['status'] ?? ''),
+                    $row['recorded_at'] ?? '',
+                    $this->escapeCsvValue($row['accountant'] ?? ''),
+                ]);
+            }
+        }
         return implode("\n", $lines);
+    }
+
+    protected function buildReportTransactions(string $type, Carbon $from, Carbon $to): array
+    {
+        if ($type === 'sales') {
+            $sales = Sale::query()
+                ->with(['customer', 'cashier', 'payments.paymentMethod'])
+                ->withCount('items')
+                ->withSum('items as items_qty', 'qty')
+                ->where('status', 'paid')
+                ->whereBetween('sale_datetime', [$from, $to])
+                ->orderByDesc('sale_datetime')
+                ->get();
+
+            return $sales->map(function ($sale) {
+                $payments = $sale->payments ?? collect();
+                $cashAmount = $payments->filter(function ($payment) {
+                    return $payment->paymentMethod?->method_key === 'cash';
+                })->sum('amount');
+                $totalPaid = $payments->sum('amount');
+                $nonCashAmount = $totalPaid - $cashAmount;
+
+                return [
+                    'transaction_type' => 'sale',
+                    'reference' => $sale->sale_number,
+                    'sale_datetime' => optional($sale->sale_datetime)->format('Y-m-d H:i:s'),
+                    'customer' => $sale->customer?->name ?? 'Walk in',
+                    'cashier' => $sale->cashier?->name ?? 'System',
+                    'items_count' => (int) ($sale->items_count ?? 0),
+                    'items_qty' => (int) ($sale->items_qty ?? 0),
+                    'cash_amount' => (float) $cashAmount,
+                    'non_cash_amount' => (float) $nonCashAmount,
+                    'net_amount' => (float) ($sale->net_amount ?? 0),
+                    'vat_amount' => (float) ($sale->vat_amount ?? 0),
+                    'gross_amount' => (float) ($sale->grand_total ?? $sale->gross_amount ?? 0),
+                ];
+            })->toArray();
+        }
+
+        $remittances = Remittance::query()
+            ->with(['cashier', 'accountant'])
+            ->whereBetween('business_date', [$from->toDateString(), $to->toDateString()]);
+
+        if ($type === 'discrepancies') {
+            $remittances->where('variance_amount', '!=', 0);
+        }
+
+        return $remittances
+            ->orderByDesc('business_date')
+            ->get()
+            ->map(function ($remittance) {
+                return [
+                    'transaction_type' => 'remittance',
+                    'business_date' => optional($remittance->business_date)->toDateString(),
+                    'cashier' => $remittance->cashier?->name ?? 'System',
+                    'expected_amount' => (float) ($remittance->expected_amount ?? 0),
+                    'expected_cash' => (float) ($remittance->expected_cash ?? 0),
+                    'expected_noncash_total' => (float) ($remittance->expected_noncash_total ?? 0),
+                    'remitted_amount' => (float) ($remittance->remitted_amount ?? 0),
+                    'variance_amount' => (float) ($remittance->variance_amount ?? 0),
+                    'status' => $remittance->status ?? 'pending',
+                    'recorded_at' => optional($remittance->recorded_at)->format('Y-m-d H:i:s'),
+                    'accountant' => $remittance->accountant?->name ?? 'System',
+                ];
+            })
+            ->toArray();
+    }
+
+    protected function escapeCsvValue(string $value): string
+    {
+        $clean = str_replace('"', '""', $value);
+        if (str_contains($clean, ',') || str_contains($clean, '"') || str_contains($clean, "\n")) {
+            return "\"{$clean}\"";
+        }
+        return $clean;
     }
 }
