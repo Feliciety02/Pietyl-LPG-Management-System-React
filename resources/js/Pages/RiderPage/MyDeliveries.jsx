@@ -122,11 +122,12 @@ function canTransition(from, to) {
   const F = normalize(f);
   const T = normalize(t);
 
-  // Allow transitions from pending OR assigned to in_transit
+  // Allow transitions from pending OR assigned to in_transit or failed ONLY
   if ((F === "pending" || F === "assigned") && (T === "in_transit" || T === "failed")) return true;
   
-  // Allow transitions from in_transit to delivered or failed
+  // Allow transitions from in_transit to delivered or failed ONLY
   if (F === "in_transit" && (T === "delivered" || T === "failed")) return true;
+  
   return false;
 }
 
@@ -523,7 +524,7 @@ export default function MyDeliveries() {
       return;
     }
 
-    const requiresProof = nextStatus === "delivered";
+    const requiresProof = false;
     const hasPhoto = Boolean(proofPhotoFile || proofPhotoData);
     const hasSignature = Boolean(signatureData);
 
