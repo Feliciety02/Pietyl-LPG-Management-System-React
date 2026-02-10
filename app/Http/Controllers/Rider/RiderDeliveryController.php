@@ -17,7 +17,6 @@ class RiderDeliveryController extends Controller
 
     public function index(Request $request)
     {
-       
         $user = $request->user();
 
         $deliveries = $this->deliveryService->getRiderDeliveries(

@@ -32,24 +32,36 @@ class DeliveryService
      * Update delivery status with business logic
      */
     public function updateDeliveryStatus(Delivery $delivery, string $newStatus, User $user): void
-{
-    $normalized = $this->normalizeStatus($newStatus);
+    {
+        \Log::info('=== UPDATE STATUS START ===', [
+            'delivery_id' => $delivery->id,
+            'current_status' => $delivery->status,
+            'new_status' => $newStatus,
+        ]);
+        
+        $normalized = $this->normalizeStatus($newStatus);
+        
+        \Log::info('Normalized status', ['normalized' => $normalized]);
 
-    if ($normalized === Delivery::STATUS_IN_TRANSIT) {
-        $this->deliveryRepository->setDispatched($delivery);
+        if ($normalized === Delivery::STATUS_IN_TRANSIT) {
+            \Log::info('Setting in_transit');
+            $this->deliveryRepository->setDispatched($delivery);
+            $this->deliveryRepository->updateStatus($delivery, $normalized);
+            return;
+        }
+
+        if ($normalized === Delivery::STATUS_DELIVERED) {
+            \Log::info('Processing delivered status');
+            $this->processDeliveredStatus($delivery, $user);
+            \Log::info('Updating to delivered');
+            $this->deliveryRepository->updateStatus($delivery, $normalized);
+            \Log::info('=== UPDATE STATUS COMPLETE ===');
+            return;
+        }
+
+        \Log::info('Updating status directly', ['status' => $normalized]);
         $this->deliveryRepository->updateStatus($delivery, $normalized);
-        return;
     }
-
-    if ($normalized === Delivery::STATUS_DELIVERED) {
-        $this->processDeliveredStatus($delivery, $user);
-        $this->deliveryRepository->updateStatus($delivery, $normalized);
-        return;
-    }
-
-    $this->deliveryRepository->updateStatus($delivery, $normalized);
-}
-
 
     /**
      * Update delivery note
@@ -68,43 +80,14 @@ class DeliveryService
     }
 
     /**
-     * Process delivered status - stock out items
+     * Process delivered status - just mark as delivered
      */
     private function processDeliveredStatus(Delivery $delivery, User $user): void
-{
-    $locationId = (int) ($user->location_id ?? 1);
-
-    $delivery->loadMissing([
-        'sale.items.productVariant',
-    ]);
-
-    $sale = $delivery->sale;
-
-    if (!$sale) {
-        abort(422, 'Delivery has no linked sale.');
+    {
+        \Log::info('processDeliveredStatus called');
+        $this->deliveryRepository->setDelivered($delivery);
+        \Log::info('setDelivered complete');
     }
-
-    if (($sale->items?->count() ?? 0) === 0) {
-        abort(422, 'No sale items found for this delivery.');
-    }
-
-    try {
-        foreach ($sale->items as $item) {
-            $this->inventoryService->stockOut(
-                productVariantId: (int) $item->product_variant_id,
-                locationId: $locationId,
-                qty: (int) $item->qty,
-                userId: (int) $user->id,
-                referenceType: 'delivery',
-                referenceId: (string) $delivery->id
-            );
-        }
-    } catch (\Throwable $e) {
-        abort(422, 'Unable to mark delivered. Inventory error: ' . $e->getMessage());
-    }
-
-    $this->deliveryRepository->setDelivered($delivery);
-}
 
     /**
      * Normalize status (convert "on_the_way" to "in_transit")
@@ -116,76 +99,52 @@ class DeliveryService
     }
 
     /**
-     * Validate status transition
-     */
-    private function validateStatusTransition(string $fromStatus, string $toStatus): void
-    {
-        $from = strtolower($fromStatus);
-
-        $allowedTransitions = [
-            Delivery::STATUS_PENDING => [
-                Delivery::STATUS_IN_TRANSIT,
-                Delivery::STATUS_FAILED,
-                Delivery::STATUS_CANCELLED
-            ],
-            Delivery::STATUS_IN_TRANSIT => [
-                Delivery::STATUS_DELIVERED,
-                Delivery::STATUS_FAILED,
-                Delivery::STATUS_CANCELLED
-            ],
-        ];
-
-        if (isset($allowedTransitions[$from]) && !in_array($toStatus, $allowedTransitions[$from], true)) {
-            abort(422, 'Invalid status transition.');
-        }
-    }
-
-    /**
      * Format delivery for display
      */
     private function formatDeliveryForDisplay(Delivery $delivery): array
-{
-    $delivery->loadMissing([
-        'customer',
-        'address',
-        'sale.items.productVariant.product',
-    ]);
+    {
+        $delivery->loadMissing([
+            'customer',
+            'address',
+            'sale.items.productVariant.product',
+        ]);
 
-    return [
-        'id' => $delivery->id,
-        'code' => $delivery->delivery_number,
-        'delivery_type' => 'delivery',
-        'scheduled_at' => $delivery->scheduled_at?->format('M d, Y g:i A') ?? '',
-        'created_at' => $delivery->created_at?->format('Y-m-d H:i') ?? '',
-        'status' => (string) $delivery->status,
-        'customer_name' => $delivery->customer?->name ?? 'Customer',
-        'customer_phone' => $delivery->customer?->phone ?? '',
-        'address' => $this->formatAddress($delivery),
-        'barangay' => $delivery->address?->barangay ?? '',
-        'landmark' => $delivery->address?->landmark ?? '',
-        'instructions' => $delivery->address?->instructions ?? '',
-        'payment_method' => $delivery->sale?->payment_method ?? '',
-        'payment_status' => $delivery->sale?->payment_status ?? '',
-        'amount_total' => $delivery->sale?->grand_total ?? 0,
-        'delivery_fee' => $delivery->sale?->delivery_fee ?? 0,
-        'distance_km' => $delivery->distance_km ?? '',
-        'eta_mins' => $delivery->eta_mins ?? '',
+        return [
+            'id' => $delivery->id,
+            'code' => $delivery->delivery_number,
+            'delivery_type' => 'delivery',
+            'scheduled_at' => $delivery->scheduled_at?->format('M d, Y g:i A') ?? '',
+            'created_at' => $delivery->created_at?->format('Y-m-d H:i') ?? '',
+            'status' => (string) $delivery->status,
+            'customer_name' => $delivery->customer?->name ?? 'Customer',
+            'customer_phone' => $delivery->customer?->phone ?? '',
+            'address' => $this->formatAddress($delivery),
+            'barangay' => $delivery->address?->barangay ?? '',
+            'landmark' => $delivery->address?->landmark ?? '',
+            'instructions' => $delivery->address?->instructions ?? '',
+            'payment_method' => $delivery->sale?->payment_method ?? '',
+            'payment_status' => $delivery->sale?->payment_status ?? '',
+            'amount_total' => $delivery->sale?->grand_total ?? 0,
+            'delivery_fee' => $delivery->sale?->delivery_fee ?? 0,
+            'distance_km' => $delivery->distance_km ?? '',
+            'eta_mins' => $delivery->eta_mins ?? '',
 
-        'items' => ($delivery->sale?->items ?? collect())->map(function ($item) {
-            $productName = $item->productVariant?->product?->name ?? '';
-            $variantName = $item->productVariant?->variant_name ?? '';
+            'items' => ($delivery->sale?->items ?? collect())->map(function ($item) {
+                $productName = $item->productVariant?->product?->name ?? '';
+                $variantName = $item->productVariant?->variant_name ?? '';
 
-            $fullName = trim($productName . ' ' . ($variantName !== '' ? '(' . $variantName . ')' : ''));
+                $fullName = trim($productName . ' ' . ($variantName !== '' ? '(' . $variantName . ')' : ''));
 
-            return [
-                'name' => $fullName !== '' ? $fullName : 'Item',
-                'qty' => (int) ($item->qty ?? 0),
-            ];
-        })->values(),
+                return [
+                    'name' => $fullName !== '' ? $fullName : 'Item',
+                    'qty' => (int) ($item->qty ?? 0),
+                ];
+            })->values(),
 
-        'notes' => (string) ($delivery->notes ?? ''),
-    ];
-}
+            'notes' => (string) ($delivery->notes ?? ''),
+        ];
+    }
+
     /**
      * Format address for display
      */
