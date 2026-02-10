@@ -63,57 +63,34 @@ class InventoryBalanceService
         $riskFilter = (string) ($filters['risk'] ?? 'all');
         $reqFilter = (string) ($filters['req'] ?? 'all');
         $scope = (string) ($filters['scope'] ?? 'low');
-        $showAll = $scope === 'all';
 
-        // Aggregate inventory across all locations per variant
-        $query = DB::table('inventory_balances as ib')
-            ->select([
-                'pv.id as product_variant_id',
-                'p.id as product_id',
-                'p.sku',
-                'p.name as product_name',
-                'pv.variant_name',
-                DB::raw('SUM(ib.qty_filled) as total_qty_filled'),
-                DB::raw('MAX(ib.reorder_level) as max_reorder_level'),
-                DB::raw('MAX(ib.updated_at) as last_updated'),
-            ])
-            ->join('product_variants as pv', 'ib.product_variant_id', '=', 'pv.id')
-            ->join('products as p', 'pv.product_id', '=', 'p.id');
+        // Get low stock items from repository
+        $lowStockBalances = $scope === 'all' 
+            ? $this->repo->allWithRelations()
+            : $this->repo->lowStock();
 
-        if (!$showAll) {
-            $query->where('ib.reorder_level', '>', 0);
-        }
+        \Log::info('Low stock query', [
+            'scope' => $scope,
+            'count' => $lowStockBalances->count(),
+        ]);
 
-        $query->groupBy('pv.id', 'p.id', 'p.sku', 'p.name', 'pv.variant_name');
-
-        if (!$showAll) {
-            $query->havingRaw('SUM(ib.qty_filled) <= MAX(ib.reorder_level)');
-        }
-
+        // Apply search filter
         if ($q !== '') {
-            $query->where(function ($sub) use ($q) {
-                $sub->where('p.name', 'like', "%{$q}%")
-                    ->orWhere('p.sku', 'like', "%{$q}%")
-                    ->orWhere('pv.variant_name', 'like', "%{$q}%");
+            $lowStockBalances = $lowStockBalances->filter(function ($balance) use ($q) {
+                $product = $balance->productVariant?->product;
+                $searchText = strtolower(
+                    ($product?->name ?? '') . ' ' . 
+                    ($product?->sku ?? '') . ' ' . 
+                    ($balance->productVariant?->variant_name ?? '')
+                );
+                return str_contains($searchText, strtolower($q));
             });
         }
 
-        $results = $query->get();
+        // Get variant IDs for additional data
+        $variantIds = $lowStockBalances->pluck('product_variant_id')->unique()->values();
 
-        // Debug logging
-        \Log::info('Low stock aggregated results:', [
-            'total_found' => $results->count(),
-            'sample' => $results->take(3)->map(fn($r) => [
-                'variant_id' => $r->product_variant_id,
-                'name' => $r->product_name,
-                'available' => (int) ($r->total_qty_filled ?? 0),
-                'reorder_level' => $r->max_reorder_level,
-            ])
-        ]);
-
-        $variantIds = collect($results)->pluck('product_variant_id')->unique()->values();
-
-        // Get latest restock request per variant (across all locations)
+        // Get latest restock request per variant
         $latestItems = RestockRequestItem::query()
             ->whereIn('product_variant_id', $variantIds)
             ->with(['restockRequest.requestedBy'])
@@ -123,16 +100,15 @@ class InventoryBalanceService
         $latestByVariant = [];
         foreach ($latestItems as $item) {
             $request = $item->restockRequest;
-            if (!$request) {
-                continue;
-            }
+            if (!$request) continue;
+            
             $key = $item->product_variant_id;
             if (!isset($latestByVariant[$key])) {
                 $latestByVariant[$key] = $item;
             }
         }
 
-        // Get primary suppliers for variants
+        // Get primary suppliers
         $suppliers = DB::table('supplier_products as sp')
             ->whereIn('sp.product_variant_id', $variantIds)
             ->where('sp.is_primary', true)
@@ -145,15 +121,16 @@ class InventoryBalanceService
             ->get()
             ->keyBy('product_variant_id');
 
-        $mapped = collect($results)->map(function ($row) use ($latestByVariant, $suppliers, $scope) {
-            $qtyFilled = (int) ($row->total_qty_filled ?? 0);
-            $available = $qtyFilled;
-            $reorderLevel = (int) ($row->max_reorder_level ?? 0);
-
+        // Map to expected format
+        $mapped = $lowStockBalances->map(function ($balance) use ($latestByVariant, $suppliers, $scope) {
+            $qtyFilled = (int) $balance->qty_filled;
+            $reorderLevel = (int) $balance->reorder_level;
+            
+            // Calculate risk level
             if ($reorderLevel <= 0) {
                 $riskLevel = 'ok';
             } else {
-                $ratio = $available / $reorderLevel;
+                $ratio = $qtyFilled / $reorderLevel;
                 if ($ratio <= 0.5) {
                     $riskLevel = 'critical';
                 } elseif ($ratio < 1) {
@@ -163,36 +140,36 @@ class InventoryBalanceService
                 }
             }
 
-            $supplier = $suppliers->get($row->product_variant_id);
-            
-            $latestItem = $latestByVariant[$row->product_variant_id] ?? null;
+            $supplier = $suppliers->get($balance->product_variant_id);
+            $latestItem = $latestByVariant[$balance->product_variant_id] ?? null;
             $latestRequest = $latestItem?->restockRequest;
             $requestedBy = $latestRequest?->requestedBy;
 
             return [
-                'id' => $row->product_variant_id, // Use variant ID as unique identifier
-                'location_id' => null, // Combined across all locations
-                'location_name' => 'All Locations',
-                'sku' => $row->sku,
-                'name' => $row->product_name,
-                'variant' => $row->variant_name,
-                'product_variant_id' => $row->product_variant_id,
+                'id' => $balance->id,
+                'location_id' => $balance->location_id,
+                'location_name' => $balance->location?->name ?? 'Unknown',
+                'sku' => $balance->productVariant?->product?->sku,
+                'name' => $balance->productVariant?->product?->name,
+                'variant' => $balance->productVariant?->variant_name,
+                'product_variant_id' => $balance->product_variant_id,
                 'supplier_id' => $supplier?->supplier_id,
                 'supplier_name' => $supplier?->supplier_name ?? '-',
                 'qty_filled' => $qtyFilled,
-                'current_qty' => $available,
+                'current_qty' => $qtyFilled,
                 'reorder_level' => $reorderLevel,
                 'est_days_left' => rand(1, 5),
                 'risk_level' => $riskLevel,
                 'scope' => $scope,
-                'last_movement_at' => \Carbon\Carbon::parse($row->last_updated)->format('M d, Y h:i A'),
+                'last_movement_at' => $balance->updated_at?->format('M d, Y h:i A'),
                 'purchase_request_id' => $latestRequest?->id,
                 'purchase_request_status' => $latestRequest?->status,
                 'requested_by_name' => $requestedBy?->name,
                 'requested_at' => $latestRequest?->created_at?->format('M d, Y h:i A'),
             ];
-        });
+        })->values();
 
+        // Apply risk filter
         $filtered = $mapped->filter(function ($row) use ($riskFilter, $reqFilter) {
             if ($riskFilter !== 'all' && $row['risk_level'] !== $riskFilter) {
                 return false;
@@ -209,6 +186,7 @@ class InventoryBalanceService
             return true;
         })->values();
 
+        // Paginate
         $total = $filtered->count();
         $page = max(1, $page);
         $perPage = max(1, $perPage);
@@ -221,14 +199,14 @@ class InventoryBalanceService
             $page
         );
 
-        // Build product hash
+        // Build product hash for all variants
         $allVariants = ProductVariant::with(['product.supplier', 'suppliers'])->get();
         $productHash = [];
         $suppliersByProduct = [];
         $products = [];
+        
         foreach ($allVariants as $variant) {
             $key = $variant->product->name . '|' . $variant->variant_name;
-
             $primarySupplier = $variant->suppliers()->wherePivot('is_primary', true)->first();
 
             if (!isset($productHash[$key])) {
@@ -250,7 +228,6 @@ class InventoryBalanceService
             }
 
             $baseCost = (float) ($variant->product?->supplier_cost ?? 0);
-
             $variantSuppliers = $variant->suppliers->map(function ($s) use ($baseCost) {
                 $pivotCost = (float) ($s->pivot->supplier_cost ?? 0);
                 $resolvedCost = $pivotCost > 0 ? $pivotCost : $baseCost;
@@ -278,7 +255,6 @@ class InventoryBalanceService
             }
 
             $suppliersByProduct[$variant->id] = ['suppliers' => $variantSuppliers];
-
 
             $products[] = [
                 'id' => $variant->id,

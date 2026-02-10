@@ -327,7 +327,7 @@ export default function Lowstock() {
   const openRequestModal = (row) => {
     setOrderModal({
       open: true,
-      mode: "request",
+      mode: "purchase",
       item: row || null,
     });
   };
@@ -357,68 +357,49 @@ export default function Lowstock() {
     });
   };
 
-  const rejectRequest = (row) => {
-    setConfirm({
-      open: true,
-      tone: "rose",
-      title: "Decline Request",
-      message: `Decline restock request for ${row.name} (${row.variant})?`,
-      onConfirm: () => {
-        setConfirm((p) => ({ ...p, open: false }));
-        router.post(
-          `/dashboard/admin/purchase-requests/${row.purchase_request_id}/reject`,
-          {},
-          {
-            preserveScroll: true,
-            onSuccess: () =>
-              setLocalRows((prev) =>
-                prev.map((r) =>
-                  r.id === row.id ? { ...r, purchase_request_status: "rejected" } : r
-                )
-              ),
-          }
-        );
-      },
-    });
-  };
-
-  const handleOrderSubmit = (payload) => {
-    if (orderModal.mode === "request") {
-      const row = orderModal.item;
-      const merged = {
-        ...payload,
-        current_qty: row?.qty_filled ?? row?.current_qty ?? 0,
-        reorder_level: row?.reorder_level ?? 0,
-        supplier_id: row?.supplier_id ?? null,
-        location_id: row?.location_id ?? null,
-      };
-
-      router.post("/dashboard/inventory/purchase-requests", merged, {
-        preserveScroll: true,
-        onSuccess: () => {
-          closeOrderModal();
-          if (!row) return;
-          setLocalRows((prev) =>
-            prev.map((r) =>
-              r.id === row.id
-                ? {
-                    ...r,
-                    purchase_request_status: "pending",
-                    requested_by_name: page.props?.auth?.user?.name || r.requested_by_name,
-                    requested_at: "Just now",
-                  }
-                : r
-            )
+    const rejectRequest = (row) => {
+      setConfirm({
+        open: true,
+        tone: "rose",
+        title: "Decline Request",
+        message: `Decline restock request for ${row.name} (${row.variant})?`,
+        onConfirm: () => {
+          setConfirm((p) => ({ ...p, open: false }));
+          router.post(
+            `/dashboard/admin/purchase-requests/${row.purchase_request_id}/reject`,
+            {},
+            {
+              preserveScroll: true,
+              onSuccess: () =>
+                setLocalRows((prev) =>
+                  prev.map((r) =>
+                    r.id === row.id ? { ...r, purchase_request_status: "rejected" } : r
+                  )
+                ),
+            }
           );
         },
       });
-      return;
-    }
+    };
 
-    router.post("/dashboard/inventory/purchases", payload, {
+  const handleOrderSubmit = (payload) => {
+    const row = orderModal.item;
+    
+    // Create purchase directly
+    const purchasePayload = {
+      product_variant_id: payload.product_variant_id,
+      supplier_id: payload.supplier_id,
+      qty: payload.qty,
+      unit_cost: payload.unit_cost,
+      notes: payload.notes,
+      location_id: row?.location_id ?? 1,
+    };
+
+    router.post("/dashboard/inventory/purchases", purchasePayload, {
       preserveScroll: true,
       onSuccess: () => {
         closeOrderModal();
+        router.visit('/dashboard/inventory/purchases');
       },
     });
   };
@@ -615,7 +596,7 @@ export default function Lowstock() {
           open={orderModal.open}
           onClose={closeOrderModal}
           item={orderModal.item}
-          products={orderModal.mode === "request" ? productHash : products}
+          products={productHash}
           suppliers={suppliers}
           mode={orderModal.mode}
           onSubmit={handleOrderSubmit}

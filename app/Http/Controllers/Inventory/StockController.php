@@ -131,7 +131,7 @@ class StockController extends Controller
         }
 
         $data = $inventoryBalanceService->getLowStock($filters);
-
+      
         return Inertia::render('InventoryPage/Lowstock', [
             'low_stock' => $data['low_stock'],
             'product_hash' => $data['product_hash'],
