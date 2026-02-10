@@ -38,6 +38,8 @@ export default function SaleDetailsModal({ open, onClose, sale }) {
   const methodRaw = String(sale.method || "cash").toLowerCase();
   const method =
     methodRaw === "gcash" ? "GCash" : methodRaw === "card" ? "Card" : "Cash";
+  const paymentRef = safeText(sale.payment_ref || sale.reference_no || "");
+  const showPaymentRef = (methodRaw === "gcash" || methodRaw === "card") && paymentRef;
 
   const showCash =
     methodRaw === "cash" &&
@@ -99,6 +101,18 @@ export default function SaleDetailsModal({ open, onClose, sale }) {
                 <span className="k">Receipt No:</span>
                 <span className="v strong">{safeText(sale.ref) || "—"}</span>
               </div>
+              <div className="receipt-meta-row">
+                <span className="k">Payment Method:</span>
+                <span className="v strong">{method}</span>
+              </div>
+
+              {showPaymentRef ? (
+                <div className="receipt-meta-row">
+                  <span className="k">Reference No:</span>
+                  <span className="v strong">{paymentRef}</span>
+                </div>
+              ) : null}
+
               <div className="receipt-meta-row">
                 <span className="k">Date:</span>
                 <span className="v">

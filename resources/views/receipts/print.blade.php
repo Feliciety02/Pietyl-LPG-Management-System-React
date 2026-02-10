@@ -28,6 +28,16 @@
             <div>Receipt No: <strong>{{ $sale['ref'] ?? '' }}</strong></div>
             <div>{{ $sale['date_label'] ?? '' }} {{ $sale['time_label'] ?? '' }}</div>
         </div>
+        <div class="meta">
+            <div>Payment Method: <strong>{{ strtoupper($sale['method'] ?? 'cash') }}</strong></div>
+            <div></div>
+        </div>
+        @if(!empty($sale['payment_ref']))
+            <div class="meta">
+                <div>Reference No: <strong>{{ $sale['payment_ref'] }}</strong></div>
+                <div></div>
+            </div>
+        @endif
 
         <table>
             <thead>
