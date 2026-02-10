@@ -60,7 +60,6 @@ class StockManagementService
                 'location_id' => $locationId,
                 'product_variant_id' => $productVariantId,
                 'qty_filled' => 0,
-                'qty_empty' => 0,
                 'qty_reserved' => 0,
             ]);
         }

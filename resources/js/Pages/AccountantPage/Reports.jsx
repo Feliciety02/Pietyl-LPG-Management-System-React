@@ -5,7 +5,7 @@ import Layout from "../Dashboard/Layout";
 import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
-import { Download, FileText, ShieldCheck } from "lucide-react";
+import { FileText, ShieldCheck } from "lucide-react";
 import { SkeletonLine, SkeletonButton, SkeletonPill } from "@/components/ui/Skeleton";
 
 function cx(...classes) {
@@ -268,13 +268,15 @@ export default function Reports() {
 
   const exportBase = "/dashboard/accountant/reports/export";
 
-  const exportHref = (format) => {
-    const params = new URLSearchParams({
-      type: type,
-      from: from,
-      to: to,
-      format: format,
-    });
+  const exportHref = (format, row = null) => {
+    const reportType = row?.report_type ?? type;
+    const dateFrom = row?.date_from ?? from;
+    const dateTo = row?.date_to ?? to;
+    const params = new URLSearchParams();
+    if (reportType) params.set("type", reportType);
+    if (dateFrom) params.set("from", dateFrom);
+    if (dateTo) params.set("to", dateTo);
+    params.set("format", format);
     return `${exportBase}?${params.toString()}`;
   };
 
@@ -285,13 +287,27 @@ export default function Reports() {
           title="Reports"
           subtitle="Generate financial reports for owner review and record keeping. Exports are read-only snapshots."
           right={
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <a
                 href={exportHref("csv")}
                 className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 transition focus:ring-4 focus:ring-teal-500/25"
               >
                 <FileText className="h-4 w-4" />
                 Export CSV
+              </a>
+
+              <a
+                href={exportHref("pdf")}
+                className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
+              >
+                Export PDF
+              </a>
+
+              <a
+                href={exportHref("xlsx")}
+                className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
+              >
+                Export XLSX
               </a>
 
               <Link
@@ -363,20 +379,28 @@ export default function Reports() {
             ) : (
               <div className="flex items-center justify-end gap-2">
                 <a
-                  href={`${exportBase}?id=${encodeURIComponent(r.id)}&format=csv`}
+                  href={exportHref("csv", r)}
                   className="rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
                   title="Export this report to CSV"
                 >
                   CSV
                 </a>
 
-                <button
-                  type="button"
-                  className="rounded-2xl bg-white p-2 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
-                  title="More actions"
+                <a
+                  href={exportHref("pdf", r)}
+                  className="rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
+                  title="Export this report to PDF"
                 >
-                  <Download className="h-4 w-4 text-slate-600" />
-                </button>
+                  PDF
+                </a>
+
+                <a
+                  href={exportHref("xlsx", r)}
+                  className="rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
+                  title="Export this report to XLSX"
+                >
+                  XLSX
+                </a>
               </div>
             )
           }

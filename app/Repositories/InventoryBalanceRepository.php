@@ -20,7 +20,7 @@ class InventoryBalanceRepository implements InventoryBalanceRepositoryInterface
 
     public function lowStock()
     {
-        return InventoryBalance::whereRaw('(qty_filled + qty_empty) <= reorder_level')
+        return InventoryBalance::whereRaw('qty_filled <= reorder_level')
             ->with(['productVariant.product', 'location'])
             ->get();
     }
@@ -38,7 +38,6 @@ class InventoryBalanceRepository implements InventoryBalanceRepositoryInterface
 
     public function updateInventory(InventoryBalance $balance, array $data) {
         $balance->qty_filled = $data['filled_qty'];
-        $balance->qty_empty = $data['empty_qty'];
         $balance->reorder_level = $data['reorder_level'] ?? $balance->reorder_level;
         $balance->save();
 

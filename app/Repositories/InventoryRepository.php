@@ -31,7 +31,6 @@ class InventoryRepository
     {
         $newFilled = max(0, (int) $balance->qty_filled - $qtyDeducted);
         $balance->qty_filled = $newFilled;
-        $balance->qty_empty = $balance->qty_empty + $qtyDeducted;
         $balance->save();
     }
 

@@ -1,5 +1,5 @@
 // resources/js/pages/Dashboard/Rider/MyDeliveries.jsx
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { usePage, router } from "@inertiajs/react";
 import Layout from "@/pages/Dashboard/Layout";
 import {
@@ -12,10 +12,62 @@ import {
   XCircle,
   Navigation,
   FileText,
+  Camera,
+  PenLine,
+  Wifi,
+  WifiOff,
+  RefreshCcw,
+  Trash2,
 } from "lucide-react";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
+}
+
+const OFFLINE_QUEUE_KEY = "rider_offline_queue_v1";
+
+function loadQueue() {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(OFFLINE_QUEUE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveQueue(queue) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+  } catch {
+    // Ignore storage errors (quota, private mode, etc.)
+  }
+}
+
+function applyQueueToDeliveries(deliveries, queue) {
+  if (!Array.isArray(deliveries) || !Array.isArray(queue) || queue.length === 0) return deliveries;
+
+  const next = deliveries.map((d) => ({ ...d }));
+
+  queue.forEach((item) => {
+    const idx = next.findIndex((d) => d.id === item.deliveryId);
+    if (idx === -1) return;
+
+    if (item.type === "status") {
+      next[idx].status = item.payload?.status || next[idx].status;
+    }
+
+    if (item.type === "note") {
+      next[idx].notes = item.payload?.note ?? next[idx].notes ?? "";
+    }
+  });
+
+  return next;
+}
+
+function makeQueueId() {
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function Card({ children, className = "" }) {
@@ -137,6 +189,85 @@ function ActionBtn({ tone = "neutral", disabled, onClick, icon: Icon, children }
   );
 }
 
+function SignaturePad({ value, onChange }) {
+  const canvasRef = useRef(null);
+  const drawingRef = useRef(false);
+  const lastPointRef = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (!value) return;
+    const img = new Image();
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    };
+    img.src = value;
+  }, [value]);
+
+  function getPoint(e) {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: ((e.clientX || 0) - rect.left) * (canvas.width / rect.width),
+      y: ((e.clientY || 0) - rect.top) * (canvas.height / rect.height),
+    };
+  }
+
+  function startDrawing(e) {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    drawingRef.current = true;
+    lastPointRef.current = getPoint(e);
+  }
+
+  function draw(e) {
+    const canvas = canvasRef.current;
+    if (!canvas || !drawingRef.current) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const nextPoint = getPoint(e);
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#0f172a";
+    ctx.beginPath();
+    ctx.moveTo(lastPointRef.current.x, lastPointRef.current.y);
+    ctx.lineTo(nextPoint.x, nextPoint.y);
+    ctx.stroke();
+    lastPointRef.current = nextPoint;
+  }
+
+  function stopDrawing() {
+    const canvas = canvasRef.current;
+    if (!canvas || !drawingRef.current) return;
+    drawingRef.current = false;
+    if (onChange) {
+      onChange(canvas.toDataURL("image/png"));
+    }
+  }
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={600}
+      height={200}
+      onPointerDown={startDrawing}
+      onPointerMove={draw}
+      onPointerUp={stopDrawing}
+      onPointerLeave={stopDrawing}
+      onPointerCancel={stopDrawing}
+      className="w-full h-40 rounded-2xl bg-white ring-1 ring-slate-200 touch-none"
+    />
+  );
+}
+
 
 export default function MyDeliveries() {
   const { auth, deliveries: serverDeliveries } = usePage().props;
@@ -201,13 +332,63 @@ export default function MyDeliveries() {
     },
   ];
 
-  const deliveries = Array.isArray(serverDeliveries) ? serverDeliveries : DEV_SAMPLE;
+  const baseDeliveries = Array.isArray(serverDeliveries) ? serverDeliveries : DEV_SAMPLE;
+  const initialQueue = useMemo(() => loadQueue(), []);
+  const [queue, setQueue] = useState(initialQueue);
+  const [deliveries, setDeliveries] = useState(() =>
+    applyQueueToDeliveries(baseDeliveries, initialQueue)
+  );
 
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== "undefined" ? navigator.onLine : true
+  );
+  const [syncing, setSyncing] = useState(false);
 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [selectedId, setSelectedId] = useState(deliveries[0]?.id || null);
   const [noteDraft, setNoteDraft] = useState("");
+  const [noteError, setNoteError] = useState("");
+  const [proofPhotoFile, setProofPhotoFile] = useState(null);
+  const [proofPhotoData, setProofPhotoData] = useState("");
+  const [proofPhotoPreview, setProofPhotoPreview] = useState("");
+  const [signatureData, setSignatureData] = useState("");
+  const [proofError, setProofError] = useState("");
+  const photoInputRef = useRef(null);
+  const pendingCount = queue.length;
+
+  useEffect(() => {
+    function handleOnline() {
+      setIsOnline(true);
+    }
+
+    function handleOffline() {
+      setIsOnline(false);
+    }
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    saveQueue(queue);
+  }, [queue]);
+
+  useEffect(() => {
+    const nextBase = Array.isArray(serverDeliveries) ? serverDeliveries : DEV_SAMPLE;
+    setDeliveries(applyQueueToDeliveries(nextBase, queue));
+  }, [serverDeliveries]);
+
+  useEffect(() => {
+    if (isOnline && queue.length > 0) {
+      syncQueue();
+    }
+  }, [isOnline]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -225,12 +406,116 @@ export default function MyDeliveries() {
   const selectedAddress = selected?.address || "";
   const selectedStatus = selected?.status || "pending";
 
+  function resetProofInputs() {
+    setProofPhotoFile(null);
+    setProofPhotoData("");
+    setProofPhotoPreview("");
+    setSignatureData("");
+    setProofError("");
+    if (photoInputRef.current) {
+      photoInputRef.current.value = "";
+    }
+  }
+
   function selectDelivery(d) {
     setSelectedId(d.id);
     setNoteDraft(d.notes || "");
+    setNoteError("");
+    resetProofInputs();
   }
 
-  function updateStatus(nextStatus) {
+  function handlePhotoChange(event) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      setProofPhotoFile(null);
+      setProofPhotoData("");
+      setProofPhotoPreview("");
+      return;
+    }
+
+    setProofPhotoFile(file);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = typeof reader.result === "string" ? reader.result : "";
+      setProofPhotoData(dataUrl);
+      setProofPhotoPreview(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function updateLocalDelivery(deliveryId, changes) {
+    setDeliveries((prev) =>
+      prev.map((d) => (d.id === deliveryId ? { ...d, ...changes } : d))
+    );
+  }
+
+  function enqueueAction(action) {
+    setQueue((prev) => {
+      const pruned = prev.filter(
+        (item) => !(item.deliveryId === action.deliveryId && item.type === action.type)
+      );
+      return [...pruned, action];
+    });
+  }
+
+  async function sendStatusUpdate(deliveryId, payload) {
+    const formData = new FormData();
+    formData.append("_method", "PATCH");
+    formData.append("status", payload.status);
+
+    if (payload.proof_photo) {
+      formData.append("proof_photo", payload.proof_photo);
+    }
+    if (payload.proof_photo_data) {
+      formData.append("proof_photo_data", payload.proof_photo_data);
+    }
+    if (payload.proof_signature) {
+      formData.append("proof_signature", payload.proof_signature);
+    }
+
+    return window.axios.post(`/dashboard/rider/deliveries/${deliveryId}`, formData, {
+      headers: { Accept: "application/json" },
+    });
+  }
+
+  async function sendNoteUpdate(deliveryId, note) {
+    return window.axios.patch(
+      `/dashboard/rider/deliveries/${deliveryId}/note`,
+      { note },
+      { headers: { Accept: "application/json" } }
+    );
+  }
+
+  async function syncQueue() {
+    if (syncing || queue.length === 0) return;
+    setSyncing(true);
+
+    let remaining = [...queue];
+
+    for (const item of queue) {
+      try {
+        if (item.type === "status") {
+          await sendStatusUpdate(item.deliveryId, item.payload);
+        }
+        if (item.type === "note") {
+          await sendNoteUpdate(item.deliveryId, item.payload.note);
+        }
+        remaining = remaining.filter((queued) => queued.id !== item.id);
+        setQueue(remaining);
+      } catch {
+        break;
+      }
+    }
+
+    setSyncing(false);
+
+    if (remaining.length === 0) {
+      router.reload({ only: ["deliveries"] });
+    }
+  }
+
+  async function updateStatus(nextStatus) {
     if (!selected) return;
 
     if (!canTransition(selected.status, nextStatus)) {
@@ -238,21 +523,119 @@ export default function MyDeliveries() {
       return;
     }
 
-    router.patch(
-      `/dashboard/rider/deliveries/${selected.id}`,
-      { status: nextStatus },
-      { preserveScroll: true }
-    );
+    const requiresProof = nextStatus === "delivered";
+    const hasPhoto = Boolean(proofPhotoFile || proofPhotoData);
+    const hasSignature = Boolean(signatureData);
+
+    if (requiresProof && !hasPhoto && !hasSignature) {
+      setProofError("Capture a photo or signature before marking delivered.");
+      return;
+    }
+
+    setProofError("");
+
+    const payload = { status: nextStatus };
+
+    if (requiresProof) {
+      if (proofPhotoFile) {
+        payload.proof_photo = proofPhotoFile;
+      } else if (proofPhotoData) {
+        payload.proof_photo_data = proofPhotoData;
+      }
+
+      if (signatureData) {
+        payload.proof_signature = signatureData;
+      }
+    }
+
+    if (!isOnline) {
+      enqueueAction({
+        id: makeQueueId(),
+        deliveryId: selected.id,
+        type: "status",
+        payload: {
+          status: nextStatus,
+          proof_photo_data: hasPhoto ? proofPhotoData : "",
+          proof_signature: hasSignature ? signatureData : "",
+        },
+        created_at: new Date().toISOString(),
+      });
+      updateLocalDelivery(selected.id, { status: nextStatus });
+      if (requiresProof) {
+        resetProofInputs();
+      }
+      return;
+    }
+
+    try {
+      await sendStatusUpdate(selected.id, payload);
+      updateLocalDelivery(selected.id, { status: nextStatus });
+      if (requiresProof) {
+        resetProofInputs();
+      }
+    } catch (error) {
+      if (!navigator.onLine) {
+        enqueueAction({
+          id: makeQueueId(),
+          deliveryId: selected.id,
+          type: "status",
+          payload: {
+            status: nextStatus,
+            proof_photo_data: hasPhoto ? proofPhotoData : "",
+            proof_signature: hasSignature ? signatureData : "",
+          },
+          created_at: new Date().toISOString(),
+        });
+        updateLocalDelivery(selected.id, { status: nextStatus });
+        if (requiresProof) {
+          resetProofInputs();
+        }
+        return;
+      }
+
+      const message = error?.response?.data?.message || "Unable to update status.";
+      if (requiresProof) {
+        setProofError(message);
+      } else {
+        alert(message);
+      }
+    }
   }
 
-  function saveNote() {
+  async function saveNote() {
     if (!selected) return;
 
-    router.patch(
-      `/dashboard/rider/deliveries/${selected.id}/note`,
-      { note: noteDraft },
-      { preserveScroll: true }
-    );
+    setNoteError("");
+
+    if (!isOnline) {
+      enqueueAction({
+        id: makeQueueId(),
+        deliveryId: selected.id,
+        type: "note",
+        payload: { note: noteDraft },
+        created_at: new Date().toISOString(),
+      });
+      updateLocalDelivery(selected.id, { notes: noteDraft });
+      return;
+    }
+
+    try {
+      await sendNoteUpdate(selected.id, noteDraft);
+      updateLocalDelivery(selected.id, { notes: noteDraft });
+    } catch (error) {
+      if (!navigator.onLine) {
+        enqueueAction({
+          id: makeQueueId(),
+          deliveryId: selected.id,
+          type: "note",
+          payload: { note: noteDraft },
+          created_at: new Date().toISOString(),
+        });
+        updateLocalDelivery(selected.id, { notes: noteDraft });
+        return;
+      }
+      setNoteError(error?.response?.data?.message || "Unable to save note.");
+    }
   }
 
   return (

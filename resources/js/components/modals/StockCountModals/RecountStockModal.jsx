@@ -129,10 +129,8 @@ export default function RecountStockModal({
   items = [],
   onPickItem,
   filled,
-  empty,
   reason,
   setFilled,
-  setEmpty,
   setReason,
   submitting = false,
   error = "",
@@ -141,28 +139,22 @@ export default function RecountStockModal({
   submitLabel = "Save changes",
 }) {
   const filledN = safeInt(filled);
-  const emptyN = safeInt(empty);
-  const total = useMemo(() => filledN + emptyN, [filledN, emptyN]);
+  const total = useMemo(() => filledN, [filledN]);
 
   const reasonTrim = String(reason ?? "").trim();
 
   const filledErr = filled !== "" && !/^\d+$/.test(String(filled)) ? "Numbers only" : "";
-  const emptyErr = empty !== "" && !/^\d+$/.test(String(empty)) ? "Numbers only" : "";
   const reasonErr = !reasonTrim ? "Reason is required" : "";
 
   const canSave =
     Boolean(reasonTrim) &&
     !filledErr &&
-    !emptyErr &&
     !submitting &&
     Boolean(item || items.length === 0);
 
-  const currentFilled = safeInt(item?.current_filled);
-  const currentEmpty = safeInt(item?.current_empty);
-  const currentTotal = currentFilled + currentEmpty;
-
-  const hasCurrent =
-    Number.isFinite(Number(item?.current_filled)) || Number.isFinite(Number(item?.current_empty));
+  const currentFilled = safeInt(item?.current_filled ?? item?.filled_qty ?? item?.system_filled);
+  const currentTotal = currentFilled;
+  const hasCurrent = Number.isFinite(Number(item?.current_filled ?? item?.filled_qty ?? item?.system_filled));
 
   const submit = () => {
     if (!canSave) return;
@@ -271,7 +263,7 @@ export default function RecountStockModal({
 
               {/* Keep just 1 KPI here to avoid redundancy */}
               <div className="hidden lg:block">
-                <StatPill label="New total" value={total} tone="teal" />
+                <StatPill label="New filled" value={total} tone="teal" />
               </div>
             </div>
           </div>
@@ -284,7 +276,7 @@ export default function RecountStockModal({
             <div className="p-5">
               <div className="text-xs font-extrabold text-slate-700">Enter new counts</div>
 
-              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+              <div className="mt-3 grid gap-4">
                 <Field label="Filled qty" hint="numbers only" error={filledErr} required>
                   <InputShell>
                     <input
@@ -292,19 +284,6 @@ export default function RecountStockModal({
                       onChange={(e) => setFilled?.(clampNumericInput(e.target.value))}
                       inputMode="numeric"
                       placeholder="24"
-                      disabled={submitting}
-                      className="w-full bg-transparent text-sm font-extrabold text-slate-900 outline-none placeholder:text-slate-400"
-                    />
-                  </InputShell>
-                </Field>
-
-                <Field label="Empty qty" hint="numbers only" error={emptyErr} required>
-                  <InputShell>
-                    <input
-                      value={empty}
-                      onChange={(e) => setEmpty?.(clampNumericInput(e.target.value))}
-                      inputMode="numeric"
-                      placeholder="18"
                       disabled={submitting}
                       className="w-full bg-transparent text-sm font-extrabold text-slate-900 outline-none placeholder:text-slate-400"
                     />
@@ -348,9 +327,8 @@ export default function RecountStockModal({
               </div>
 
               {/* Compact totals (3 pills, not a big KPI wall) */}
-              <div className="mt-3 grid grid-cols-3 gap-3">
+              <div className="mt-3 grid grid-cols-2 gap-3">
                 <StatPill label="Filled" value={filledN} />
-                <StatPill label="Empty" value={emptyN} />
                 <StatPill label="Total" value={total} tone="teal" />
               </div>
 
@@ -359,9 +337,7 @@ export default function RecountStockModal({
                   <div className="text-xs font-extrabold text-slate-700">Change breakdown</div>
 
                   <div className="mt-3 grid gap-3">
-                    <ChangeRow label="Filled" current={currentFilled} next={filledN} />
-                    <ChangeRow label="Empty" current={currentEmpty} next={emptyN} />
-                    <ChangeRow label="Total" current={currentTotal} next={total} deltaTone="teal" />
+                    <ChangeRow label="Filled" current={currentFilled} next={filledN} deltaTone="teal" />
                   </div>
 
                   <div className="mt-3 text-[11px] text-slate-500">

@@ -39,8 +39,6 @@ class InventoryBalanceSheet implements FromArray, ShouldAutoSize, WithColumnForm
             'Variant',
             'SKU',
             'Filled Units',
-            'Empty Units',
-            'Total Units',
             'Reorder Level',
             'Status',
             'Last Updated',
@@ -48,7 +46,7 @@ class InventoryBalanceSheet implements FromArray, ShouldAutoSize, WithColumnForm
 
         // Data rows
         foreach ($this->balances as $balance) {
-            $total = $balance['qty_filled'] + $balance['qty_empty'];
+            $total = $balance['qty_filled'];
             $status = $total <= $balance['reorder_level'] ? 'LOW STOCK' : 'OK';
 
             $rows[] = [
@@ -56,8 +54,6 @@ class InventoryBalanceSheet implements FromArray, ShouldAutoSize, WithColumnForm
                 $balance['variant_name'],
                 $balance['sku'],
                 (int) $balance['qty_filled'],
-                (int) $balance['qty_empty'],
-                (int) $total,
                 (int) $balance['reorder_level'],
                 $status,
                 $balance['updated_at'],
@@ -68,7 +64,7 @@ class InventoryBalanceSheet implements FromArray, ShouldAutoSize, WithColumnForm
         $rows[] = [];
         $rows[] = ['Summary'];
         $rows[] = ['Total Items', count($this->balances)];
-        $rows[] = ['Low Stock Items', $this->balances->filter(fn ($b) => ($b['qty_filled'] + $b['qty_empty']) <= $b['reorder_level'])->count()];
+        $rows[] = ['Low Stock Items', $this->balances->filter(fn ($b) => $b['qty_filled'] <= $b['reorder_level'])->count()];
 
         return $rows;
     }
@@ -92,8 +88,6 @@ class InventoryBalanceSheet implements FromArray, ShouldAutoSize, WithColumnForm
         return [
             'D' => NumberFormat::FORMAT_NUMBER,
             'E' => NumberFormat::FORMAT_NUMBER,
-            'F' => NumberFormat::FORMAT_NUMBER,
-            'G' => NumberFormat::FORMAT_NUMBER,
         ];
     }
 
@@ -101,7 +95,7 @@ class InventoryBalanceSheet implements FromArray, ShouldAutoSize, WithColumnForm
     {
         return [
             AfterSheet::class => function (AfterSheet $event) {
-                $event->sheet->getStyle('A5:I5')->getFont()->setBold(true);
+                $event->sheet->getStyle('A5:G5')->getFont()->setBold(true);
             },
         ];
     }

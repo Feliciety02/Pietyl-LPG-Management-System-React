@@ -74,7 +74,6 @@ class StockController extends Controller
 
         $validated = $request->validate([
             'filled_qty' => 'required|integer|min:0',
-            'empty_qty' => 'required|integer|min:0',
             'reason' => 'required|string|min:3',
         ]);
 
@@ -124,6 +123,13 @@ class StockController extends Controller
         }
 
         $filters = $request->only(['q', 'risk', 'req', 'scope', 'per', 'page']);
+
+        $location = $this->stockService->getFirstLocation();
+        if ($location) {
+            $this->ensureBalancesForLocation($location->id);
+            $filters['location_id'] = $location->id;
+        }
+
         $data = $inventoryBalanceService->getLowStock($filters);
 
         return Inertia::render('InventoryPage/Lowstock', [
@@ -187,7 +193,7 @@ class StockController extends Controller
             ->get();
 
         $mapped = $balances->map(function (InventoryBalance $balance) {
-            $available = ($balance->qty_filled + $balance->qty_empty) - $balance->qty_reserved;
+            $available = (int) $balance->qty_filled;
             $reorderLevel = (int) ($balance->reorder_level ?? 0);
 
             if ($reorderLevel <= 0) {
@@ -208,6 +214,7 @@ class StockController extends Controller
                 'sku' => $balance->productVariant?->product?->sku,
                 'name' => $balance->productVariant?->product?->name ?? '—',
                 'variant' => $balance->productVariant?->variant_name ?? '',
+                'qty_filled' => (int) $balance->qty_filled,
                 'current_qty' => $available,
                 'reorder_level' => $reorderLevel,
                 'risk_level' => $riskLevel,
@@ -269,8 +276,6 @@ class StockController extends Controller
                 'location_id' => $locationId,
                 'product_variant_id' => $variantId,
                 'qty_filled' => 0,
-                'qty_empty' => 0,
-                'qty_reserved' => 0,
                 'reorder_level' => 0,
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -351,7 +356,6 @@ class StockController extends Controller
                 'p.name as product_name',
                 'pv.variant_name',
                 'ib.qty_filled',
-                'ib.qty_empty',
                 'ib.reorder_level',
                 'ib.updated_at'
             )

@@ -21,7 +21,8 @@ class DeliveryService
     public function getRiderDeliveries(User $rider, ?string $search, ?string $status): Collection
     {
         $deliveries = $this->deliveryRepository->getDeliveriesByRider($rider->id, $search, $status);
-        
+       
+         
         return $deliveries->map(function ($delivery) {
             return $this->formatDeliveryForDisplay($delivery);
         });
@@ -31,21 +32,24 @@ class DeliveryService
      * Update delivery status with business logic
      */
     public function updateDeliveryStatus(Delivery $delivery, string $newStatus, User $user): void
-    {
-        $normalized = $this->normalizeStatus($newStatus);
-        
-        $this->validateStatusTransition($delivery->status, $normalized);
+{
+    $normalized = $this->normalizeStatus($newStatus);
 
-        if ($normalized === Delivery::STATUS_IN_TRANSIT) {
-            $this->deliveryRepository->setDispatched($delivery);
-        }
-
-        if ($normalized === Delivery::STATUS_DELIVERED) {
-            $this->processDeliveredStatus($delivery, $user);
-        }
-
+    if ($normalized === Delivery::STATUS_IN_TRANSIT) {
+        $this->deliveryRepository->setDispatched($delivery);
         $this->deliveryRepository->updateStatus($delivery, $normalized);
+        return;
     }
+
+    if ($normalized === Delivery::STATUS_DELIVERED) {
+        $this->processDeliveredStatus($delivery, $user);
+        $this->deliveryRepository->updateStatus($delivery, $normalized);
+        return;
+    }
+
+    $this->deliveryRepository->updateStatus($delivery, $normalized);
+}
+
 
     /**
      * Update delivery note
@@ -67,10 +71,25 @@ class DeliveryService
      * Process delivered status - stock out items
      */
     private function processDeliveredStatus(Delivery $delivery, User $user): void
-    {
-        $locationId = (int) ($user->location_id ?? 1);
+{
+    $locationId = (int) ($user->location_id ?? 1);
 
-        foreach ($delivery->items as $item) {
+    $delivery->loadMissing([
+        'sale.items.productVariant',
+    ]);
+
+    $sale = $delivery->sale;
+
+    if (!$sale) {
+        abort(422, 'Delivery has no linked sale.');
+    }
+
+    if (($sale->items?->count() ?? 0) === 0) {
+        abort(422, 'No sale items found for this delivery.');
+    }
+
+    try {
+        foreach ($sale->items as $item) {
             $this->inventoryService->stockOut(
                 productVariantId: (int) $item->product_variant_id,
                 locationId: $locationId,
@@ -80,9 +99,12 @@ class DeliveryService
                 referenceId: (string) $delivery->id
             );
         }
-
-        $this->deliveryRepository->setDelivered($delivery);
+    } catch (\Throwable $e) {
+        abort(422, 'Unable to mark delivered. Inventory error: ' . $e->getMessage());
     }
+
+    $this->deliveryRepository->setDelivered($delivery);
+}
 
     /**
      * Normalize status (convert "on_the_way" to "in_transit")
@@ -122,37 +144,48 @@ class DeliveryService
      * Format delivery for display
      */
     private function formatDeliveryForDisplay(Delivery $delivery): array
-    {
-        return [
-            'id' => $delivery->id,
-            'code' => $delivery->delivery_number,
-            'delivery_type' => 'delivery',
-            'scheduled_at' => $delivery->scheduled_at?->format('M d, Y g:i A') ?? '',
-            'created_at' => $delivery->created_at?->format('Y-m-d H:i') ?? '',
-            'status' => (string) $delivery->status,
-            'customer_name' => $delivery->customer?->name ?? 'Customer',
-            'customer_phone' => $delivery->customer?->phone ?? '',
-            'address' => $this->formatAddress($delivery),
-            'barangay' => $delivery->address?->barangay ?? '',
-            'landmark' => $delivery->address?->landmark ?? '',
-            'instructions' => $delivery->address?->instructions ?? '',
-            'payment_method' => $delivery->sale?->payment_method ?? '',
-            'payment_status' => $delivery->sale?->payment_status ?? '',
-            'amount_total' => $delivery->sale?->total_amount ?? '',
-            'delivery_fee' => $delivery->sale?->delivery_fee ?? '',
-            'distance_km' => $delivery->distance_km ?? '',
-            'eta_mins' => $delivery->eta_mins ?? '',
-            'items' => $delivery->items->map(function ($item) {
-                $name = trim(($item->product_name ?? '') . ' ' . ($item->variant ? '(' . $item->variant . ')' : ''));
-                return [
-                    'name' => $name !== '' ? $name : 'Item',
-                    'qty' => (int) ($item->qty ?? 0),
-                ];
-            })->values(),
-            'notes' => (string) ($delivery->notes ?? ''),
-        ];
-    }
+{
+    $delivery->loadMissing([
+        'customer',
+        'address',
+        'sale.items.productVariant.product',
+    ]);
 
+    return [
+        'id' => $delivery->id,
+        'code' => $delivery->delivery_number,
+        'delivery_type' => 'delivery',
+        'scheduled_at' => $delivery->scheduled_at?->format('M d, Y g:i A') ?? '',
+        'created_at' => $delivery->created_at?->format('Y-m-d H:i') ?? '',
+        'status' => (string) $delivery->status,
+        'customer_name' => $delivery->customer?->name ?? 'Customer',
+        'customer_phone' => $delivery->customer?->phone ?? '',
+        'address' => $this->formatAddress($delivery),
+        'barangay' => $delivery->address?->barangay ?? '',
+        'landmark' => $delivery->address?->landmark ?? '',
+        'instructions' => $delivery->address?->instructions ?? '',
+        'payment_method' => $delivery->sale?->payment_method ?? '',
+        'payment_status' => $delivery->sale?->payment_status ?? '',
+        'amount_total' => $delivery->sale?->grand_total ?? 0,
+        'delivery_fee' => $delivery->sale?->delivery_fee ?? 0,
+        'distance_km' => $delivery->distance_km ?? '',
+        'eta_mins' => $delivery->eta_mins ?? '',
+
+        'items' => ($delivery->sale?->items ?? collect())->map(function ($item) {
+            $productName = $item->productVariant?->product?->name ?? '';
+            $variantName = $item->productVariant?->variant_name ?? '';
+
+            $fullName = trim($productName . ' ' . ($variantName !== '' ? '(' . $variantName . ')' : ''));
+
+            return [
+                'name' => $fullName !== '' ? $fullName : 'Item',
+                'qty' => (int) ($item->qty ?? 0),
+            ];
+        })->values(),
+
+        'notes' => (string) ($delivery->notes ?? ''),
+    ];
+}
     /**
      * Format address for display
      */

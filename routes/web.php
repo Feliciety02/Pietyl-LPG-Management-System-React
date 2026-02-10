@@ -467,9 +467,6 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('permission:inventory.stock.view')
             ->name('dash.inventory.export');
 
-        Route::post('/auto-purchase-requests', [InventoryPurchaseRequestController::class, 'autoGenerate'])
-            ->middleware(['role:admin|inventory_manager', 'permission:inventory.purchase_requests.create'])
-            ->name('dash.inventory.auto-purchase-requests');
     });
 
     Route::post('/dashboard/inventory/purchases/{purchase}/confirm', [PurchaseController::class, 'confirm'])

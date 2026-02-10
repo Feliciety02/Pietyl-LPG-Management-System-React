@@ -55,20 +55,18 @@ class StockService
         }
 
         $systemFilled = (int) $inventoryBalance->qty_filled;
-        $systemEmpty = (int) $inventoryBalance->qty_empty;
         $countedFilled = (int) $validated['filled_qty'];
-        $countedEmpty = (int) $validated['empty_qty'];
 
         return $this->stockRepository->createStockCount([
             'inventory_balance_id' => $inventoryBalance->id,
             'product_variant_id' => $inventoryBalance->product_variant_id,
             'location_id' => $inventoryBalance->location_id,
             'system_filled' => $systemFilled,
-            'system_empty' => $systemEmpty,
+            'system_empty' => 0,
             'counted_filled' => $countedFilled,
-            'counted_empty' => $countedEmpty,
+            'counted_empty' => 0,
             'variance_filled' => $countedFilled - $systemFilled,
-            'variance_empty' => $countedEmpty - $systemEmpty,
+            'variance_empty' => 0,
             'status' => 'submitted',
             'note' => $validated['reason'],
             'created_by_user_id' => $user->id,
@@ -145,7 +143,6 @@ class StockService
                 'location_id' => $locationId,
                 'product_variant_id' => $variant->id,
                 'qty_filled' => 0,
-                'qty_empty' => 0,
                 'qty_reserved' => 0,
                 'reorder_level' => 0,
             ]);
@@ -162,19 +159,16 @@ class StockService
         }
 
         $systemFilled = (int) $balance->qty_filled;
-        $systemEmpty = (int) $balance->qty_empty;
-        $systemTotal = $systemFilled + $systemEmpty;
+        $systemTotal = $systemFilled;
 
         $countedFilled = (int) ($latest?->counted_filled ?? 0);
-        $countedEmpty = (int) ($latest?->counted_empty ?? 0);
-        $countedTotal = $countedFilled + $countedEmpty;
+        $countedTotal = $countedFilled;
         $varianceTotal = $countedTotal - $systemTotal;
         $submittedBy = $latest?->createdBy?->name;
         $submittedAt = $latest?->submitted_at?->format('M d, Y h:i A');
 
         if ($latestStatus === 'rejected' || !$latestStatus) {
             $countedFilled = 0;
-            $countedEmpty = 0;
             $countedTotal = 0;
             $varianceTotal = 0;
             $submittedBy = null;
@@ -192,7 +186,6 @@ class StockService
             'product_name' => $balance->productVariant->product->name ?? null,
             'variant' => $balance->productVariant->variant_name ?? null,
             'filled_qty' => $systemFilled,
-            'empty_qty' => $systemEmpty,
             'total_qty' => $systemTotal,
             'last_counted_at' => $latest?->submitted_at?->format('M d, Y h:i A') ?? $balance->updated_at?->format('M d, Y h:i A'),
             'updated_by' => $latest?->createdBy?->name ?? 'System',
@@ -203,10 +196,8 @@ class StockService
             'reviewed_by' => $latest?->reviewedBy?->name,
             'reviewed_at' => $latest?->reviewed_at?->format('M d, Y h:i A'),
             'system_filled' => $systemFilled,
-            'system_empty' => $systemEmpty,
             'system_qty' => $systemTotal,
             'counted_filled' => $countedFilled,
-            'counted_empty' => $countedEmpty,
             'counted_qty' => $countedTotal,
             'variance_qty' => $varianceTotal,
             'latest_movement_id' => $movement?->id,
@@ -215,13 +206,12 @@ class StockService
 
     private function applyStockCountAdjustment(StockCount $stockCount, InventoryBalance $balance, $user)
     {
-        $beforeTotal = (int) $balance->qty_filled + (int) $balance->qty_empty;
-        $afterTotal = (int) $stockCount->counted_filled + (int) $stockCount->counted_empty;
+        $beforeTotal = (int) $balance->qty_filled;
+        $afterTotal = (int) $stockCount->counted_filled;
         $delta = $afterTotal - $beforeTotal;
 
         $this->stockRepository->updateInventoryBalance($balance, [
             'qty_filled' => $stockCount->counted_filled,
-            'qty_empty' => $stockCount->counted_empty,
         ]);
 
         $movement = $this->stockRepository->createStockMovement([

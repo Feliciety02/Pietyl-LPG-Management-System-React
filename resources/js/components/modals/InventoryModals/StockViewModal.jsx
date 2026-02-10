@@ -96,7 +96,7 @@ export default function StockViewModal({ open, onClose, item }) {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <KV label="Current stock" value={niceText(row.current_qty)} />
+            <KV label="Current stock" value={niceText(row.qty_filled ?? row.current_qty)} />
             <KV label="Reorder level" value={niceText(row.reorder_level)} />
             <KV label="Location" value={niceText(row.location_name)} />
             <KV label="Supplier" value={niceText(row.supplier_name)} />

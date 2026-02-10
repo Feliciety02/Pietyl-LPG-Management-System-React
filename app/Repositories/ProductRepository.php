@@ -47,10 +47,16 @@ class ProductRepository
             ->toArray();
     }
 
-    public function getInventoryBalances(array $variantIds): array
+    public function getInventoryBalances(array $variantIds, ?int $locationId = null): array
     {
-        return DB::table('inventory_balances')
-            ->whereIn('product_variant_id', $variantIds)
+        $query = DB::table('inventory_balances')
+            ->whereIn('product_variant_id', $variantIds);
+
+        if ($locationId) {
+            $query->where('location_id', $locationId);
+        }
+
+        return $query
             ->select('product_variant_id', DB::raw('SUM(CAST(qty_filled AS UNSIGNED)) as total_qty_filled'))
             ->groupBy('product_variant_id')
             ->pluck('total_qty_filled', 'product_variant_id')

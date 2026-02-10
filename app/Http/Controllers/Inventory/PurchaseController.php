@@ -39,6 +39,7 @@ class PurchaseController extends Controller
             'suppliersMap' => $mapsData['suppliersMap'],
             'canDeleteAll' => $request->user()?->can('inventory.purchases.delete_all'),
             'canDeletePurchase' => $request->user()?->can('inventory.purchases.delete'),
+            'canAutoGenerate' => $request->user()?->can('inventory.purchase_requests.create'),
         ]);
     }
 

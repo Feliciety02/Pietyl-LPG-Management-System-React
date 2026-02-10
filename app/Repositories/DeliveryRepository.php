@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Models\Delivery;
 use Illuminate\Support\Collection;
+use App\Models\User;
 
 class DeliveryRepository
 {
@@ -32,7 +33,7 @@ class DeliveryRepository
         if ($status && $status !== 'all') {
             $query->where('status', $status);
         }
-
+        
         return $query->get();
     }
 

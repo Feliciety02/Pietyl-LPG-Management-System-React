@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use App\Models\Sale;
+use App\Models\User;
 use Carbon\Carbon;
 use App\Models\SaleItem;
 use App\Models\Receipt; 

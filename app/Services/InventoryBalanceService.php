@@ -37,10 +37,9 @@ class InventoryBalanceService
                     'product_name' => $balance->productVariant->product->name ?? null,
                     'variant' => $balance->productVariant->variant_name ?? null,
                     'filled_qty' => (int)$balance->qty_filled,
-                    'empty_qty' => (int)$balance->qty_empty,
-                    'total_qty' => (int)$balance->qty_on_hand,
+                    'total_qty' => (int)$balance->qty_filled,
                     'qty_reserved' => (int)$balance->qty_reserved,
-                    'qty_available' => $balance->qty_on_hand - $balance->qty_reserved,
+                    'qty_available' => (int)$balance->qty_filled,
                     'reorder_level' => (int)$balance->reorder_level,
                     'last_counted_at' => $balance->updated_at?->format('M d, Y h:i A') ?? null,
                     'updated_by' => 'System',
@@ -75,8 +74,6 @@ class InventoryBalanceService
                 'p.name as product_name',
                 'pv.variant_name',
                 DB::raw('SUM(ib.qty_filled) as total_qty_filled'),
-                DB::raw('SUM(ib.qty_empty) as total_qty_empty'),
-                DB::raw('SUM(ib.qty_reserved) as total_qty_reserved'),
                 DB::raw('MAX(ib.reorder_level) as max_reorder_level'),
                 DB::raw('MAX(ib.updated_at) as last_updated'),
             ])
@@ -90,7 +87,7 @@ class InventoryBalanceService
         $query->groupBy('pv.id', 'p.id', 'p.sku', 'p.name', 'pv.variant_name');
 
         if (!$showAll) {
-            $query->havingRaw('(SUM(ib.qty_filled) + SUM(ib.qty_empty) - SUM(ib.qty_reserved)) <= MAX(ib.reorder_level)');
+            $query->havingRaw('SUM(ib.qty_filled) <= MAX(ib.reorder_level)');
         }
 
         if ($q !== '') {
@@ -109,7 +106,7 @@ class InventoryBalanceService
             'sample' => $results->take(3)->map(fn($r) => [
                 'variant_id' => $r->product_variant_id,
                 'name' => $r->product_name,
-                'available' => ($r->total_qty_filled + $r->total_qty_empty - $r->total_qty_reserved),
+                'available' => (int) ($r->total_qty_filled ?? 0),
                 'reorder_level' => $r->max_reorder_level,
             ])
         ]);
@@ -149,8 +146,9 @@ class InventoryBalanceService
             ->keyBy('product_variant_id');
 
         $mapped = collect($results)->map(function ($row) use ($latestByVariant, $suppliers, $scope) {
-            $available = ($row->total_qty_filled + $row->total_qty_empty) - $row->total_qty_reserved;
-            $reorderLevel = $row->max_reorder_level;
+            $qtyFilled = (int) ($row->total_qty_filled ?? 0);
+            $available = $qtyFilled;
+            $reorderLevel = (int) ($row->max_reorder_level ?? 0);
 
             if ($reorderLevel <= 0) {
                 $riskLevel = 'ok';
@@ -181,6 +179,7 @@ class InventoryBalanceService
                 'product_variant_id' => $row->product_variant_id,
                 'supplier_id' => $supplier?->supplier_id,
                 'supplier_name' => $supplier?->supplier_name ?? '-',
+                'qty_filled' => $qtyFilled,
                 'current_qty' => $available,
                 'reorder_level' => $reorderLevel,
                 'est_days_left' => rand(1, 5),

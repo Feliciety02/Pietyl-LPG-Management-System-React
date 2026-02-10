@@ -198,11 +198,11 @@ class ReportsController extends Controller
                 'ib.product_variant_id',
                 'pv.variant_name',
                 'p.name as product_name',
-                DB::raw('SUM(ib.qty_filled + ib.qty_empty) as qty_on_hand'),
+                DB::raw('SUM(ib.qty_filled) as qty_on_hand'),
                 DB::raw('MAX(ib.reorder_level) as threshold')
             )
             ->groupBy('ib.product_variant_id', 'pv.variant_name', 'p.name')
-            ->havingRaw('SUM(ib.qty_filled + ib.qty_empty) <= MAX(ib.reorder_level)');
+            ->havingRaw('SUM(ib.qty_filled) <= MAX(ib.reorder_level)');
 
         $count = (int) (clone $baseQuery)->count();
 

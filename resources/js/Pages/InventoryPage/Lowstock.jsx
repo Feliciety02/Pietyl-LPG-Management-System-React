@@ -387,7 +387,7 @@ export default function Lowstock() {
       const row = orderModal.item;
       const merged = {
         ...payload,
-        current_qty: row?.current_qty ?? 0,
+        current_qty: row?.qty_filled ?? row?.current_qty ?? 0,
         reorder_level: row?.reorder_level ?? 0,
         supplier_id: row?.supplier_id ?? null,
         location_id: row?.location_id ?? null,
@@ -466,7 +466,7 @@ export default function Lowstock() {
               <SkeletonLine w="w-28" />
             </div>
           ) : (
-            <StockMini current={x.current_qty} threshold={x.reorder_level} />
+            <StockMini current={x.qty_filled ?? x.current_qty} threshold={x.reorder_level} />
           ),
       },
       {

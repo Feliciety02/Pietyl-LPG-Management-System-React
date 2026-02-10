@@ -18,7 +18,7 @@ class LowStockObserver
     public function updated(InventoryBalance $inventoryBalance): void
     {
         // Check if stock fell below threshold
-        $currentQty = $inventoryBalance->qty_filled + $inventoryBalance->qty_empty;
+        $currentQty = $inventoryBalance->qty_filled;
         $threshold = $inventoryBalance->reorder_level;
 
         if ($currentQty <= $threshold && $currentQty > 0) {
@@ -28,7 +28,7 @@ class LowStockObserver
 
     public function created(InventoryBalance $inventoryBalance): void
     {
-        $currentQty = $inventoryBalance->qty_filled + $inventoryBalance->qty_empty;
+        $currentQty = $inventoryBalance->qty_filled;
         $threshold = $inventoryBalance->reorder_level;
 
         if ($currentQty <= $threshold && $currentQty > 0) {
@@ -50,7 +50,7 @@ class LowStockObserver
             })->pluck('id')->toArray();
 
             if (!empty($adminIds)) {
-                $currentQty = (int) ($inventoryBalance->qty_filled + $inventoryBalance->qty_empty);
+                $currentQty = (int) $inventoryBalance->qty_filled;
                 $threshold = (int) $inventoryBalance->reorder_level;
 
                 $this->notificationService->notifyLowStock(

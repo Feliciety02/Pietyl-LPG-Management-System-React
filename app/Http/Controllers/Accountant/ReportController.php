@@ -3,13 +3,16 @@
 namespace App\Http\Controllers\Accountant;
 
 use App\Http\Controllers\Controller;
+use App\Exports\AccountingReportExport;
 use App\Models\AccountingReport;
 use App\Models\Remittance;
 use App\Models\Sale;
 use App\Services\Accounting\CostingService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
 use Inertia\Inertia;
 
 class ReportController extends Controller
@@ -74,13 +77,13 @@ class ReportController extends Controller
     public function export(Request $request, CostingService $costing)
     {
         $format = strtolower($request->input('format', 'csv'));
-        if ($format !== 'csv') {
-            return back()->with('error', 'Only CSV export is supported right now.');
+        if (!in_array($format, ['csv', 'pdf', 'xlsx'], true)) {
+            return back()->with('error', 'Unsupported report export format.');
         }
 
-        $reportType = $request->input('type');
-        $from = $request->input('from');
-        $to = $request->input('to');
+        $reportType = $request->input('type', 'sales');
+        $from = $request->input('from', now()->startOfMonth()->toDateString());
+        $to = $request->input('to', now()->toDateString());
 
         if ($request->filled('id')) {
             $report = AccountingReport::findOrFail($request->input('id'));
@@ -109,12 +112,32 @@ class ReportController extends Controller
             'generated_by_user_id' => $request->user()?->id,
         ]);
 
-        $csv = $this->payloadToCsv($reportType, $fromDate, $toDate, $payload);
-        $filename = "{$reportType}_{$fromDate->toDateString()}_{$toDate->toDateString()}.csv";
+        $filenameBase = "{$reportType}_{$fromDate->toDateString()}_{$toDate->toDateString()}";
 
+        if ($format === 'pdf') {
+            $html = view('exports.accountant.report', [
+                'reportType' => $reportType,
+                'from' => $fromDate,
+                'to' => $toDate,
+                'payload' => $payload,
+            ])->render();
+
+            return Pdf::loadHTML($html)
+                ->setPaper('a4', 'portrait')
+                ->download("{$filenameBase}.pdf");
+        }
+
+        if ($format === 'xlsx') {
+            return Excel::download(
+                new AccountingReportExport($reportType, $fromDate, $toDate, $payload),
+                "{$filenameBase}.xlsx"
+            );
+        }
+
+        $csv = $this->payloadToCsv($reportType, $fromDate, $toDate, $payload);
         return response($csv, 200, [
             'Content-Type' => 'text/csv',
-            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            'Content-Disposition' => "attachment; filename=\"{$filenameBase}.csv\"",
         ]);
     }
 

@@ -17,6 +17,7 @@ class RiderDeliveryController extends Controller
 
     public function index(Request $request)
     {
+       
         $user = $request->user();
 
         $deliveries = $this->deliveryService->getRiderDeliveries(
@@ -24,7 +25,7 @@ class RiderDeliveryController extends Controller
             search: null,
             status: null
         );
-
+        
         return Inertia::render('RiderPage/MyDeliveries', [
             'deliveries' => $deliveries,
         ]);

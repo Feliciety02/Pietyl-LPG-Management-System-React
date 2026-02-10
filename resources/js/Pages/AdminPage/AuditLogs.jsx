@@ -37,6 +37,14 @@ function titleCase(s) {
     .join(" ");
 }
 
+function formatEntityType(value) {
+  const raw = String(value || "");
+  if (!raw) return "";
+  const normalized = raw.replace(/\//g, "\\");
+  const parts = normalized.split("\\");
+  return parts[parts.length - 1] || raw;
+}
+
 function findLabel(options, value, fallback) {
   const match = options.find(function (opt) {
     return opt.value === value;
@@ -328,30 +336,60 @@ export default function AuditLogs() {
     people: { event: "all", entity_type: "Employee" },
 
     sales: { event: "sale.create", entity_type: "Sale" },
-    inventory: { event: "inventory.adjust", entity_type: "Inventory" },
-    finance: { event: "remittance.verify", entity_type: "Remittance" },
+    inventory: { event: "all", entity_type: "all" },
+    finance: { event: "all", entity_type: "all" },
   };
 
   const eventOptions = [
     { value: "all", label: "All events" },
-    { value: "user.login", label: "User login" },
+    { value: "auth.login", label: "Login" },
+    { value: "auth.logout", label: "Logout" },
+    { value: "auth.login_failed", label: "Login failed" },
     { value: "user.create", label: "User created" },
-    { value: "user.disable", label: "User disabled" },
+    { value: "user.update", label: "User updated" },
+    { value: "user.delete", label: "User deleted" },
+    { value: "role.update", label: "Role updated" },
     { value: "employee.update", label: "Employee updated" },
     { value: "sale.create", label: "Sale created" },
+    { value: "sale.update", label: "Sale updated" },
     { value: "delivery.update", label: "Delivery updated" },
-    { value: "inventory.adjust", label: "Inventory adjusted" },
-    { value: "remittance.verify", label: "Remittance verified" },
+    { value: "stock_movement.create", label: "Stock movement created" },
+    { value: "inventory_balance.update", label: "Inventory balance updated" },
+    { value: "purchase.create", label: "Purchase created" },
+    { value: "restock_request.create", label: "Restock request created" },
+    { value: "payment.create", label: "Payment created" },
+    { value: "remittance.cash.recorded", label: "Remittance cash recorded" },
+    { value: "remittance.noncash_transactions.verified", label: "Remittance cashless verified" },
+    { value: "remittance.daily.finalized", label: "Daily close finalized" },
+    { value: "remittance.daily.reopen", label: "Daily close reopened" },
   ];
 
   const entityOptions = [
     { value: "all", label: "All entities" },
     { value: "User", label: "User" },
+    { value: "Role", label: "Role" },
+    { value: "UserRole", label: "User Role" },
     { value: "Employee", label: "Employee" },
+    { value: "Customer", label: "Customer" },
     { value: "Sale", label: "Sale" },
+    { value: "SaleItem", label: "Sale Item" },
     { value: "Delivery", label: "Delivery" },
-    { value: "Inventory", label: "Inventory" },
+    { value: "StockMovement", label: "Stock Movement" },
+    { value: "InventoryBalance", label: "Inventory Balance" },
+    { value: "Purchase", label: "Purchase" },
+    { value: "PurchaseItem", label: "Purchase Item" },
+    { value: "RestockRequest", label: "Restock Request" },
+    { value: "RestockRequestItem", label: "Restock Request Item" },
+    { value: "Product", label: "Product" },
+    { value: "ProductVariant", label: "Product Variant" },
+    { value: "Supplier", label: "Supplier" },
+    { value: "Payment", label: "Payment" },
+    { value: "PaymentMethod", label: "Payment Method" },
+    { value: "Receipt", label: "Receipt" },
     { value: "Remittance", label: "Remittance" },
+    { value: "DailyClose", label: "Daily Close" },
+    { value: "LedgerEntry", label: "Ledger Entry" },
+    { value: "LedgerLine", label: "Ledger Line" },
   ];
 
   function pushQuery(patch) {
@@ -467,9 +505,10 @@ export default function AuditLogs() {
           label: "Entity",
           render: function (a) {
             if (a && a.__filler) return <SkeletonLine w="w-28" />;
+            const entityName = formatEntityType(a.entity_type);
             return (
               <div className="text-sm text-slate-700">
-                {a.entity_type}
+                {entityName}
                 {a.entity_id ? <span className="text-slate-400"> #{a.entity_id}</span> : null}
               </div>
             );
@@ -477,7 +516,8 @@ export default function AuditLogs() {
           exportValue: function (a) {
             if (!a || a.__filler) return "";
             const parts = [];
-            if (a.entity_type) parts.push(a.entity_type);
+            const entityName = formatEntityType(a.entity_type);
+            if (entityName) parts.push(entityName);
             if (a.entity_id) parts.push(`#${a.entity_id}`);
             return parts.join(" ");
           },

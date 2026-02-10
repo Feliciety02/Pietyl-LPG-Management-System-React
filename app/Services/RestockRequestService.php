@@ -268,7 +268,6 @@ class RestockRequestService
             ],
             [
                 'qty_filled' => 0,
-                'qty_empty' => 0,
                 'qty_reserved' => 0,
                 'reorder_level' => 0,
             ]

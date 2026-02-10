@@ -166,7 +166,7 @@ class SupplierController extends Controller
 
         $variantIds = $supplier->productVariants->pluck('id')->all();
         $balanceMap = InventoryBalance::query()
-            ->selectRaw('product_variant_id, SUM(qty_filled + qty_empty) as on_hand')
+            ->selectRaw('product_variant_id, SUM(qty_filled) as on_hand')
             ->when($variantIds, function ($query, $ids) {
                 return $query->whereIn('product_variant_id', $ids);
             })

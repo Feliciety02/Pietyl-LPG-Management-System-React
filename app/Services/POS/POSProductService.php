@@ -4,6 +4,7 @@ namespace App\Services\POS;
 
 use App\Repositories\ProductRepository;
 use App\Services\SettingsService;
+use App\Models\Location;
 
 class POSProductService
 {
@@ -20,7 +21,8 @@ class POSProductService
         }
 
         $priceListPrices = $this->getPriceListPrices($variants->pluck('id')->toArray());
-        $inventoryBalances = $this->productRepository->getInventoryBalances($variants->pluck('id')->toArray());
+        $locationId = Location::orderBy('id')->value('id');
+        $inventoryBalances = $this->productRepository->getInventoryBalances($variants->pluck('id')->toArray(), $locationId);
 
         return $variants->map(function ($variant) use ($priceListPrices, $inventoryBalances) {
             $basePrice = $this->getVariantPrice($variant, $priceListPrices);

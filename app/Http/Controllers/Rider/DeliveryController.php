@@ -87,6 +87,8 @@ class DeliveryController extends Controller
             ];
         });
 
+        dd($q);
+
         return Inertia::render('Dashboard/Rider/MyDeliveries', [
             'deliveries' => $deliveries,
             'filters' => [

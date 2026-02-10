@@ -172,8 +172,7 @@ class CostTrackingController extends Controller
                  p.price as price,
                  s.name as supplier_name,
                  p.supplier_cost as supplier_cost,
-                 SUM(ib.qty_filled + ib.qty_empty) as qty_on_hand,
-                 SUM(ib.qty_reserved) as qty_reserved,
+                 SUM(ib.qty_filled) as qty_on_hand,
                  MAX(ib.updated_at) as last_counted_at"
             )
             ->groupBy(
@@ -186,7 +185,7 @@ class CostTrackingController extends Controller
                 "s.name",
                 "p.supplier_cost"
             )
-            ->havingRaw("SUM(ib.qty_filled + ib.qty_empty) > 0")
+            ->havingRaw("SUM(ib.qty_filled) > 0")
             ->orderBy($sortColumn, $sortDir);
 
         $paginator = $query->paginate($perPage, ["*"], "page", $page);
@@ -204,7 +203,6 @@ class CostTrackingController extends Controller
                 "supplier_name" => $row->supplier_name,
                 "price" => round((float) ($row->price ?? 0), 2),
                 "on_hand" => (float) $row->qty_on_hand,
-                "reserved" => (float) $row->qty_reserved,
                 "unit_cost" => round($supplierCost, 2),
                 "supplier_cost" => round($supplierCost, 2),
                 "value" => round($value, 2),
@@ -319,8 +317,8 @@ class CostTrackingController extends Controller
         $value = DB::table("inventory_balances as ib")
             ->join("product_variants as pv", "ib.product_variant_id", "=", "pv.id")
             ->join("products as p", "pv.product_id", "=", "p.id")
-            ->selectRaw("SUM((ib.qty_filled + ib.qty_empty) * COALESCE(p.supplier_cost, 0)) as inventory_value")
-            ->whereRaw("(ib.qty_filled + ib.qty_empty) > 0")
+            ->selectRaw("SUM((ib.qty_filled) * COALESCE(p.supplier_cost, 0)) as inventory_value")
+            ->whereRaw("(ib.qty_filled) > 0")
             ->value("inventory_value");
 
         return round((float) ($value ?? 0), 2);

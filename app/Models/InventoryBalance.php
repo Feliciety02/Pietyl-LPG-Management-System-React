@@ -10,15 +10,12 @@ class InventoryBalance extends Model
         'location_id',
         'product_variant_id',
         'qty_filled',
-        'qty_empty',
-        'qty_reserved',
         'reorder_level',
     ];
 
 
     protected $casts = [
         'qty_on_hand' => 'integer',
-        'qty_reserved' => 'integer',
         'reorder_level' => 'integer',
     ];
 
@@ -34,6 +31,6 @@ class InventoryBalance extends Model
 
     public function getQtyOnHandAttribute()
     {
-        return $this->qty_filled + $this->qty_empty;
+        return $this->qty_filled;
     }
 }

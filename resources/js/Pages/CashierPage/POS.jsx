@@ -179,7 +179,8 @@ export default function POS() {
 
   const CustomersIcon = sidebarIconMap.customers;
 
-  const products = Array.isArray(page.props?.products) ? page.props.products : [];
+  const rawProducts = Array.isArray(page.props?.products) ? page.props.products : [];
+  const [products, setProducts] = useState(rawProducts);
   const customers = Array.isArray(page.props?.customers) ? page.props.customers : [];
 
   const [resultModal, setResultModal] = useState({ open: false, status: "success", title: "", message: "" });
@@ -209,6 +210,10 @@ export default function POS() {
   const [vatRate, setVatRate] = useState(vatRegistered ? Number(vatSettings.vat_rate ?? 0) : 0);
 
   useEffect(() => {
+    setProducts(rawProducts);
+  }, [rawProducts]);
+
+  useEffect(() => {
     setVatRate(vatRegistered ? Number(vatSettings.vat_rate ?? 0) : 0);
     setVatTreatment(vatRegistered && vatActive ? VatTreatments.VATABLE : VatTreatments.EXEMPT);
     setVatInclusive(vatMode === "inclusive");
@@ -236,8 +241,19 @@ export default function POS() {
       const idx = prev.findIndex((x) => x._key === key);
       if (idx >= 0) {
         const copy = [...prev];
-        copy[idx] = { ...copy[idx], qty: copy[idx].qty + 1 };
+        const nextQty = copy[idx].qty + 1;
+        // enforce stock limit
+        if (typeof p.stock_qty === "number" && nextQty > Number(p.stock_qty)) {
+          setResultModal({ open: true, status: "error", title: "Out of stock", message: `Cannot add more than ${p.stock_qty} for ${p.name}.` });
+          return prev;
+        }
+        copy[idx] = { ...copy[idx], qty: nextQty };
         return copy;
+      }
+      // initial add, ensure at least 1 in stock
+      if (typeof p.stock_qty === "number" && Number(p.stock_qty) < 1) {
+        setResultModal({ open: true, status: "error", title: "Out of stock", message: `${p.name} is out of stock.` });
+        return prev;
       }
       return [...prev, { _key: key, product_id: p.id, name: p.name, variant: p.variant, mode: "swap", unit_price: price, qty: 1 }];
     });
@@ -245,7 +261,18 @@ export default function POS() {
 
   const inc = (k) => {
     if (readOnly) return;
-    setCart((prev) => prev.map((x) => (x._key === k ? { ...x, qty: x.qty + 1 } : x)));
+    setCart((prev) =>
+      prev.map((x) => {
+        if (x._key !== k) return x;
+        const product = products.find((p) => p.id === x.product_id) || {};
+        const nextQty = x.qty + 1;
+        if (typeof product.stock_qty === "number" && nextQty > Number(product.stock_qty)) {
+          setResultModal({ open: true, status: "error", title: "Out of stock", message: `Cannot add more than ${product.stock_qty} for ${product.name}.` });
+          return x;
+        }
+        return { ...x, qty: nextQty };
+      })
+    );
   };
 
   const dec = (k) => {
@@ -332,6 +359,14 @@ export default function POS() {
 
     setIsSubmitting(true);
 
+    const soldById = cart.reduce((acc, item) => {
+      const key = String(item.product_id);
+      const qty = Number(item.qty || 0);
+      if (!Number.isFinite(qty) || qty <= 0) return acc;
+      acc[key] = (acc[key] || 0) + qty;
+      return acc;
+    }, {});
+
     router.post(
       "/dashboard/cashier/POS",
       {
@@ -355,6 +390,15 @@ export default function POS() {
       {
         preserveScroll: true,
         onSuccess: async () => {
+          setProducts((prev) =>
+            prev.map((p) => {
+              const sold = soldById[String(p.id)];
+              if (!sold) return p;
+              const current = Number(p.stock_qty ?? 0);
+              if (!Number.isFinite(current)) return p;
+              return { ...p, stock_qty: Math.max(0, current - sold) };
+            })
+          );
           setCart([]);
           setQ("");
           setPaymentRef("");
@@ -472,7 +516,7 @@ export default function POS() {
                             <div className="mt-1 text-xs text-slate-500">{"Stock: " + p.stock_qty}</div>
                           </div>
 
-                          <div className="shrink-0 rounded-2xl bg-teal-600/10 ring-1 ring-teal-700/10 px-3 py-2 text-xs font-extrabold text-teal-900 teal-float">
+                          <div className="shrink-0 rounded-2xl bg-teal-600/10 ring-1 ring-teal-700/10 px-3 py-2 text-xs font-extrabold text-teal-900">
                             {formatPeso(price)}
                           </div>
                         </div>

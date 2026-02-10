@@ -3,7 +3,6 @@
 namespace App\Services\Inventory;
 
 use App\Models\InventoryBalance;
-use App\Models\ProductVariant;
 use App\Models\StockMovement;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -41,7 +40,6 @@ class InventoryService
                 ],
                 [
                     'qty_filled' => 0,
-                    'qty_empty' => 0,
                     'qty_reserved' => 0,
                 ]
             );
@@ -53,15 +51,7 @@ class InventoryService
                 ]);
             }
 
-            $variant = ProductVariant::with('product')->findOrFail($productVariantId);
-            $category = strtolower($variant->product->category ?? '');
-
-            if ($category === 'lpg') {
-                $balance->qty_filled = max(0, $balance->qty_filled - $qty);
-                $balance->qty_empty = $balance->qty_empty + $qty;
-            } else {
-                $balance->qty_filled = max(0, $balance->qty_filled - $qty);
-            }
+            $balance->qty_filled = max(0, $balance->qty_filled - $qty);
 
             $balance->save();
 
@@ -111,7 +101,6 @@ class InventoryService
                 ],
                 [
                     'qty_filled' => 0,
-                    'qty_empty' => 0,
                     'qty_reserved' => 0,
                 ]
             );
@@ -123,21 +112,7 @@ class InventoryService
                 ]);
             }
 
-            $variant = ProductVariant::with('product')->findOrFail($productVariantId);
-            $category = strtolower($variant->product->category ?? '');
-
-            $mode = strtolower(trim($mode));
-
-            if ($category === 'lpg') {
-                if ($mode === 'swap') {
-                    $balance->qty_filled = max(0, $balance->qty_filled - $qty);
-                    $balance->qty_empty = $balance->qty_empty + $qty;
-                } else {
-                    $balance->qty_filled = max(0, $balance->qty_filled - $qty);
-                }
-            } else {
-                $balance->qty_filled = max(0, $balance->qty_filled - $qty);
-            }
+            $balance->qty_filled = max(0, $balance->qty_filled - $qty);
 
             $balance->save();
 
@@ -184,7 +159,6 @@ class InventoryService
                 ],
                 [
                     'qty_filled' => 0,
-                    'qty_empty' => 0,
                     'qty_reserved' => 0,
                 ]
             );

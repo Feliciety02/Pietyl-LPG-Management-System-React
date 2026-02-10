@@ -62,7 +62,6 @@ export default function StockCounts() {
         product_name,
         variant,
         filled_qty,
-        empty_qty,
         total_qty,
         last_counted_at,
         updated_by
@@ -81,8 +80,7 @@ export default function StockCounts() {
         product_name: "LPG Cylinder",
         variant: "11kg",
         filled_qty: 24,
-        empty_qty: 18,
-        total_qty: 42,
+        total_qty: 24,
         last_counted_at: "Today 09:45 AM",
         updated_by: "Inventory Manager",
       },
@@ -92,8 +90,7 @@ export default function StockCounts() {
         product_name: "LPG Cylinder",
         variant: "22kg",
         filled_qty: 9,
-        empty_qty: 7,
-        total_qty: 16,
+        total_qty: 9,
         last_counted_at: "Yesterday 04:10 PM",
         updated_by: "Inventory Manager",
       },
@@ -103,8 +100,7 @@ export default function StockCounts() {
         product_name: "LPG Cylinder",
         variant: "50kg",
         filled_qty: 3,
-        empty_qty: 2,
-        total_qty: 5,
+        total_qty: 3,
         last_counted_at: "Jan 17 11:02 AM",
         updated_by: "Inventory Manager",
       },
@@ -142,7 +138,6 @@ export default function StockCounts() {
   const [reviewOpen, setReviewOpen] = useState(false);
 
   const [filledEdit, setFilledEdit] = useState("");
-  const [emptyEdit, setEmptyEdit] = useState("");
   const [reason, setReason] = useState("");
 
   const pushQuery = (patch) => {
@@ -188,7 +183,6 @@ export default function StockCounts() {
   const openAdjust = (row) => {
     setActiveRow(row);
     setFilledEdit(String(row?.filled_qty ?? ""));
-    setEmptyEdit(String(row?.empty_qty ?? ""));
     setReason("");
     setOpen(true);
   };
@@ -208,7 +202,6 @@ export default function StockCounts() {
 
     const payload = {
       filled_qty: Number(filledEdit || 0),
-      empty_qty: Number(emptyEdit || 0),
       reason: reason.trim(),
     };
 
@@ -229,7 +222,6 @@ export default function StockCounts() {
         setSubmitError(
           errors?.reason ||
             errors?.filled_qty ||
-            errors?.empty_qty ||
             "Failed to submit stock count."
         );
       },
@@ -287,16 +279,14 @@ export default function StockCounts() {
         label: "System",
         render: (x) =>
           x?.__filler ? (
-            <div className="flex items-center gap-2">
-              <SkeletonPill w="w-20" />
-              <SkeletonPill w="w-20" />
-              <SkeletonPill w="w-20" />
-            </div>
+            <SkeletonPill w="w-24" />
           ) : (
             <div className="flex flex-wrap items-center gap-2">
-              <CountPill label="FILLED" value={x.filled_qty ?? 0} tone="teal" />
-              <CountPill label="EMPTY" value={x.empty_qty ?? 0} tone="slate" />
-              <CountPill label="TOTAL" value={(x.filled_qty || 0) + (x.empty_qty || 0)} tone="amber" />
+              <CountPill
+                label="FILLED"
+                value={Number(x.filled_qty ?? x.total_qty ?? 0)}
+                tone="amber"
+              />
             </div>
           ),
       },
@@ -308,16 +298,18 @@ export default function StockCounts() {
             <SkeletonPill w="w-24" />
           ) : !x.latest_count_id ? (
             <div className="flex flex-wrap items-center gap-2">
-              <CountPill label="FILLED" value={0} tone="teal" />
-              <CountPill label="EMPTY" value={0} tone="slate" />
-              <CountPill label="TOTAL" value={0} tone="amber" />
+              <CountPill label="COUNTED" value={0} tone="amber" />
               <span className="text-xs font-extrabold text-slate-700">Variance 0</span>
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-2">
-              <CountPill label="FILLED" value={x.counted_filled ?? 0} tone="teal" />
-              <CountPill label="EMPTY" value={x.counted_empty ?? 0} tone="slate" />
-              <CountPill label="TOTAL" value={x.counted_qty ?? 0} tone="amber" />
+              <CountPill
+                label="COUNTED"
+                value={
+                  x.counted_qty ?? Number(x.counted_filled ?? 0)
+                }
+                tone="amber"
+              />
               <span
                 className={cx(
                   "text-xs font-extrabold",
@@ -431,8 +423,7 @@ export default function StockCounts() {
             <CountPill
               label="SYSTEM"
               value={
-                x.system_qty ??
-                Number(x.system_filled ?? x.filled_qty ?? 0) + Number(x.system_empty ?? x.empty_qty ?? 0)
+                x.system_qty ?? Number(x.system_filled ?? x.filled_qty ?? 0)
               }
               tone="slate"
             />
@@ -644,14 +635,11 @@ export default function StockCounts() {
             if (!picked) return;
             setActiveRow(picked);
             setFilledEdit(String(picked?.filled_qty ?? ""));
-            setEmptyEdit(String(picked?.empty_qty ?? ""));
             setReason("");
           }}
           filled={filledEdit}
-          empty={emptyEdit}
           reason={reason}
           setFilled={setFilledEdit}
-          setEmpty={setEmptyEdit}
           setReason={setReason}
           submitting={submitting}
           error={submitError}

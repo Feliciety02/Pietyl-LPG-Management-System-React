@@ -28,11 +28,13 @@ class PurchaseRequestController extends Controller
         $this->authorize('viewAny', PurchaseRequest::class);
 
         $inventoryService = new InventoryBalanceService();
+        $locationId = \App\Models\Location::orderBy('id')->value('id');
         $lowStock = $inventoryService->getLowStock([
             'per' => (int) ($request->input('per') ?? 10),
             'page' => (int) ($request->input('page') ?? 1),
             'q' => (string) ($request->input('q') ?? ''),
             'scope' => (string) ($request->input('scope') ?? 'low'),
+            'location_id' => $locationId,
         ]);
 
         $myRequests = PurchaseRequest::with(['items.product', 'supplier', 'commitment'])
@@ -336,34 +338,4 @@ class PurchaseRequestController extends Controller
         return sprintf('PR-%s-%04d', $date, $count);
     }
 
-    public function autoGenerate(Request $request)
-    {
-        $user = $request->user();
-        if (!$user || !$user->can('inventory.purchase_requests.create')) {
-            abort(403);
-        }
-
-        try {
-            $autoPRService = new \App\Services\Inventory\AutoPurchaseRequestService(
-                new \App\Services\Inventory\NotificationService()
-            );
-
-            $suggestions = $autoPRService->getSuggestions();
-
-            if (empty($suggestions)) {
-                return back()->with('info', 'No low stock items found.');
-            }
-
-            $createdIds = $autoPRService->generatePurchaseRequestsForLowStock($user->id);
-
-            if (empty($createdIds)) {
-                return back()->with('error', 'Failed to generate purchase requests.');
-            }
-
-            return back()->with('success', 'Purchase requests generated for ' . count($createdIds) . ' supplier(s).');
-        } catch (\Exception $e) {
-            return back()->with('error', 'Error: ' . $e->getMessage());
-        }
-    }
 }
-

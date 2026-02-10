@@ -162,7 +162,6 @@ class PurchaseService
                         'location_id' => $location->id,
                         'product_variant_id' => $item->product_variant_id,
                         'qty_filled' => $receivedGood,
-                        'qty_empty' => 0,
                         'qty_reserved' => 0,
                         'reorder_level' => 0,
                     ]);
