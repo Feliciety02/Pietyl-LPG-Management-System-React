@@ -136,12 +136,23 @@ class DeliveryService
                 $fullName = trim($productName . ' ' . ($variantName !== '' ? '(' . $variantName . ')' : ''));
 
                 return [
+                    'id' => (int) ($item->id ?? 0),
+                    'sale_item_id' => (int) ($item->id ?? 0),
+                    'product_variant_id' => (int) ($item->product_variant_id ?? 0),
                     'name' => $fullName !== '' ? $fullName : 'Item',
                     'qty' => (int) ($item->qty ?? 0),
+                    'ordered_qty' => (int) ($item->qty ?? 0),
                 ];
             })->values(),
 
             'notes' => (string) ($delivery->notes ?? ''),
+            'proof_photo_url' => (string) ($delivery->proof_photo_url ?? ($delivery->proof_type === 'photo' ? $delivery->proof_url : '')),
+            'proof_signature_url' => (string) ($delivery->proof_signature_url ?? ($delivery->proof_type === 'signature' ? $delivery->proof_url : '')),
+            'proof_geo_lat' => $delivery->proof_geo_lat ?? null,
+            'proof_geo_lng' => $delivery->proof_geo_lng ?? null,
+            'proof_captured_at' => $delivery->proof_captured_at?->toIso8601String() ?? '',
+            'proof_exceptions' => (string) ($delivery->proof_exceptions ?? ''),
+            'delivered_items' => $delivery->delivered_items ?? [],
         ];
     }
 

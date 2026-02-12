@@ -21,6 +21,13 @@ class Delivery extends Model
         'delivered_at',
         'proof_type',
         'proof_url',
+        'proof_photo_url',
+        'proof_signature_url',
+        'proof_geo_lat',
+        'proof_geo_lng',
+        'proof_captured_at',
+        'proof_exceptions',
+        'delivered_items',
         'notes',
     ];
 
@@ -28,6 +35,8 @@ class Delivery extends Model
         'scheduled_at' => 'datetime',
         'dispatched_at' => 'datetime',
         'delivered_at' => 'datetime',
+        'proof_captured_at' => 'datetime',
+        'delivered_items' => 'array',
     ];
 
     public function sale()

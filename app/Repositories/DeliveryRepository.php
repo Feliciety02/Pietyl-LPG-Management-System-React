@@ -14,13 +14,7 @@ class DeliveryRepository
     public function getDeliveriesByRider(int $riderId, ?string $search = null, ?string $status = null): Collection
     {
         $query = Delivery::query()
-            ->with([
-                'customer', 
-                'address', 
-                'items',
-                'sale.items.productVariant.product',
-                'sale.payments.paymentMethod',
-            ])
+            ->with(['customer', 'address', 'items'])
             ->where('assigned_rider_user_id', $riderId)
             ->orderByDesc('created_at');
 
@@ -39,7 +33,7 @@ class DeliveryRepository
         if ($status && $status !== 'all') {
             $query->where('status', $status);
         }
-        
+        // dd($query);
         return $query->get();
     }
 

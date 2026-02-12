@@ -87,7 +87,7 @@ class DeliveryController extends Controller
             ];
         });
 
-
+        
 
         return Inertia::render('Dashboard/Rider/MyDeliveries', [
             'deliveries' => $deliveries,
@@ -100,8 +100,6 @@ class DeliveryController extends Controller
 
     public function update(Request $request, Delivery $delivery)
     {
-
-      
         $user = $request->user();
 
         if ((int) $delivery->assigned_rider_user_id !== (int) $user->id) {

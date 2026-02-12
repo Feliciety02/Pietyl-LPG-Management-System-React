@@ -1,28 +1,15 @@
-// resources/js/pages/Dashboard/Rider/MyDeliveries.jsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import { usePage, router } from "@inertiajs/react";
 import Layout from "@/pages/Dashboard/Layout";
-import {
-  Search,
-  MapPin,
-  Phone,
-  Package,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  Navigation,
-  FileText,
-  Camera,
-  PenLine,
-  Wifi,
-  WifiOff,
-  RefreshCcw,
-  Trash2,
-} from "lucide-react";
-
-function cx(...classes) {
-  return classes.filter(Boolean).join(" ");
-}
+import DeliveryStepper from "@/components/delivery/DeliveryStepper";
+import Step1CustomerInfo from "@/components/delivery/Step1CustomerInfo";
+import Step2ItemsGeo from "@/components/delivery/Step2ItemsGeo";
+import Step3ProofOfDelivery from "@/components/delivery/Step3ProofOfDelivery";
+import Step4SignatureOrReason from "@/components/delivery/Step4SignatureOrReason";
+import Step5ReviewAndStatus from "@/components/delivery/Step5ReviewAndStatus";
+import DeliverySuccessModal from "@/components/delivery/DeliverySuccessModal";
+import { Card, EmptyState, StatusPill, cx } from "@/components/delivery/DeliveryShared";
+import { Search } from "lucide-react";
 
 const OFFLINE_QUEUE_KEY = "rider_offline_queue_v1";
 
@@ -41,7 +28,7 @@ function saveQueue(queue) {
   try {
     window.localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
   } catch {
-    // Ignore storage errors (quota, private mode, etc.)
+    // Ignore storage errors
   }
 }
 
@@ -56,10 +43,27 @@ function applyQueueToDeliveries(deliveries, queue) {
 
     if (item.type === "status") {
       next[idx].status = item.payload?.status || next[idx].status;
-    }
-
-    if (item.type === "note") {
-      next[idx].notes = item.payload?.note ?? next[idx].notes ?? "";
+      if (item.payload?.proof_photo_data) {
+        next[idx].proof_photo_url = item.payload.proof_photo_data;
+      }
+      if (item.payload?.proof_signature) {
+        next[idx].proof_signature_url = item.payload.proof_signature;
+      }
+      if (item.payload?.proof_geo_lat !== undefined) {
+        next[idx].proof_geo_lat = item.payload.proof_geo_lat;
+      }
+      if (item.payload?.proof_geo_lng !== undefined) {
+        next[idx].proof_geo_lng = item.payload.proof_geo_lng;
+      }
+      if (item.payload?.proof_captured_at) {
+        next[idx].proof_captured_at = item.payload.proof_captured_at;
+      }
+      if (item.payload?.proof_exceptions !== undefined) {
+        next[idx].proof_exceptions = item.payload.proof_exceptions;
+      }
+      if (item.payload?.delivered_items) {
+        next[idx].delivered_items = item.payload.delivered_items;
+      }
     }
   });
 
@@ -70,50 +74,6 @@ function makeQueueId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function Card({ children, className = "" }) {
-  return (
-    <div className={cx("rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm", className)}>
-      {children}
-    </div>
-  );
-}
-
-function Section({ title, subtitle, right, children }) {
-  return (
-    <Card>
-      <div className="p-5 border-b border-slate-200 flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="text-sm font-extrabold text-slate-900">{title}</div>
-          {subtitle ? <div className="mt-1 text-xs text-slate-600">{subtitle}</div> : null}
-        </div>
-        {right}
-      </div>
-      <div className="p-5">{children}</div>
-    </Card>
-  );
-}
-
-function StatusPill({ status }) {
-  const s = String(status || "").toLowerCase();
-
-  const meta =
-  s === "pending" || s === "assigned"
-    ? { label: "Pending", cls: "bg-slate-100 text-slate-700 ring-slate-200" }
-    : s === "in_transit" || s === "on_the_way" || s === "on the way"
-    ? { label: "On the way", cls: "bg-teal-50 text-teal-800 ring-teal-200" }
-    : s === "delivered"
-    ? { label: "Delivered", cls: "bg-emerald-50 text-emerald-800 ring-emerald-200" }
-    : s === "failed" || s === "rescheduled"
-    ? { label: s === "failed" ? "Failed" : "Rescheduled", cls: "bg-rose-50 text-rose-800 ring-rose-200" }
-    : { label: status || "Unknown", cls: "bg-slate-100 text-slate-700 ring-slate-200" };
-
-  return (
-    <span className={cx("inline-flex items-center rounded-full px-3 py-1 text-[11px] font-extrabold ring-1", meta.cls)}>
-      {meta.label}
-    </span>
-  );
-}
-
 function canTransition(from, to) {
   const f = String(from || "").toLowerCase();
   const t = String(to || "").toLowerCase();
@@ -122,154 +82,30 @@ function canTransition(from, to) {
   const F = normalize(f);
   const T = normalize(t);
 
-  // Allow transitions from pending OR assigned to in_transit or failed ONLY
   if ((F === "pending" || F === "assigned") && (T === "in_transit" || T === "failed")) return true;
-  
-  // Allow transitions from in_transit to delivered or failed ONLY
   if (F === "in_transit" && (T === "delivered" || T === "failed")) return true;
-  
+
   return false;
 }
 
-function mapsEmbedUrl(address) {
-  const q = encodeURIComponent(address || "");
-  return `https://www.google.com/maps?q=${q}&output=embed`;
-}
-
-function mapsOpenUrl(address) {
-  const q = encodeURIComponent(address || "");
-  return `https://www.google.com/maps/search/?api=1&query=${q}`;
-}
-
-function EmptyState({ title, desc }) {
-  return (
-    <div className="rounded-3xl bg-slate-50 ring-1 ring-dashed ring-slate-200 p-6">
-      <div className="text-sm font-extrabold text-slate-900">{title}</div>
-      <div className="mt-1 text-sm text-slate-600">{desc}</div>
-    </div>
-  );
-}
-
-function InfoRow({ icon: Icon, label, value }) {
-  return (
-    <div className="flex items-start gap-3 rounded-3xl bg-slate-50 ring-1 ring-slate-200 p-4">
-      <div className="h-10 w-10 rounded-2xl bg-white ring-1 ring-slate-200 flex items-center justify-center">
-        <Icon className="h-5 w-5 text-slate-500" />
-      </div>
-      <div className="min-w-0">
-        <div className="text-[11px] font-extrabold text-slate-500">{label}</div>
-        <div className="mt-0.5 text-sm font-semibold text-slate-900 break-words">
-          {value || "-"}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ActionBtn({ tone = "neutral", disabled, onClick, icon: Icon, children }) {
-  const toneCls =
-    tone === "primary"
-      ? "bg-teal-600 text-white ring-teal-700/10 hover:bg-teal-700"
-      : tone === "danger"
-      ? "bg-white text-rose-700 ring-rose-200 hover:bg-rose-50"
-      : "bg-white text-slate-800 ring-slate-200 hover:bg-slate-50";
-
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={cx(
-        "inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-extrabold ring-1 transition",
-        disabled ? "bg-slate-100 text-slate-400 ring-slate-200 cursor-not-allowed" : toneCls
-      )}
-    >
-      {Icon ? <Icon className="h-4 w-4" /> : null}
-      {children}
-    </button>
-  );
-}
-
-function SignaturePad({ value, onChange }) {
-  const canvasRef = useRef(null);
-  const drawingRef = useRef(false);
-  const lastPointRef = useRef({ x: 0, y: 0 });
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    if (!value) return;
-    const img = new Image();
-    img.onload = () => {
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    };
-    img.src = value;
-  }, [value]);
-
-  function getPoint(e) {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
+function buildDeliveredItems(delivery) {
+  const base = Array.isArray(delivery?.items) ? delivery.items : [];
+  return base.map((item, idx) => {
+    const ordered = Number(item?.ordered_qty ?? item?.qty ?? 0);
     return {
-      x: ((e.clientX || 0) - rect.left) * (canvas.width / rect.width),
-      y: ((e.clientY || 0) - rect.top) * (canvas.height / rect.height),
+      key: item?.sale_item_id ?? item?.id ?? item?.product_variant_id ?? `${idx}`,
+      sale_item_id: item?.sale_item_id ?? item?.id ?? null,
+      product_variant_id: item?.product_variant_id ?? null,
+      name: item?.name || "Item",
+      ordered_qty: Number.isFinite(ordered) ? ordered : 0,
+      delivered_qty: Number.isFinite(ordered) ? ordered : 0,
     };
-  }
-
-  function startDrawing(e) {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    drawingRef.current = true;
-    lastPointRef.current = getPoint(e);
-  }
-
-  function draw(e) {
-    const canvas = canvasRef.current;
-    if (!canvas || !drawingRef.current) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const nextPoint = getPoint(e);
-    ctx.lineWidth = 2;
-    ctx.lineCap = "round";
-    ctx.strokeStyle = "#0f172a";
-    ctx.beginPath();
-    ctx.moveTo(lastPointRef.current.x, lastPointRef.current.y);
-    ctx.lineTo(nextPoint.x, nextPoint.y);
-    ctx.stroke();
-    lastPointRef.current = nextPoint;
-  }
-
-  function stopDrawing() {
-    const canvas = canvasRef.current;
-    if (!canvas || !drawingRef.current) return;
-    drawingRef.current = false;
-    if (onChange) {
-      onChange(canvas.toDataURL("image/png"));
-    }
-  }
-
-  return (
-    <canvas
-      ref={canvasRef}
-      width={600}
-      height={200}
-      onPointerDown={startDrawing}
-      onPointerMove={draw}
-      onPointerUp={stopDrawing}
-      onPointerLeave={stopDrawing}
-      onPointerCancel={stopDrawing}
-      className="w-full h-40 rounded-2xl bg-white ring-1 ring-slate-200 touch-none"
-    />
-  );
+  });
 }
 
-
+function normalizeStatus(status) {
+  return String(status || "").toLowerCase();
+}
 export default function MyDeliveries() {
   const { auth, deliveries: serverDeliveries } = usePage().props;
   const user = auth?.user;
@@ -292,8 +128,8 @@ export default function MyDeliveries() {
 
       payment_method: "gcash",
       payment_status: "prepaid",
-      amount_total: "₱980.00",
-      delivery_fee: "₱50.00",
+      amount_total: "P980.00",
+      delivery_fee: "P50.00",
 
       distance_km: "6.2 km",
       eta_mins: "25 mins",
@@ -304,32 +140,6 @@ export default function MyDeliveries() {
       ],
 
       notes: "",
-    },
-    {
-      id: 102,
-      code: "DLV-000102",
-      delivery_type: "delivery",
-      scheduled_at: "Tomorrow 9:00 AM",
-      created_at: "2026-01-20 11:03",
-      status: "on_the_way",
-
-      customer_name: "Maria Santos",
-      customer_phone: "",
-      address: "Bajada, Davao City",
-      barangay: "Bajada Proper",
-      landmark: "",
-      instructions: "Leave at guard if not home.",
-
-      payment_method: "cash",
-      payment_status: "unpaid",
-      amount_total: "₱850.00",
-      delivery_fee: "₱50.00",
-
-      distance_km: "3.8 km",
-      eta_mins: "15 mins",
-
-      items: [{ name: "LPG Cylinder 11 kg", qty: 1 }],
-      notes: "Customer requested morning schedule.",
     },
   ];
 
@@ -348,14 +158,32 @@ export default function MyDeliveries() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [selectedId, setSelectedId] = useState(deliveries[0]?.id || null);
-  const [noteDraft, setNoteDraft] = useState("");
-  const [noteError, setNoteError] = useState("");
+
+  const [activeStep, setActiveStep] = useState(0);
+  const [stepError, setStepError] = useState("");
+  const [successOpen, setSuccessOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [onTheWayConfirmed, setOnTheWayConfirmed] = useState(false);
+  const [proofGeo, setProofGeo] = useState({ lat: "", lng: "" });
+  const [geoError, setGeoError] = useState("");
+  const [geoBusy, setGeoBusy] = useState(false);
+  const [proofCapturedAt, setProofCapturedAt] = useState("");
+  const [deliveredItems, setDeliveredItems] = useState([]);
+
   const [proofPhotoFile, setProofPhotoFile] = useState(null);
   const [proofPhotoData, setProofPhotoData] = useState("");
   const [proofPhotoPreview, setProofPhotoPreview] = useState("");
-  const [signatureData, setSignatureData] = useState("");
-  const [proofError, setProofError] = useState("");
+  const [photoConfirmed, setPhotoConfirmed] = useState(false);
   const photoInputRef = useRef(null);
+  const [cameraTrigger, setCameraTrigger] = useState(0);
+
+  const [signatureData, setSignatureData] = useState("");
+  const [customerAvailable, setCustomerAvailable] = useState(null);
+  const [absenceReason, setAbsenceReason] = useState("");
+  const [absenceOther, setAbsenceOther] = useState("");
+  const [deliveryStatus, setDeliveryStatus] = useState("delivered");
+
   const pendingCount = queue.length;
 
   useEffect(() => {
@@ -403,27 +231,115 @@ export default function MyDeliveries() {
   }, [deliveries, query, filter]);
 
   const selected = useMemo(() => deliveries.find((d) => d.id === selectedId) || null, [deliveries, selectedId]);
-
   const selectedAddress = selected?.address || "";
-  const selectedStatus = selected?.status || "pending";
 
-  function resetProofInputs() {
+  function resetStepState() {
+    setActiveStep(0);
+    setStepError("");
+    setOnTheWayConfirmed(false);
+    setProofGeo({ lat: "", lng: "" });
+    setGeoError("");
+    setGeoBusy(false);
+    setProofCapturedAt("");
+    setDeliveredItems([]);
     setProofPhotoFile(null);
     setProofPhotoData("");
     setProofPhotoPreview("");
+    setPhotoConfirmed(false);
     setSignatureData("");
-    setProofError("");
+    setCustomerAvailable(null);
+    setAbsenceReason("");
+    setAbsenceOther("");
+    setDeliveryStatus("delivered");
     if (photoInputRef.current) {
       photoInputRef.current.value = "";
     }
   }
 
+  function hydrateFromDelivery(delivery) {
+    resetStepState();
+    if (!delivery) return;
+
+    const status = normalizeStatus(delivery.status);
+    if (["in_transit", "delivered", "failed"].includes(status)) {
+      setOnTheWayConfirmed(true);
+    }
+
+    setDeliveredItems(buildDeliveredItems(delivery));
+
+    if (delivery?.proof_geo_lat || delivery?.proof_geo_lng) {
+      setProofGeo({
+        lat: delivery.proof_geo_lat ?? "",
+        lng: delivery.proof_geo_lng ?? "",
+      });
+    }
+    if (delivery?.proof_captured_at) {
+      setProofCapturedAt(delivery.proof_captured_at);
+    }
+
+    if (delivery?.proof_photo_url) {
+      setProofPhotoPreview(delivery.proof_photo_url);
+      setPhotoConfirmed(true);
+    }
+
+    if (delivery?.proof_signature_url) {
+      setSignatureData(delivery.proof_signature_url);
+      setCustomerAvailable("yes");
+    }
+
+    if (delivery?.proof_exceptions) {
+      const known = [
+        "Customer not home",
+        "Refused delivery",
+        "Wrong address",
+        "Unable to contact",
+        "Others",
+      ];
+      if (known.includes(delivery.proof_exceptions)) {
+        setCustomerAvailable("no");
+        setAbsenceReason(delivery.proof_exceptions);
+      } else {
+        setCustomerAvailable("no");
+        setAbsenceReason("Others");
+        setAbsenceOther(delivery.proof_exceptions);
+      }
+    }
+
+    if (status === "failed") {
+      setDeliveryStatus("failed");
+    }
+  }
+
   function selectDelivery(d) {
     setSelectedId(d.id);
-    setNoteDraft(d.notes || "");
-    setNoteError("");
-    resetProofInputs();
+    setStepError("");
   }
+
+  useEffect(() => {
+    if (selected) {
+      hydrateFromDelivery(selected);
+    } else {
+      resetStepState();
+    }
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (!selected || activeStep !== 1) return;
+
+    if (!proofCapturedAt) {
+      setProofCapturedAt(new Date().toISOString());
+    }
+    if (!proofGeo.lat || !proofGeo.lng) {
+      captureLocation();
+    }
+  }, [activeStep, selectedId]);
+
+  useEffect(() => {
+    if (!selected || activeStep !== 2) return;
+    if (!proofPhotoPreview) {
+      setCameraTrigger((v) => v + 1);
+    }
+  }, [activeStep, selectedId]);
 
   function handlePhotoChange(event) {
     const file = event.target.files?.[0];
@@ -431,10 +347,12 @@ export default function MyDeliveries() {
       setProofPhotoFile(null);
       setProofPhotoData("");
       setProofPhotoPreview("");
+      setPhotoConfirmed(false);
       return;
     }
 
     setProofPhotoFile(file);
+    setPhotoConfirmed(false);
 
     const reader = new FileReader();
     reader.onload = () => {
@@ -445,17 +363,79 @@ export default function MyDeliveries() {
     reader.readAsDataURL(file);
   }
 
-  function updateLocalDelivery(deliveryId, changes) {
-    setDeliveries((prev) =>
-      prev.map((d) => (d.id === deliveryId ? { ...d, ...changes } : d))
+  function handleRetakePhoto() {
+    setProofPhotoFile(null);
+    setProofPhotoData("");
+    setProofPhotoPreview("");
+    setPhotoConfirmed(false);
+    if (photoInputRef.current) {
+      photoInputRef.current.value = "";
+    }
+    setCameraTrigger((v) => v + 1);
+  }
+
+  function handleConfirmPhoto() {
+    if (proofPhotoPreview) {
+      setPhotoConfirmed(true);
+    }
+  }
+  function captureLocation() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setGeoError("Geolocation is not available on this device.");
+      return;
+    }
+
+    setGeoBusy(true);
+    setGeoError("");
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setProofGeo({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        });
+        if (!proofCapturedAt) {
+          setProofCapturedAt(new Date(pos.timestamp).toISOString());
+        }
+        setGeoBusy(false);
+      },
+      (err) => {
+        setGeoError(err?.message || "Unable to capture location.");
+        setGeoBusy(false);
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     );
+  }
+
+  function setTimeNow() {
+    setProofCapturedAt(new Date().toISOString());
+  }
+
+  function handleCustomerAvailableChange(value) {
+    setCustomerAvailable(value);
+    if (value === "yes") {
+      setAbsenceReason("");
+      setAbsenceOther("");
+    }
+    if (value === "no") {
+      setSignatureData("");
+    }
+  }
+
+  function handleAbsenceReasonChange(value) {
+    setAbsenceReason(value);
+    if (value !== "Others") {
+      setAbsenceOther("");
+    }
+  }
+
+  function updateLocalDelivery(deliveryId, changes) {
+    setDeliveries((prev) => prev.map((d) => (d.id === deliveryId ? { ...d, ...changes } : d)));
   }
 
   function enqueueAction(action) {
     setQueue((prev) => {
-      const pruned = prev.filter(
-        (item) => !(item.deliveryId === action.deliveryId && item.type === action.type)
-      );
+      const pruned = prev.filter((item) => !(item.deliveryId === action.deliveryId && item.type === action.type));
       return [...pruned, action];
     });
   }
@@ -474,18 +454,25 @@ export default function MyDeliveries() {
     if (payload.proof_signature) {
       formData.append("proof_signature", payload.proof_signature);
     }
+    if (payload.proof_geo_lat !== undefined && payload.proof_geo_lat !== "") {
+      formData.append("proof_geo_lat", payload.proof_geo_lat);
+    }
+    if (payload.proof_geo_lng !== undefined && payload.proof_geo_lng !== "") {
+      formData.append("proof_geo_lng", payload.proof_geo_lng);
+    }
+    if (payload.proof_captured_at) {
+      formData.append("proof_captured_at", payload.proof_captured_at);
+    }
+    if (payload.proof_exceptions !== undefined) {
+      formData.append("proof_exceptions", payload.proof_exceptions);
+    }
+    if (payload.delivered_items) {
+      formData.append("delivered_items", JSON.stringify(payload.delivered_items));
+    }
 
     return window.axios.post(`/dashboard/rider/deliveries/${deliveryId}`, formData, {
       headers: { Accept: "application/json" },
     });
-  }
-
-  async function sendNoteUpdate(deliveryId, note) {
-    return window.axios.patch(
-      `/dashboard/rider/deliveries/${deliveryId}/note`,
-      { note },
-      { headers: { Accept: "application/json" } }
-    );
   }
 
   async function syncQueue() {
@@ -498,9 +485,6 @@ export default function MyDeliveries() {
       try {
         if (item.type === "status") {
           await sendStatusUpdate(item.deliveryId, item.payload);
-        }
-        if (item.type === "note") {
-          await sendNoteUpdate(item.deliveryId, item.payload.note);
         }
         remaining = remaining.filter((queued) => queued.id !== item.id);
         setQueue(remaining);
@@ -516,28 +500,46 @@ export default function MyDeliveries() {
     }
   }
 
-  async function updateStatus(nextStatus) {
-    if (!selected) return;
+  function buildDeliveredPayload() {
+    return deliveredItems.map((item) => {
+      const orderedQty = Number(item?.ordered_qty ?? item?.qty ?? 0);
+      const deliveredQty = Number(item?.delivered_qty ?? orderedQty);
+
+      return {
+        sale_item_id: item?.sale_item_id ?? item?.id ?? null,
+        product_variant_id: item?.product_variant_id ?? null,
+        name: item?.name || "Item",
+        ordered_qty: Number.isFinite(orderedQty) ? orderedQty : 0,
+        delivered_qty: Number.isFinite(deliveredQty) ? Math.max(0, deliveredQty) : 0,
+      };
+    });
+  }
+
+  async function updateStatus(nextStatus, { includeProof = false, showSuccess = false } = {}) {
+    if (!selected) return false;
 
     if (!canTransition(selected.status, nextStatus)) {
-      alert("Invalid status transition.");
-      return;
+      setStepError("Invalid status transition.");
+      return false;
     }
-
-    const requiresProof = false;
-    const hasPhoto = Boolean(proofPhotoFile || proofPhotoData);
-    const hasSignature = Boolean(signatureData);
-
-    if (requiresProof && !hasPhoto && !hasSignature) {
-      setProofError("Capture a photo or signature before marking delivered.");
-      return;
-    }
-
-    setProofError("");
 
     const payload = { status: nextStatus };
+    const localProofUpdate = {};
 
-    if (requiresProof) {
+    if (includeProof) {
+      const proofExceptions =
+        customerAvailable === "no"
+          ? absenceReason === "Others"
+            ? absenceOther
+            : absenceReason
+          : "";
+
+      let capturedAt = proofCapturedAt;
+      if (!capturedAt) {
+        capturedAt = new Date().toISOString();
+        setProofCapturedAt(capturedAt);
+      }
+
       if (proofPhotoFile) {
         payload.proof_photo = proofPhotoFile;
       } else if (proofPhotoData) {
@@ -547,6 +549,37 @@ export default function MyDeliveries() {
       if (signatureData) {
         payload.proof_signature = signatureData;
       }
+
+      if (proofGeo.lat !== "") {
+        payload.proof_geo_lat = proofGeo.lat;
+      }
+      if (proofGeo.lng !== "") {
+        payload.proof_geo_lng = proofGeo.lng;
+      }
+      if (capturedAt) {
+        payload.proof_captured_at = capturedAt;
+      }
+
+      payload.proof_exceptions = proofExceptions;
+      payload.delivered_items = buildDeliveredPayload();
+
+      if (proofPhotoPreview) {
+        localProofUpdate.proof_photo_url = proofPhotoPreview;
+      }
+      if (signatureData) {
+        localProofUpdate.proof_signature_url = signatureData;
+      }
+      if (proofGeo.lat !== "") {
+        localProofUpdate.proof_geo_lat = proofGeo.lat;
+      }
+      if (proofGeo.lng !== "") {
+        localProofUpdate.proof_geo_lng = proofGeo.lng;
+      }
+      if (capturedAt) {
+        localProofUpdate.proof_captured_at = capturedAt;
+      }
+      localProofUpdate.proof_exceptions = proofExceptions;
+      localProofUpdate.delivered_items = payload.delivered_items;
     }
 
     if (!isOnline) {
@@ -556,24 +589,26 @@ export default function MyDeliveries() {
         type: "status",
         payload: {
           status: nextStatus,
-          proof_photo_data: hasPhoto ? proofPhotoData : "",
-          proof_signature: hasSignature ? signatureData : "",
+          proof_photo_data: proofPhotoData,
+          proof_signature: signatureData,
+          proof_geo_lat: proofGeo.lat,
+          proof_geo_lng: proofGeo.lng,
+          proof_captured_at: payload.proof_captured_at,
+          proof_exceptions: payload.proof_exceptions,
+          delivered_items: payload.delivered_items,
         },
         created_at: new Date().toISOString(),
       });
-      updateLocalDelivery(selected.id, { status: nextStatus });
-      if (requiresProof) {
-        resetProofInputs();
-      }
-      return;
+      updateLocalDelivery(selected.id, { status: nextStatus, ...localProofUpdate });
+      if (showSuccess) setSuccessOpen(true);
+      return true;
     }
 
     try {
       await sendStatusUpdate(selected.id, payload);
-      updateLocalDelivery(selected.id, { status: nextStatus });
-      if (requiresProof) {
-        resetProofInputs();
-      }
+      updateLocalDelivery(selected.id, { status: nextStatus, ...localProofUpdate });
+      if (showSuccess) setSuccessOpen(true);
+      return true;
     } catch (error) {
       if (!navigator.onLine) {
         enqueueAction({
@@ -582,126 +617,337 @@ export default function MyDeliveries() {
           type: "status",
           payload: {
             status: nextStatus,
-            proof_photo_data: hasPhoto ? proofPhotoData : "",
-            proof_signature: hasSignature ? signatureData : "",
+            proof_photo_data: proofPhotoData,
+            proof_signature: signatureData,
+            proof_geo_lat: proofGeo.lat,
+            proof_geo_lng: proofGeo.lng,
+            proof_captured_at: payload.proof_captured_at,
+            proof_exceptions: payload.proof_exceptions,
+            delivered_items: payload.delivered_items,
           },
           created_at: new Date().toISOString(),
         });
-        updateLocalDelivery(selected.id, { status: nextStatus });
-        if (requiresProof) {
-          resetProofInputs();
-        }
-        return;
+        updateLocalDelivery(selected.id, { status: nextStatus, ...localProofUpdate });
+        if (showSuccess) setSuccessOpen(true);
+        return true;
       }
 
       const message = error?.response?.data?.message || "Unable to update status.";
-      if (requiresProof) {
-        setProofError(message);
-      } else {
-        alert(message);
-      }
+      setStepError(message);
+      return false;
+    }
+  }
+  async function handleConfirmOnTheWay() {
+    setStepError("");
+    const ok = await updateStatus("in_transit", { includeProof: false, showSuccess: false });
+    if (ok) {
+      setOnTheWayConfirmed(true);
     }
   }
 
-  async function saveNote() {
-    if (!selected) return;
+  function resetToSelectCustomer() {
+    setSelectedId(null);
+    resetStepState();
+  }
 
-    setNoteError("");
+  const stepCompletion = selected
+    ? [
+        Boolean(onTheWayConfirmed),
+        Boolean(proofGeo.lat && proofGeo.lng && proofCapturedAt),
+        Boolean(proofPhotoPreview && photoConfirmed),
+        customerAvailable === "yes"
+          ? Boolean(signatureData)
+          : customerAvailable === "no"
+          ? Boolean(absenceReason) && (absenceReason !== "Others" || absenceOther.trim())
+          : false,
+        Boolean(deliveryStatus),
+      ]
+    : [];
 
-    if (!isOnline) {
-      enqueueAction({
-        id: makeQueueId(),
-        deliveryId: selected.id,
-        type: "note",
-        payload: { note: noteDraft },
-        created_at: new Date().toISOString(),
-      });
-      updateLocalDelivery(selected.id, { notes: noteDraft });
+  const firstIncomplete = stepCompletion.findIndex((val) => !val);
+  const maxAccessibleStep =
+    selected && stepCompletion.length
+      ? firstIncomplete === -1
+        ? stepCompletion.length - 1
+        : firstIncomplete
+      : 0;
+
+  function validateStep(index) {
+    if (!selected) return { ok: false, message: "Select a customer first." };
+
+    switch (index) {
+      case 0:
+        return onTheWayConfirmed
+          ? { ok: true }
+          : { ok: false, message: "Confirm On The Way to continue." };
+      case 1:
+        if (!proofGeo.lat || !proofGeo.lng) {
+          return { ok: false, message: "Capture geolocation before continuing." };
+        }
+        if (!proofCapturedAt) {
+          return { ok: false, message: "Delivery time is required." };
+        }
+        return { ok: true };
+      case 2:
+        if (!proofPhotoPreview) {
+          return { ok: false, message: "Capture a proof photo before continuing." };
+        }
+        if (!photoConfirmed) {
+          return { ok: false, message: "Confirm the proof photo to continue." };
+        }
+        return { ok: true };
+      case 3:
+        if (customerAvailable === "yes") {
+          return signatureData
+            ? { ok: true }
+            : { ok: false, message: "Signature is required." };
+        }
+        if (customerAvailable === "no") {
+          if (!absenceReason) return { ok: false, message: "Select an absence reason." };
+          if (absenceReason === "Others" && !absenceOther.trim()) {
+            return { ok: false, message: "Please provide absence details." };
+          }
+          return { ok: true };
+        }
+        return { ok: false, message: "Select if the customer is available." };
+      case 4:
+        return deliveryStatus
+          ? { ok: true }
+          : { ok: false, message: "Select the final status." };
+      default:
+        return { ok: true };
+    }
+  }
+
+  function handleNext() {
+    const result = validateStep(activeStep);
+    if (!result.ok) {
+      setStepError(result.message || "Complete required fields.");
+      return;
+    }
+    setStepError("");
+    setActiveStep((prev) => Math.min(prev + 1, 4));
+  }
+
+  function handleBack() {
+    setStepError("");
+    setActiveStep((prev) => Math.max(0, prev - 1));
+  }
+
+  async function handleFinish() {
+    const result = validateStep(activeStep);
+    if (!result.ok) {
+      setStepError(result.message || "Complete required fields.");
+      return;
+    }
+    if (stepCompletion.some((val) => !val)) {
+      setStepError("Complete all required steps before finishing.");
       return;
     }
 
-    try {
-      await sendNoteUpdate(selected.id, noteDraft);
-      updateLocalDelivery(selected.id, { notes: noteDraft });
-    } catch (error) {
-      if (!navigator.onLine) {
-        enqueueAction({
-          id: makeQueueId(),
-          deliveryId: selected.id,
-          type: "note",
-          payload: { note: noteDraft },
-          created_at: new Date().toISOString(),
-        });
-        updateLocalDelivery(selected.id, { notes: noteDraft });
-        return;
-      }
-      setNoteError(error?.response?.data?.message || "Unable to save note.");
-    }
+    setStepError("");
+    setSubmitting(true);
+    await updateStatus(deliveryStatus, { includeProof: true, showSuccess: true });
+    setSubmitting(false);
   }
 
+  const steps = selected
+    ? [
+        {
+          key: "customer",
+          label: "Customer",
+          isComplete: stepCompletion[0],
+          content: (
+            <Step1CustomerInfo
+              delivery={selected}
+              address={selectedAddress}
+              confirmed={onTheWayConfirmed}
+              onConfirmOnTheWay={handleConfirmOnTheWay}
+            />
+          ),
+        },
+        {
+          key: "items",
+          label: "Items + Geo",
+          isComplete: stepCompletion[1],
+          content: (
+            <Step2ItemsGeo
+              items={deliveredItems}
+              geo={proofGeo}
+              capturedAt={proofCapturedAt}
+              geoBusy={geoBusy}
+              geoError={geoError}
+              onCaptureLocation={captureLocation}
+              onSetTimeNow={setTimeNow}
+            />
+          ),
+        },
+        {
+          key: "proof",
+          label: "Proof",
+          isComplete: stepCompletion[2],
+          content: (
+            <Step3ProofOfDelivery
+              photoPreview={proofPhotoPreview}
+              photoConfirmed={photoConfirmed}
+              onPhotoChange={handlePhotoChange}
+              onRetake={handleRetakePhoto}
+              onConfirmPhoto={handleConfirmPhoto}
+              photoInputRef={photoInputRef}
+              autoOpenSignal={cameraTrigger}
+            />
+          ),
+        },
+        {
+          key: "signature",
+          label: "Signature",
+          isComplete: stepCompletion[3],
+          content: (
+            <Step4SignatureOrReason
+              customerAvailable={customerAvailable}
+              onCustomerAvailableChange={handleCustomerAvailableChange}
+              signatureData={signatureData}
+              onSignatureChange={setSignatureData}
+              absenceReason={absenceReason}
+              onAbsenceReasonChange={handleAbsenceReasonChange}
+              absenceOther={absenceOther}
+              onAbsenceOtherChange={setAbsenceOther}
+            />
+          ),
+        },
+        {
+          key: "review",
+          label: "Review",
+          isComplete: stepCompletion[4],
+          content: (
+            <Step5ReviewAndStatus
+              delivery={selected}
+              items={deliveredItems}
+              geo={proofGeo}
+              capturedAt={proofCapturedAt}
+              photoPreview={proofPhotoPreview}
+              signatureData={signatureData}
+              customerAvailable={customerAvailable}
+              absenceReason={absenceReason}
+              absenceOther={absenceOther}
+              status={deliveryStatus}
+              onStatusChange={setDeliveryStatus}
+            />
+          ),
+        },
+      ]
+    : [
+        {
+          key: "empty",
+          label: "Select",
+          isComplete: false,
+          content: (
+            <EmptyState
+              title="Select a customer"
+              desc="Choose a delivery on the left to begin the step-by-step flow."
+            />
+          ),
+        },
+      ];
+
+  const nextDisabled = activeStep === 0 ? !stepCompletion[0] : false;
+  const finishDisabled = submitting || !stepCompletion[4];
   return (
-    <Layout title="My Deliveries">
-      <div className="grid gap-6 xl:grid-cols-3">
-        {/* LEFT: LIST */}
-        <Card className="xl:col-span-1">
-          <div className="p-5 border-b border-slate-200">
-            <div className="text-sm font-extrabold text-slate-900">Assigned deliveries</div>
-            <div className="mt-1 text-xs text-slate-600">
-              Only deliveries assigned to {user?.name || "you"}
+    <Layout user={user}>
+      <div className="min-h-screen bg-slate-100">
+        <div className="mx-auto max-w-7xl px-4 py-6 lg:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="text-xl font-extrabold text-slate-900">My Deliveries</div>
+              <div className="mt-1 text-sm text-slate-600">
+                Follow the stepper to complete each delivery.
+              </div>
             </div>
-
-            <div className="mt-4 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
-              <Search className="h-4 w-4 text-slate-500" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
-                placeholder="Search code, customer, address"
-              />
-            </div>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              {[
-                { key: "all", label: "All" },
-                { key: "pending", label: "Pending" },
-                { key: "on_the_way", label: "On the way" },
-                { key: "delivered", label: "Delivered" },
-                { key: "failed", label: "Failed" },
-              ].map((x) => (
-                <button
-                  key={x.key}
-                  type="button"
-                  onClick={() => setFilter(x.key)}
+            <div className="flex flex-wrap items-center gap-2">
+              <div
+                className={cx(
+                  "inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-extrabold ring-1",
+                  isOnline
+                    ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                    : "bg-amber-50 text-amber-700 ring-amber-200"
+                )}
+              >
+                <span
                   className={cx(
-                    "rounded-2xl px-3 py-2 text-xs font-extrabold ring-1 transition",
-                    filter === x.key
-                      ? "bg-teal-600/10 text-teal-900 ring-teal-200"
+                    "h-2 w-2 rounded-full",
+                    isOnline ? "bg-emerald-500" : "bg-amber-500"
+                  )}
+                />
+                {isOnline ? "Online" : "Offline"}
+              </div>
+
+              {pendingCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={syncQueue}
+                  disabled={!isOnline || syncing}
+                  className={cx(
+                    "inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-xs font-extrabold ring-1 transition",
+                    !isOnline || syncing
+                      ? "bg-slate-100 text-slate-400 ring-slate-200 cursor-not-allowed"
                       : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
                   )}
                 >
-                  {x.label}
+                  {syncing ? "Syncing..." : `Sync ${pendingCount}`}
                 </button>
-              ))}
+              ) : null}
             </div>
           </div>
 
-          <div className="p-3">
-            {filtered.length === 0 ? (
-              <EmptyState title="No deliveries found" desc="Try changing the filter or search query." />
-            ) : (
-              <div className="space-y-2">
-                {filtered.map((d) => {
-                  const active = d.id === selectedId;
-                  return (
+          <div className="mt-6 grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+            <div className="space-y-4">
+              <Card className="p-4 space-y-3">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search deliveries"
+                    className="w-full rounded-2xl border border-slate-200 bg-white py-2 pl-10 pr-3 text-sm font-semibold text-slate-900 outline-none focus:ring-4 focus:ring-teal-500/15"
+                  />
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { key: "all", label: "All" },
+                    { key: "pending", label: "Pending" },
+                    { key: "assigned", label: "Assigned" },
+                    { key: "in_transit", label: "On the way" },
+                    { key: "delivered", label: "Delivered" },
+                    { key: "failed", label: "Failed" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setFilter(opt.key)}
+                      className={cx(
+                        "rounded-2xl px-3 py-1.5 text-xs font-extrabold ring-1 transition",
+                        filter === opt.key
+                          ? "bg-slate-900 text-white ring-slate-900"
+                          : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </Card>
+
+              <Card className="divide-y divide-slate-200">
+                {filtered.length ? (
+                  filtered.map((d) => (
                     <button
                       key={d.id}
                       type="button"
                       onClick={() => selectDelivery(d)}
                       className={cx(
-                        "w-full text-left rounded-3xl p-4 ring-1 transition",
-                        active
-                          ? "bg-teal-600/10 ring-teal-200"
-                          : "bg-white ring-slate-200 hover:bg-slate-50"
+                        "w-full text-left p-4 transition",
+                        selectedId === d.id ? "bg-teal-50" : "bg-white hover:bg-slate-50"
                       )}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -709,206 +955,57 @@ export default function MyDeliveries() {
                           <div className="text-sm font-extrabold text-slate-900 truncate">
                             {d.customer_name || "Customer"}
                           </div>
-                          <div className="mt-1 text-xs text-slate-600 truncate">
-                            {d.code || `Delivery #${d.id}`}
-                          </div>
-                          <div className="mt-2 flex items-center gap-2 text-xs text-slate-600">
-                            <MapPin className="h-4 w-4 text-slate-400" />
-                            <span className="truncate">{d.address || "No address"}</span>
+                          <div className="mt-1 text-xs text-slate-500">
+                            {d.code || `Delivery #${d.id}`} - {d.scheduled_at || "Scheduled"}
                           </div>
                         </div>
-
                         <StatusPill status={d.status} />
                       </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </Card>
 
-        {/* RIGHT: DETAILS */}
-        <div className="xl:col-span-2 grid gap-6">
-          {!selected ? (
-            <EmptyState title="Select a delivery" desc="Choose a delivery on the left to see details." />
-          ) : (
-            <>
-              {/* SUMMARY */}
-              <Card>
-                <div className="p-5 flex flex-wrap items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="text-lg font-extrabold text-slate-900 truncate">
-                      {selected.customer_name || "Customer"}
-                    </div>
-                    <div className="mt-1 text-sm text-slate-600">
-                      {selected.code || `Delivery #${selected.id}`} • {selected.scheduled_at || "Scheduled"}
-                    </div>
-                  </div>
-                  <StatusPill status={selected.status} />
-                </div>
-              </Card>
-
-              {/* CUSTOMER + LOCATION */}
-              <Section
-                title="Customer and location"
-                subtitle="Use this to contact the customer and navigate."
-                right={
-                  <div className="flex flex-wrap gap-2">
-                    {selectedAddress ? (
-                      <a
-                        href={mapsOpenUrl(selectedAddress)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition"
-                      >
-                        <Navigation className="h-4 w-4" />
-                        Open Maps
-                      </a>
-                    ) : null}
-
-                    {selected.customer_phone ? (
-                      <a
-                        href={`tel:${selected.customer_phone}`}
-                        className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition"
-                      >
-                        <Phone className="h-4 w-4" />
-                        Call
-                      </a>
-                    ) : null}
-                  </div>
-                }
-              >
-                <div className="grid gap-3 md:grid-cols-2">
-                  <InfoRow icon={Phone} label="Phone" value={selected.customer_phone || "No phone provided"} />
-                  <InfoRow icon={MapPin} label="Address" value={selected.address || "No address provided"} />
-                </div>
-
-                <div className="mt-4">
-                  {selectedAddress ? (
-                    <div className="overflow-hidden rounded-3xl ring-1 ring-slate-200">
-                      <iframe
-                        title="Delivery map"
-                        src={mapsEmbedUrl(selectedAddress)}
-                        width="100%"
-                        height="280"
-                        loading="lazy"
-                        referrerPolicy="no-referrer-when-downgrade"
-                        className="block"
-                      />
-                    </div>
-                  ) : (
-                    <EmptyState title="No address available" desc="This delivery has no address to show on the map." />
-                  )}
-                </div>
-              </Section>
-
-              {/* ITEMS */}
-              <Section
-                title="Items"
-                subtitle="Make sure items match before delivery."
-                right={
-                  <div className="inline-flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2 ring-1 ring-slate-200">
-                    <Package className="h-4 w-4 text-slate-500" />
-                    <div className="text-xs font-extrabold text-slate-700">
-                      {(selected.items || []).length} item types
-                    </div>
-                  </div>
-                }
-              >
-                <div className="space-y-2">
-                  {(selected.items || []).length ? (
-                    selected.items.map((it, idx) => (
-                      <div
-                        key={`${it.name}-${idx}`}
-                        className="flex items-center justify-between gap-3 rounded-3xl bg-slate-50 ring-1 ring-slate-200 px-4 py-3"
-                      >
-                        <div className="min-w-0">
-                          <div className="text-sm font-extrabold text-slate-900 truncate">{it.name}</div>
-                          <div className="mt-1 text-xs text-slate-600">Qty</div>
-                        </div>
-                        <div className="text-sm font-extrabold text-slate-900">x{it.qty || 1}</div>
+                      <div className="mt-2 text-xs text-slate-600 line-clamp-2">
+                        {d.address || "No address provided"}
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-sm text-slate-600">No items found</div>
-                  )}
-                </div>
+                    </button>
+                  ))
+                ) : (
+                  <div className="p-4 text-sm text-slate-600">No deliveries found.</div>
+                )}
+              </Card>
+            </div>
 
-                <div className="mt-3 flex items-center gap-2 text-xs text-slate-600">
-                  <Clock className="h-4 w-4 text-slate-400" />
-                  <span>Status updates affect inventory and accounting.</span>
-                </div>
-              </Section>
-
-              {/* ACTIONS + NOTES */}
-              <Section
-                title="Actions and notes"
-                subtitle="Update status in the correct order. Add notes for issues."
-                right={<StatusPill status={selected.status} />}
-              >
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <div>
-                    <div className="text-xs font-extrabold text-slate-700">Update status</div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <ActionBtn
-                        icon={Navigation}
-                        disabled={!canTransition(selectedStatus, "in_transit")}
-                        onClick={() => updateStatus("in_transit")}
-                      >
-                        On the way
-                      </ActionBtn>
-
-                      <ActionBtn
-                        tone="primary"
-                        icon={CheckCircle2}
-                        disabled={!canTransition(selectedStatus, "delivered")}
-                        onClick={() => updateStatus("delivered")}
-                      >
-                        Delivered
-                      </ActionBtn>
-
-                      <ActionBtn
-                        tone="danger"
-                        icon={XCircle}
-                        disabled={!canTransition(selectedStatus, "failed")}
-                        onClick={() => updateStatus("failed")}
-                      >
-                        Failed
-                      </ActionBtn>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs font-extrabold text-slate-700 flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-slate-400" />
-                      Notes
-                    </div>
-
-                    <textarea
-                      value={noteDraft}
-                      onChange={(e) => setNoteDraft(e.target.value)}
-                      rows={4}
-                      className="mt-3 w-full rounded-3xl border border-slate-200 bg-white p-4 text-sm outline-none focus:ring-4 focus:ring-teal-500/15"
-                      placeholder="Example: customer not home, gate closed, requested reschedule"
-                    />
-
-                    <div className="mt-3 flex items-center justify-end">
-                      <button
-                        type="button"
-                        onClick={saveNote}
-                        className="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-extrabold text-white hover:bg-black transition focus:outline-none focus:ring-4 focus:ring-slate-500/20"
-                      >
-                        Save note
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </Section>
-            </>
-          )}
+            <div>
+              <DeliveryStepper
+                steps={steps}
+                activeStep={activeStep}
+                maxAccessibleStep={maxAccessibleStep}
+                onStepChange={(idx) => {
+                  if (idx <= maxAccessibleStep) {
+                    setStepError("");
+                    setActiveStep(idx);
+                  }
+                }}
+                onBack={handleBack}
+                onNext={handleNext}
+                onFinish={handleFinish}
+                nextDisabled={nextDisabled}
+                finishDisabled={finishDisabled}
+                stepError={stepError}
+                hideControls={!selected}
+              />
+            </div>
+          </div>
         </div>
       </div>
+
+      <DeliverySuccessModal
+        open={successOpen}
+        statusLabel={deliveryStatus}
+        onClose={() => {
+          setSuccessOpen(false);
+          resetToSelectCustomer();
+          router.reload({ only: ["deliveries"] });
+        }}
+      />
     </Layout>
   );
 }

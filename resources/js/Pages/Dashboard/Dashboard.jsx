@@ -91,7 +91,7 @@ export default function RoleDashboard() {
               <div className="grid gap-3 md:grid-cols-2">
                 {actions.slice(0, 6).map((a) => (
                   <Link
-                    key={a.href}
+                    key={`${a.href}-${a.label}`}
                     href={a.href}
                     className="rounded-3xl bg-teal-50 p-4 ring-1 ring-teal-700/10 hover:bg-teal-100/50 transition"
                   >
