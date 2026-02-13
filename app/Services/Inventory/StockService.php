@@ -113,9 +113,16 @@ class StockService
         return $movementId;
     }
 
-    public function getStockMovementsForIndex(?string $search, ?string $type, ?string $direction, int $perPage)
+    public function getStockMovementsForIndex(
+        ?string $search,
+        ?string $type,
+        ?string $direction,
+        int $perPage,
+        ?string $from = null,
+        ?string $to = null
+    )
     {
-        $movements = $this->stockRepository->getStockMovements($search, $type, $direction, $perPage);
+        $movements = $this->stockRepository->getStockMovements($search, $type, $direction, $perPage, $from, $to);
 
         $data = $movements->through(function ($movement) {
             return $this->transformMovement($movement);

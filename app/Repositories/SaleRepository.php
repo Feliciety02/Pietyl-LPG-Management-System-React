@@ -37,6 +37,19 @@ class SaleRepository
             $query->where('status', $filters['status']);
         }
 
+        if (!empty($filters['from']) || !empty($filters['to'])) {
+            $from = !empty($filters['from']) ? Carbon::parse($filters['from'])->startOfDay() : null;
+            $to = !empty($filters['to']) ? Carbon::parse($filters['to'])->endOfDay() : null;
+
+            if ($from && $to) {
+                $query->whereBetween('sale_datetime', [$from, $to]);
+            } elseif ($from) {
+                $query->where('sale_datetime', '>=', $from);
+            } elseif ($to) {
+                $query->where('sale_datetime', '<=', $to);
+            }
+        }
+
         $perPage = $filters['per'] ?? 10;
         $page = $filters['page'] ?? 1;
 
@@ -71,6 +84,10 @@ class SaleRepository
             $query->where('status', 'paid');
         } elseif ($statusScope === 'paid_pending') {
             $query->whereIn('status', ['paid', 'pending']);
+        } elseif ($statusScope === 'pending') {
+            $query->where('status', 'pending');
+        } elseif ($statusScope === 'failed') {
+            $query->where('status', 'failed');
         }
 
         return $query->orderBy('sale_datetime', 'asc')->get();

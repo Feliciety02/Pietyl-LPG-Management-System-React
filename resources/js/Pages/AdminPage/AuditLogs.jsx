@@ -153,6 +153,179 @@ function eventTone(event) {
   return "info";
 }
 
+const currencyFormatter = new Intl.NumberFormat("en-PH", {
+  style: "currency",
+  currency: "PHP",
+});
+
+function money(value) {
+  const v = Number(value || 0);
+  return currencyFormatter.format(v);
+}
+
+function safeText(value) {
+  return String(value ?? "").trim();
+}
+
+function Pill({ tone = "slate", children }) {
+  const map = {
+    slate: "bg-slate-100 text-slate-700 ring-slate-200",
+    teal: "bg-teal-600/10 text-teal-900 ring-teal-700/10",
+    amber: "bg-amber-600/10 text-amber-900 ring-amber-700/10",
+    rose: "bg-rose-600/10 text-rose-900 ring-rose-700/10",
+  };
+
+  return (
+    <span
+      className={cx(
+        "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-extrabold ring-1",
+        map[tone] || map.slate
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+function MethodPill({ method }) {
+  const m = String(method || "cash").toLowerCase();
+  const tone = m === "gcash" ? "teal" : m === "card" ? "slate" : "amber";
+  return <Pill tone={tone}>{m.toUpperCase()}</Pill>;
+}
+
+function StatusPill({ status }) {
+  const s = String(status || "paid").toLowerCase();
+  const tone = s === "paid" ? "teal" : s === "failed" ? "rose" : "amber";
+  return <Pill tone={tone}>{s.toUpperCase()}</Pill>;
+}
+
+function FinanceTypePill({ kind }) {
+  const k = String(kind || "").toLowerCase();
+  const label = k === "supplier_payment" ? "Supplier Payment" : "Remittance";
+  const tone = k === "supplier_payment" ? "teal" : "amber";
+  return <Pill tone={tone}>{label}</Pill>;
+}
+
+function SaleAvatar({ ref }) {
+  const t = safeText(ref);
+  const seed = t.replace(/\s+/g, "").slice(-2).toUpperCase() || "TX";
+
+  return (
+    <div className="h-9 w-9 rounded-2xl bg-teal-600/10 ring-1 ring-teal-700/10 flex items-center justify-center">
+      <span className="text-[11px] font-extrabold text-teal-900">{seed}</span>
+    </div>
+  );
+}
+
+function LineSummary({ lines }) {
+  const list = Array.isArray(lines) ? lines : [];
+  const count = list.reduce((sum, it) => sum + Number(it?.qty || 0), 0);
+  if (!list.length) return <span className="text-xs text-slate-400">No items</span>;
+
+  const first = list[0];
+  const name = safeText(first?.name) || "Item";
+  const variant = safeText(first?.variant);
+  const more = list.length - 1;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-xs font-extrabold text-slate-700 truncate max-w-[260px]">
+        {name}
+        {variant ? <span className="text-slate-500"> - {variant}</span> : null}
+      </span>
+
+      {more > 0 ? (
+        <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-extrabold text-slate-700 ring-1 ring-slate-200">
+          +{more} more
+        </span>
+      ) : null}
+
+      <span className="text-[11px] font-extrabold text-slate-500">Qty {count}</span>
+    </div>
+  );
+}
+
+function normalizeType(type) {
+  return String(type || "").toLowerCase().trim();
+}
+
+function normalizeDir(dir) {
+  return String(dir || "").toLowerCase().trim();
+}
+
+function TypePill({ type }) {
+  const t = normalizeType(type);
+
+  const tone =
+    t === "purchase" || t === "refill"
+      ? "bg-teal-600/10 text-teal-900 ring-teal-700/10"
+      : t === "swap"
+      ? "bg-amber-600/10 text-amber-900 ring-amber-700/10"
+      : t === "sale" || t === "delivery"
+      ? "bg-slate-100 text-slate-700 ring-slate-200"
+      : "bg-slate-100 text-slate-700 ring-slate-200";
+
+  const label =
+    t === "purchase"
+      ? "Purchase"
+      : t === "refill"
+      ? "Refill"
+      : t === "sale"
+      ? "Sale"
+      : t === "delivery"
+      ? "Delivery"
+      : t === "swap"
+      ? "Swap"
+      : t === "adjustment"
+      ? "Adjustment"
+      : t === "damage"
+      ? "Damage"
+      : t === "transfer"
+      ? "Transfer"
+      : "Movement";
+
+  return (
+    <span
+      className={cx(
+        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1",
+        tone
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+function DirectionPill({ dir }) {
+  const d = normalizeDir(dir);
+
+  const tone =
+    d === "in"
+      ? "bg-teal-600/10 text-teal-900 ring-teal-700/10"
+      : d === "out"
+      ? "bg-slate-100 text-slate-700 ring-slate-200"
+      : "bg-slate-100 text-slate-700 ring-slate-200";
+
+  const label = d === "in" ? "Inbound" : d === "out" ? "Outbound" : "-";
+
+  return (
+    <span
+      className={cx(
+        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1",
+        tone
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+function niceText(v) {
+  if (v == null) return "-";
+  const s = String(v).trim();
+  return s ? s : "-";
+}
+
 function TopCard(props) {
   return (
     <div className="rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm">
@@ -196,6 +369,34 @@ function Tabs({ tabs, value, onChange }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function CompactDateInput({ ariaLabel, value, onChange }) {
+  return (
+    <input
+      aria-label={ariaLabel}
+      type="date"
+      value={value ?? ""}
+      onChange={function (e) {
+        onChange && onChange(e.target.value);
+      }}
+      className={cx(
+        "h-9 min-w-[140px] rounded-xl border border-slate-200 bg-white px-3 text-xs font-extrabold text-slate-800",
+        "outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
+      )}
+    />
+  );
+}
+
+function DateRangeFilterMinimal({ from, to, onFromChange, onToChange }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="text-[11px] font-extrabold text-slate-500">From</div>
+      <CompactDateInput ariaLabel="From date" value={from} onChange={onFromChange} />
+      <div className="text-[11px] font-extrabold text-slate-500">To</div>
+      <CompactDateInput ariaLabel="To date" value={to} onChange={onToChange} />
     </div>
   );
 }
@@ -301,8 +502,20 @@ export default function AuditLogs() {
       ? SAMPLE_AUDITS
       : { data: [], meta: null };
 
-  const rows = audits && audits.data ? audits.data : [];
-  const meta = audits && audits.meta ? audits.meta : null;
+  const auditRows = audits && audits.data ? audits.data : [];
+  const auditMeta = audits && audits.meta ? audits.meta : null;
+
+  const sales = page.props && page.props.sales ? page.props.sales : null;
+  const salesRows = sales && sales.data ? sales.data : [];
+  const salesMeta = sales && sales.meta ? sales.meta : null;
+
+  const movements = page.props && page.props.movements ? page.props.movements : null;
+  const movementRows = movements && movements.data ? movements.data : [];
+  const movementMeta = movements && movements.meta ? movements.meta : null;
+
+  const finance = page.props && page.props.finance ? page.props.finance : null;
+  const financeRows = finance && finance.data ? finance.data : [];
+  const financeMeta = finance && finance.meta ? finance.meta : null;
 
   const query = page.props && page.props.filters ? page.props.filters : {};
   const per = Number(query.per || 10);
@@ -312,9 +525,17 @@ export default function AuditLogs() {
   const [q, setQ] = useState(query.q || "");
   const [event, setEvent] = useState(query.event || "all");
   const [entityType, setEntityType] = useState(query.entity_type || "all");
+  const [dateFrom, setDateFrom] = useState(query.from || "");
+  const [dateTo, setDateTo] = useState(query.to || "");
 
   const initialSector = allowedSectors.indexOf(query.sector) >= 0 ? query.sector : defaultSectorForRole(role);
   const [sector, setSector] = useState(initialSector);
+  const mode = useMemo(() => {
+    if (sector === "sales") return "sales";
+    if (sector === "inventory") return "inventory";
+    if (sector === "finance") return "finance";
+    return "audit";
+  }, [sector]);
 
   const allSectorTabs = [
     { value: "all", label: "All", Icon: ShieldCheck },
@@ -336,7 +557,7 @@ export default function AuditLogs() {
     people: { event: "all", entity_type: "Employee" },
 
     sales: { event: "sale.create", entity_type: "Sale" },
-    inventory: { event: "all", entity_type: "all" },
+    inventory: { event: "stock_movement.create", entity_type: "StockMovement" },
     finance: { event: "all", entity_type: "all" },
   };
 
@@ -393,7 +614,15 @@ export default function AuditLogs() {
   ];
 
   function pushQuery(patch) {
-    const base = { q: q, event: event, entity_type: entityType, per: per, sector: sector };
+    const base = {
+      q: q,
+      event: event,
+      entity_type: entityType,
+      per: per,
+      sector: sector,
+      from: dateFrom || undefined,
+      to: dateTo || undefined,
+    };
     const nextParams = Object.assign({}, base, patch || {});
 
     router.get(basePath, nextParams, {
@@ -418,6 +647,16 @@ export default function AuditLogs() {
     });
   }
 
+  function handleDateFrom(value) {
+    setDateFrom(value);
+    pushQuery({ from: value || undefined, page: 1 });
+  }
+
+  function handleDateTo(value) {
+    setDateTo(value);
+    pushQuery({ to: value || undefined, page: 1 });
+  }
+
   useEffect(
     function () {
       if (allowedSectors.indexOf(sector) >= 0) return;
@@ -439,6 +678,39 @@ export default function AuditLogs() {
     [role]
   );
 
+  const auditFilters = [
+    {
+      key: "event",
+      value: event,
+      onChange: function (v) {
+        setEvent(v);
+        setSector(allowedSectors.indexOf("all") >= 0 ? "all" : defaultSectorForRole(role));
+        pushQuery({
+          event: v,
+          sector: allowedSectors.indexOf("all") >= 0 ? "all" : defaultSectorForRole(role),
+          page: 1,
+        });
+      },
+      options: eventOptions,
+    },
+    {
+      key: "entity_type",
+      value: entityType,
+      onChange: function (v) {
+        setEntityType(v);
+        setSector(allowedSectors.indexOf("all") >= 0 ? "all" : defaultSectorForRole(role));
+        pushQuery({
+          entity_type: v,
+          sector: allowedSectors.indexOf("all") >= 0 ? "all" : defaultSectorForRole(role),
+          page: 1,
+        });
+      },
+      options: entityOptions,
+    },
+  ];
+
+  const activeFilters = mode === "audit" ? auditFilters : [];
+
   const loading = Boolean(page.props && page.props.loading);
 
   const fillerRows = useMemo(
@@ -450,9 +722,7 @@ export default function AuditLogs() {
     [per]
   );
 
-  const tableRows = loading ? fillerRows : rows;
-
-  const columns = useMemo(
+  const auditColumns = useMemo(
     function () {
       return [
         {
@@ -539,11 +809,349 @@ export default function AuditLogs() {
     []
   );
 
+  const salesColumns = useMemo(
+    function () {
+      return [
+        {
+          key: "sale",
+          label: "Sale",
+          render: function (x) {
+            if (x && x.__filler) {
+              return (
+                <div className="flex items-start gap-3">
+                  <div className="h-9 w-9 rounded-2xl bg-slate-100 ring-1 ring-slate-200" />
+                  <div className="space-y-2">
+                    <SkeletonLine w="w-32" />
+                    <SkeletonLine w="w-48" />
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div className="flex items-start gap-3">
+                <SaleAvatar ref={x.ref} />
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="font-extrabold text-slate-900">{x.ref}</div>
+                    <StatusPill status={x.status} />
+                    <MethodPill method={x.method} />
+                  </div>
+
+                  <div className="mt-1 flex flex-col gap-1">
+                    <div className="text-xs text-slate-500">
+                      <span className="font-extrabold text-slate-700">{x.customer || "Walk in"}</span>
+                      <span className="mx-2 text-slate-300">|</span>
+                      <span className="text-slate-600">{x.created_at || "Not available"}</span>
+                      {x.cashier_name ? (
+                        <>
+                          <span className="mx-2 text-slate-300">|</span>
+                          <span className="text-slate-600">Cashier {x.cashier_name}</span>
+                        </>
+                      ) : null}
+                    </div>
+
+                    <LineSummary lines={x.lines} />
+                  </div>
+                </div>
+              </div>
+            );
+          },
+          exportValue: function (x) {
+            if (!x || x.__filler) return "";
+            const parts = [
+              safeText(x.ref),
+              safeText(x.customer),
+              safeText(x.status).toUpperCase(),
+              safeText(x.method).toUpperCase(),
+              safeText(x.created_at),
+              safeText(x.cashier_name) ? `Cashier ${safeText(x.cashier_name)}` : "",
+            ].filter(Boolean);
+            return parts.join(" | ");
+          },
+        },
+        {
+          key: "total",
+          label: "Total",
+          render: function (x) {
+            if (x && x.__filler) return <SkeletonLine w="w-20" />;
+            return (
+              <div className="flex justify-start">
+                <span className="inline-flex items-center rounded-2xl bg-slate-50 px-3 py-2 ring-1 ring-slate-200">
+                  <span className="text-[11px] font-extrabold text-slate-600 mr-2">Total</span>
+                  <span className="text-[11px] font-extrabold text-slate-900">{money(x.total)}</span>
+                </span>
+              </div>
+            );
+          },
+          exportValue: function (x) {
+            if (!x || x.__filler) return "";
+            return x.total ?? 0;
+          },
+        },
+      ];
+    },
+    []
+  );
+
+  const movementColumns = useMemo(
+    function () {
+      return [
+        {
+          key: "item",
+          label: "Item",
+          render: function (x) {
+            if (x && x.__filler) {
+              return (
+                <div className="space-y-2">
+                  <SkeletonLine w="w-40" />
+                  <SkeletonLine w="w-24" />
+                </div>
+              );
+            }
+
+            return (
+              <div className="min-w-0">
+                <div className="font-extrabold text-slate-900 truncate">
+                  {niceText(x.product_name)}{" "}
+                  {x.variant ? <span className="text-slate-500 font-semibold">({x.variant})</span> : null}
+                </div>
+                <div className="mt-1 text-xs text-slate-500 truncate">
+                  {x.reference_id ? (
+                    <>
+                      Ref <span className="font-semibold text-slate-700">{x.reference_id}</span>
+                    </>
+                  ) : (
+                    "Ref -"
+                  )}
+                </div>
+              </div>
+            );
+          },
+          exportValue: function (x) {
+            if (!x || x.__filler) return "";
+            const name = [safeText(x.product_name), safeText(x.variant)].filter(Boolean).join(" ");
+            const ref = x.reference_id ? `Ref ${x.reference_id}` : "";
+            return [name, ref].filter(Boolean).join(" - ");
+          },
+        },
+        {
+          key: "type",
+          label: "Type",
+          render: function (x) {
+            if (x && x.__filler) return <SkeletonPill w="w-20" />;
+            return <TypePill type={x.type} />;
+          },
+          exportValue: function (x) {
+            if (!x || x.__filler) return "";
+            return safeText(x.type);
+          },
+        },
+        {
+          key: "flow",
+          label: "Flow",
+          render: function (x) {
+            if (x && x.__filler) return <SkeletonPill w="w-16" />;
+            return <DirectionPill dir={x.direction} />;
+          },
+          exportValue: function (x) {
+            if (!x || x.__filler) return "";
+            return safeText(x.direction);
+          },
+        },
+        {
+          key: "qty",
+          label: "Qty",
+          render: function (x) {
+            if (x && x.__filler) return <SkeletonLine w="w-10" />;
+            return <span className="text-sm font-extrabold text-slate-900">{Number(x.qty || 0)}</span>;
+          },
+          exportValue: function (x) {
+            if (!x || x.__filler) return "";
+            return x.qty ?? 0;
+          },
+        },
+        {
+          key: "actor",
+          label: "By",
+          render: function (x) {
+            if (x && x.__filler) return <SkeletonLine w="w-24" />;
+            return <span className="text-sm text-slate-700">{niceText(x.actor_name)}</span>;
+          },
+          exportValue: function (x) {
+            if (!x || x.__filler) return "";
+            return safeText(x.actor_name);
+          },
+        },
+        {
+          key: "when",
+          label: "Occurred",
+          render: function (x) {
+            if (x && x.__filler) return <SkeletonLine w="w-28" />;
+            return <span className="text-sm text-slate-700">{niceText(x.occurred_at)}</span>;
+          },
+          exportValue: function (x) {
+            if (!x || x.__filler) return "";
+            return safeText(x.occurred_at);
+          },
+        },
+      ];
+    },
+    []
+  );
+
+  const financeColumns = useMemo(
+    function () {
+      return [
+        {
+          key: "activity",
+          label: "Activity",
+          render: function (x) {
+            if (x && x.__filler) {
+              return (
+                <div className="space-y-2">
+                  <SkeletonLine w="w-40" />
+                  <SkeletonLine w="w-24" />
+                </div>
+              );
+            }
+
+            const isSupplier = String(x.kind || "") === "supplier_payment";
+            const title = isSupplier ? safeText(x.supplier_name) || "Supplier payment" : "Remittance log";
+            const ref = isSupplier
+              ? safeText(x.source_ref) || safeText(x.reference)
+              : safeText(x.business_date);
+            const detail = safeText(x.message) || (ref ? `Ref ${ref}` : safeText(x.event));
+
+            return (
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <FinanceTypePill kind={x.kind} />
+                  <div className="font-extrabold text-slate-900 truncate">{title}</div>
+                </div>
+                <div className="mt-1 text-xs text-slate-500 truncate">
+                  {detail || "-"}
+                </div>
+              </div>
+            );
+          },
+          exportValue: function (x) {
+            if (!x || x.__filler) return "";
+            const parts = [
+              safeText(x.kind),
+              safeText(x.supplier_name),
+              safeText(x.source_ref),
+              safeText(x.reference),
+              safeText(x.business_date),
+              safeText(x.message),
+            ].filter(Boolean);
+            return parts.join(" | ");
+          },
+        },
+        {
+          key: "amount",
+          label: "Amount",
+          render: function (x) {
+            if (x && x.__filler) return <SkeletonLine w="w-20" />;
+            return (
+              <div className="text-sm font-extrabold text-slate-900">
+                {x.amount != null ? money(x.amount) : "-"}
+              </div>
+            );
+          },
+          exportValue: function (x) {
+            if (!x || x.__filler) return "";
+            return x.amount ?? "";
+          },
+        },
+        {
+          key: "actor",
+          label: "By",
+          render: function (x) {
+            if (x && x.__filler) return <SkeletonLine w="w-24" />;
+            return <span className="text-sm text-slate-700">{safeText(x.actor_name) || "-"}</span>;
+          },
+          exportValue: function (x) {
+            if (!x || x.__filler) return "";
+            return safeText(x.actor_name);
+          },
+        },
+        {
+          key: "when",
+          label: "When",
+          render: function (x) {
+            if (x && x.__filler) return <SkeletonLine w="w-28" />;
+            return <span className="text-sm text-slate-700">{safeText(x.created_at) || "-"}</span>;
+          },
+          exportValue: function (x) {
+            if (!x || x.__filler) return "";
+            return safeText(x.created_at);
+          },
+        },
+      ];
+    },
+    []
+  );
+
+  const activeColumns =
+    mode === "sales"
+      ? salesColumns
+      : mode === "inventory"
+      ? movementColumns
+      : mode === "finance"
+      ? financeColumns
+      : auditColumns;
+  const activeRows =
+    mode === "sales"
+      ? salesRows
+      : mode === "inventory"
+      ? movementRows
+      : mode === "finance"
+      ? financeRows
+      : auditRows;
+  const activeMeta =
+    mode === "sales"
+      ? salesMeta
+      : mode === "inventory"
+      ? movementMeta
+      : mode === "finance"
+      ? financeMeta
+      : auditMeta;
+
+  const activeEmptyTitle =
+    mode === "sales"
+      ? "No POS sales found"
+      : mode === "inventory"
+      ? "No inventory movements found"
+      : mode === "finance"
+      ? "No finance activity found"
+      : "No audit logs found";
+
+  const activeEmptyHint =
+    mode === "sales"
+      ? "Completed POS sales will appear here."
+      : mode === "inventory"
+      ? "Inventory movements will appear here."
+      : mode === "finance"
+      ? "Supplier payments and remittance logs will appear here."
+      : "Try a different search or filter.";
+
+  const searchPlaceholder =
+    mode === "sales"
+      ? "Search sale number or customer..."
+      : mode === "inventory"
+      ? "Search product or reference..."
+      : mode === "finance"
+      ? "Search supplier, reference, or remittance..."
+      : "Search actor, event, entity, or details...";
+
+  const tableRows = loading ? fillerRows : activeRows;
+
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [activeAudit, setActiveAudit] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
 
-  const canExport = !loading && rows.length > 0;
+  const canExport = !loading && activeRows.length > 0;
 
   function openDetails(a) {
     setActiveAudit(a || null);
@@ -555,9 +1163,18 @@ export default function AuditLogs() {
     setActiveAudit(null);
   }
 
-  function getFilteredRows() {
+  useEffect(
+    function () {
+      if (mode === "audit") return;
+      setDetailsOpen(false);
+      setActiveAudit(null);
+    },
+    [mode]
+  );
+
+  function getFilteredRows(sourceRows) {
     const normalizedQuery = String(q || "").trim().toLowerCase();
-    return rows
+    return (sourceRows || [])
       .filter(function (row) {
         return row && !row.__filler;
       })
@@ -569,36 +1186,44 @@ export default function AuditLogs() {
 
   function exportCurrentTab() {
     if (!canExport) {
-      window.alert("No audit logs to export for this tab.");
+      window.alert("No records to export for this tab.");
       return;
     }
 
     if (isExporting) return;
 
-    const activeRows = getFilteredRows();
-    if (activeRows.length === 0) {
-      window.alert("No audit logs match the current search or filters.");
+    const filteredRows = getFilteredRows(activeRows);
+    if (filteredRows.length === 0) {
+      window.alert("No records match the current search or filters.");
       return;
     }
 
     const sectorLabel = findLabel(sectorTabs, sector, titleCase(sector));
     const now = new Date();
-    const titleText = `Audit Logs — ${sectorLabel}`;
-    const metaText = `Exported on: ${formatDateTime(now)}`;
+    const exportBaseLabel =
+      mode === "sales" ? "POS Sales" : mode === "inventory" ? "Inventory Movements" : "Audit Logs";
+    const titleText = mode === "audit" ? `Audit Logs - ${sectorLabel}` : exportBaseLabel;
+    const rangeText =
+      dateFrom || dateTo
+        ? ` | Range: ${dateFrom || "Any"} to ${dateTo || "Any"}`
+        : "";
+    const metaText = `Exported on: ${formatDateTime(now)}${rangeText}`;
     const fileTimestamp = formatFileTimestamp(now);
-    const sheetName = sanitizeSheetName(sectorLabel);
-    const fileSlug = slugify(sectorLabel) || slugify(sector) || "tab";
+    const sheetName = sanitizeSheetName(mode === "audit" ? sectorLabel : exportBaseLabel);
+    const fileSlug = slugify(mode === "audit" ? sectorLabel : exportBaseLabel) || slugify(sector) || "tab";
+    const exportPrefix =
+      mode === "audit" ? "AuditLogs" : mode === "sales" ? "POSSales" : "InventoryMovements";
 
     setIsExporting(true);
 
     try {
-      const columnCount = columns.length;
-      const headers = columns.map(function (col) {
+      const columnCount = activeColumns.length;
+      const headers = activeColumns.map(function (col) {
         return col.label;
       });
 
-      const dataRows = activeRows.map(function (row) {
-        return columns.map(function (col) {
+      const dataRows = filteredRows.map(function (row) {
+        return activeColumns.map(function (col) {
           const raw = col.exportValue ? col.exportValue(row) : row[col.key];
           return raw == null ? "" : raw;
         });
@@ -678,7 +1303,7 @@ export default function AuditLogs() {
             },
           };
 
-          const colMeta = columns[colIndex];
+          const colMeta = activeColumns[colIndex];
           if (colMeta && colMeta.excelType === "datetime") {
             if (cell.v instanceof Date) {
               cell.t = "d";
@@ -695,7 +1320,7 @@ export default function AuditLogs() {
         }
       }
 
-      worksheet["!cols"] = columns.map(function (col, colIndex) {
+      worksheet["!cols"] = activeColumns.map(function (col, colIndex) {
         const headerLen = String(col.label || "").length;
         const dataLengths = dataRows.map(function (row) {
           const value = row[colIndex];
@@ -714,7 +1339,7 @@ export default function AuditLogs() {
 
       const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
       const blob = new Blob([buffer], { type: "application/octet-stream" });
-      const exportName = `AuditLogs_${fileSlug || "tab"}_${fileTimestamp || formatFileTimestamp(new Date())}.xlsx`;
+      const exportName = `${exportPrefix}_${fileSlug || "tab"}_${fileTimestamp || formatFileTimestamp(new Date())}.xlsx`;
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
@@ -753,101 +1378,88 @@ export default function AuditLogs() {
           onQDebounced={function (v) {
             pushQuery({ q: v, page: 1 });
           }}
-          placeholder="Search actor, event, entity, or details..."
+          placeholder={searchPlaceholder}
           rightSlot={
-            <button
-              type="button"
-              onClick={exportCurrentTab}
-              disabled={!canExport || isExporting}
-              className={cx(
-                "inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-xs font-extrabold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-500/25 focus-visible:ring-offset-1",
-                isExporting || !canExport
-                  ? "bg-slate-100 text-slate-400 ring-slate-200 cursor-not-allowed"
-                  : "bg-teal-600 text-white ring-teal-600 hover:bg-teal-700 active:bg-teal-800"
-              )}
-            >
-              <Download className={cx("h-4 w-4", isExporting ? "text-slate-400" : "text-white")} />
-              {isExporting ? "Exporting…" : "Export Excel"}
-            </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <DateRangeFilterMinimal
+                from={dateFrom}
+                to={dateTo}
+                onFromChange={handleDateFrom}
+                onToChange={handleDateTo}
+              />
+              <button
+                type="button"
+                onClick={exportCurrentTab}
+                disabled={!canExport || isExporting}
+                className={cx(
+                  "inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-xs font-extrabold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-500/25 focus-visible:ring-offset-1",
+                  isExporting || !canExport
+                    ? "bg-slate-100 text-slate-400 ring-slate-200 cursor-not-allowed"
+                    : "bg-teal-600 text-white ring-teal-600 hover:bg-teal-700 active:bg-teal-800"
+                )}
+              >
+                <Download className={cx("h-4 w-4", isExporting ? "text-slate-400" : "text-white")} />
+                {isExporting ? "Exporting..." : "Export Excel"}
+              </button>
+            </div>
           }
-          filters={[
-            {
-              key: "event",
-              value: event,
-              onChange: function (v) {
-                setEvent(v);
-                setSector(allowedSectors.indexOf("all") >= 0 ? "all" : defaultSectorForRole(role));
-                pushQuery({
-                  event: v,
-                  sector: allowedSectors.indexOf("all") >= 0 ? "all" : defaultSectorForRole(role),
-                  page: 1,
-                });
-              },
-              options: eventOptions,
-            },
-            {
-              key: "entity_type",
-              value: entityType,
-              onChange: function (v) {
-                setEntityType(v);
-                setSector(allowedSectors.indexOf("all") >= 0 ? "all" : defaultSectorForRole(role));
-                pushQuery({
-                  entity_type: v,
-                  sector: allowedSectors.indexOf("all") >= 0 ? "all" : defaultSectorForRole(role),
-                  page: 1,
-                });
-              },
-              options: entityOptions,
-            },
-          ]}
+          filters={activeFilters}
         />
 
         <DataTable
-          columns={columns}
+          columns={activeColumns}
           rows={tableRows}
           loading={loading}
           searchQuery={q}
-          emptyTitle="No audit logs found"
-          emptyHint="Try a different search or filter."
-          renderActions={function (a) {
-            if (a && a.__filler) {
-              return (
-                <div className="flex items-center justify-end gap-2">
-                  <SkeletonButton w="w-20" />
-                </div>
-              );
-            }
+          emptyTitle={activeEmptyTitle}
+          emptyHint={activeEmptyHint}
+          renderActions={
+            mode === "audit"
+              ? function (a) {
+                  if (a && a.__filler) {
+                    return (
+                      <div className="flex items-center justify-end gap-2">
+                        <SkeletonButton w="w-20" />
+                      </div>
+                    );
+                  }
 
-            return (
-              <div className="flex items-center justify-end gap-2">
-                <TableActionButton
-                  icon={Eye}
-                  title="View details"
-                  onClick={function () {
-                    openDetails(a);
-                  }}
-                >
-                  View
-                </TableActionButton>
-              </div>
-            );
-          }}
+                  return (
+                    <div className="flex items-center justify-end gap-2">
+                      <TableActionButton
+                        icon={Eye}
+                        title="View details"
+                        onClick={function () {
+                          openDetails(a);
+                        }}
+                      >
+                        View
+                      </TableActionButton>
+                    </div>
+                  );
+                }
+              : null
+          }
         />
 
         <DataTablePagination
-          meta={meta}
+          meta={activeMeta}
           perPage={per}
           onPerPage={function (n) {
             pushQuery({ per: n, page: 1 });
           }}
           onPrev={function () {
-            if (meta && meta.current_page > 1) pushQuery({ page: meta.current_page - 1 });
+            if (activeMeta && activeMeta.current_page > 1) {
+              pushQuery({ page: activeMeta.current_page - 1 });
+            }
           }}
           onNext={function () {
-            if (meta && meta.current_page < meta.last_page) pushQuery({ page: meta.current_page + 1 });
+            if (activeMeta && activeMeta.current_page < activeMeta.last_page) {
+              pushQuery({ page: activeMeta.current_page + 1 });
+            }
           }}
-          disablePrev={!meta || meta.current_page <= 1}
-          disableNext={!meta || meta.current_page >= meta.last_page}
+          disablePrev={!activeMeta || activeMeta.current_page <= 1}
+          disableNext={!activeMeta || activeMeta.current_page >= activeMeta.last_page}
         />
       </div>
 

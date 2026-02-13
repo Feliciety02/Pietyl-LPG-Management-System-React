@@ -1,6 +1,6 @@
 ﻿import React from "react";
 import { MapPin, Clock, Camera, PenLine, Package, UserX2 } from "lucide-react";
-import { Section, InfoRow, formatDateTime, cx } from "./DeliveryShared";
+import { Section, InfoRow, StatusPill, formatDateTime, cx } from "./DeliveryShared";
 
 export default function Step5ReviewAndStatus({
   delivery,
@@ -14,6 +14,7 @@ export default function Step5ReviewAndStatus({
   absenceOther,
   status,
   onStatusChange,
+  readOnly = false,
 }) {
   const absenceText =
     customerAvailable === "no"
@@ -97,25 +98,31 @@ export default function Step5ReviewAndStatus({
           Final status
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          {["delivered", "failed"].map((opt) => (
-            <button
-              key={opt}
-              type="button"
-              onClick={() => onStatusChange(opt)}
-              className={cx(
-                "rounded-2xl px-4 py-2 text-xs font-extrabold ring-1 transition",
-                status === opt
-                  ? opt === "delivered"
-                    ? "bg-emerald-600 text-white ring-emerald-600"
-                    : "bg-rose-600 text-white ring-rose-600"
-                  : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
-              )}
-            >
-              {opt === "delivered" ? "Delivered" : "Failed"}
-            </button>
-          ))}
-        </div>
+        {readOnly ? (
+          <div className="mt-3">
+            <StatusPill status={status} />
+          </div>
+        ) : (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {["delivered", "failed"].map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => onStatusChange?.(opt)}
+                className={cx(
+                  "rounded-2xl px-4 py-2 text-xs font-extrabold ring-1 transition",
+                  status === opt
+                    ? opt === "delivered"
+                      ? "bg-emerald-600 text-white ring-emerald-600"
+                      : "bg-rose-600 text-white ring-rose-600"
+                    : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
+                )}
+              >
+                {opt === "delivered" ? "Delivered" : "Failed"}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </Section>
   );

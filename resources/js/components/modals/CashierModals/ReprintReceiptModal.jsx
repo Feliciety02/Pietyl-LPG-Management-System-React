@@ -9,7 +9,13 @@ function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
-export default function ReprintReceiptModal({ open, onClose, sale, onReprint }) {
+export default function ReprintReceiptModal({
+  open,
+  onClose,
+  sale,
+  onReprint,
+  basePath = "/dashboard/cashier/sales",
+}) {
   if (!sale) return null;
 
   const [loading, setLoading] = useState(false);
@@ -19,13 +25,14 @@ export default function ReprintReceiptModal({ open, onClose, sale, onReprint }) 
     if (!sale?.id) return;
     setLoading(true);
     try {
-      const { data } = await axios.post(`/dashboard/cashier/sales/${sale.id}/receipt/reprint`);
+      const trimmedBase = String(basePath || "/dashboard/cashier/sales").replace(/\/+$/, "");
+      const { data } = await axios.post(`${trimmedBase}/${sale.id}/receipt/reprint`);
       if (typeof onReprint === "function") {
         onReprint(data);
       }
       // open printable page in a new tab for archival/printing
       try {
-        window.open(`/dashboard/cashier/sales/${sale.id}/receipt/print`, "_blank");
+        window.open(`${trimmedBase}/${sale.id}/receipt/print`, "_blank");
       } catch (err) {
         // ignore popup errors
       }

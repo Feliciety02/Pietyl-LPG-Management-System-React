@@ -34,11 +34,13 @@ export const DASHBOARD_CONFIG = {
   accountant: {
     title: "Accountant",
     actions: [
+      { label: "Sales", href: "/dashboard/accountant/sales", permission: "accountant.sales.view" },
       { label: "Remittances", href: "/dashboard/accountant/remittances", permission: "accountant.remittances.view" },
       { label: "Ledger", href: "/dashboard/accountant/ledger", permission: "accountant.ledger.view" },
       { label: "Supplier Payables", href: "/dashboard/accountant/payables", permission: "accountant.payables.view" },
       { label: "Payroll", href: "/dashboard/accountant/payroll", permission: "accountant.payroll.view" },
       { label: "Reports", href: "/dashboard/accountant/reports", permission: "accountant.reports.view" },
+      { label: "Audit Logs", href: "/dashboard/accountant/audit", permission: "accountant.audit.view" },
     ],
     activityTitle: "Accounting notes",
     activity: [],
@@ -60,7 +62,6 @@ export const DASHBOARD_CONFIG = {
     title: "Inventory",
     actions: [
       { label: "Stock Counts", href: "/dashboard/inventory/counts", permission: "inventory.stock.view" },
-      { label: "Movements", href: "/dashboard/inventory/movements", permission: "inventory.movements.view" },
       { label: "Order Stocks", href: "/dashboard/inventory/order-stocks", permission: "inventory.stock.low_stock" },
       { label: "Purchases", href: "/dashboard/inventory/purchases", permission: "inventory.purchases.view" },
       { label: "Suppliers", href: "/dashboard/inventory/suppliers", permission: "inventory.suppliers.view" },

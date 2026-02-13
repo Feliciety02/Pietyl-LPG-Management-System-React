@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Cashier;
 
+use App\Exports\SalesCsvExport;
 use App\Exports\SalesReportExport;
 use App\Http\Controllers\Controller;
 use App\Models\Receipt as ReceiptModel;
@@ -12,6 +13,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -29,6 +31,16 @@ class SaleController extends Controller
 
     public function index(Request $request)
     {
+        return $this->renderSalesPage($request, "CashierPage/Sales");
+    }
+
+    public function indexAccountant(Request $request)
+    {
+        return $this->renderSalesPage($request, "AccountantPage/Sales");
+    }
+
+    protected function renderSalesPage(Request $request, string $view)
+    {
         $summaryDate = $request->input("summary_date", now()->toDateString());
 
         $filters = [
@@ -42,7 +54,7 @@ class SaleController extends Controller
         $sales = $this->saleService->getSalesForPage($filters);
         $summaryPayload = $this->summaryService->getSummary($summaryDate);
 
-        return Inertia::render("CashierPage/Sales", [
+        return Inertia::render($view, [
             "sales" => $sales,
             "filters" => $filters,
             "daily_summary" => $summaryPayload["summary"],
@@ -64,16 +76,26 @@ class SaleController extends Controller
 
     public function export(Request $request)
     {
-        $validated = $request->validate([
+        $payload = [
+            "from_date" => $request->input("from_date") ?? $request->input("from"),
+            "to_date" => $request->input("to_date") ?? $request->input("to"),
+            "status_scope" => $request->input("status_scope") ?? $request->input("status") ?? "paid",
+            "format" => strtolower((string) $request->input("format", "xlsx")),
+            "include_items" => $request->input("include_items", false),
+        ];
+
+        $validated = Validator::make($payload, [
             "from_date" => ["required", "date"],
             "to_date" => ["required", "date", "after_or_equal:from_date"],
-            "status_scope" => ["required", "in:paid,paid_pending,all"],
+            "status_scope" => ["required", "in:paid,paid_pending,pending,failed,all"],
+            "format" => ["sometimes", "in:xlsx,csv"],
             "include_items" => ["sometimes", "boolean"],
-        ]);
+        ])->validate();
 
         $from = Carbon::parse($validated["from_date"])->startOfDay();
         $to = Carbon::parse($validated["to_date"])->endOfDay();
         $statusScope = $validated["status_scope"];
+        $format = strtolower($validated["format"] ?? "xlsx");
         $includeItems = filter_var($validated["include_items"] ?? false, FILTER_VALIDATE_BOOLEAN);
 
         $sales = $this->saleService->getSalesForExport([
@@ -101,20 +123,36 @@ class SaleController extends Controller
         $statusLabels = [
             "paid" => "Paid only",
             "paid_pending" => "Paid + Pending",
+            "pending" => "Pending only",
+            "failed" => "Failed only",
             "all" => "All statuses",
         ];
-
-        $fileName = sprintf(
-            "Sales_%s_to_%s.xlsx",
-            $from->format("Y-m-d"),
-            $to->format("Y-m-d")
-        );
 
         $rangeLabel = sprintf(
             "%s to %s",
             $from->format("M d, Y"),
             $to->format("M d, Y")
         );
+
+        $fileBase = sprintf(
+            "Sales_%s_to_%s",
+            $from->format("Y-m-d"),
+            $to->format("Y-m-d")
+        );
+
+        if ($format === "csv") {
+            return Excel::download(
+                new SalesCsvExport(
+                    $sales,
+                    $methodTotals,
+                    $summary,
+                    $rangeLabel,
+                    $statusLabels[$statusScope] ?? "Paid only"
+                ),
+                $fileBase . ".csv",
+                \Maatwebsite\Excel\Excel::CSV
+            );
+        }
 
         return Excel::download(
             new SalesReportExport(
@@ -125,7 +163,7 @@ class SaleController extends Controller
                 $statusLabels[$statusScope] ?? "Paid only",
                 $includeItems
             ),
-            $fileName
+            $fileBase . ".xlsx"
         );
     }
 

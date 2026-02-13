@@ -127,11 +127,15 @@ export default function PrintSalesModal({
   onClose,
   defaultStatus = "paid",
   onDownloaded,
+  exportUrl = "/dashboard/cashier/sales/export",
+  defaultFormat = "xlsx",
+  formats = ["xlsx", "csv"],
 }) {
   const today = useMemo(() => startOfDay(new Date()), []);
 
   const [range, setRange] = useState({ from: today, to: today });
   const [status, setStatus] = useState(defaultStatus);
+  const [format, setFormat] = useState(defaultFormat);
   const [includeItems, setIncludeItems] = useState(true);
 
   const [downloading, setDownloading] = useState(false);
@@ -143,21 +147,27 @@ export default function PrintSalesModal({
     setDownloading(false);
     setStatus(defaultStatus);
     setRange({ from: today, to: today });
+    setFormat(defaultFormat);
     setIncludeItems(true);
-  }, [open, defaultStatus, today]);
+  }, [open, defaultStatus, defaultFormat, today]);
 
   const from = range?.from ? clampToToday(range.from) : null;
   const to = range?.to ? clampToToday(range.to) : null;
 
   const daysSelected = rangeDays(from, to);
+  const formatOptions = Array.isArray(formats) && formats.length ? formats : ["xlsx"];
+  const activeFormat = formatOptions.includes(format) ? format : formatOptions[0];
+  const supportsItems = activeFormat === "xlsx";
 
   const fileName = useMemo(() => {
     const a = from ? toISODate(from) : "start";
     const b = to ? toISODate(to) : a;
-    return `Sales_${a}_to_${b}.xlsx`;
-  }, [from, to]);
+    const ext = activeFormat === "csv" ? "csv" : "xlsx";
+    return `Sales_${a}_to_${b}.${ext}`;
+  }, [from, to, activeFormat]);
 
   const canDownload = Boolean(from) && Boolean(to) && !downloading;
+  const downloadLabel = activeFormat === "csv" ? "Download CSV" : "Download Excel";
 
   const handleShortcut = (daysBack) => {
     const d = startOfDay(new Date());
@@ -165,7 +175,7 @@ export default function PrintSalesModal({
     setRange({ from: d, to: startOfDay(new Date()) });
   };
 
-  const downloadExcel = async () => {
+  const downloadReport = async () => {
     if (!canDownload) return;
 
     setDownloading(true);
@@ -173,13 +183,14 @@ export default function PrintSalesModal({
 
     try {
       const params = {
-        from: toISODate(from),
-        to: toISODate(to),
-        status,
-        include_items: includeItems ? 1 : 0,
+        from_date: toISODate(from),
+        to_date: toISODate(to),
+        status_scope: status,
+        include_items: supportsItems && includeItems ? 1 : 0,
+        format: activeFormat,
       };
 
-      const res = await axios.get("/dashboard/cashier/sales/export", {
+      const res = await axios.get(exportUrl, {
         params,
         responseType: "blob",
       });
@@ -187,7 +198,9 @@ export default function PrintSalesModal({
       const blob = new Blob([res.data], {
         type:
           res.headers?.["content-type"] ||
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          (activeFormat === "csv"
+            ? "text/csv"
+            : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
       });
 
       const url = window.URL.createObjectURL(blob);
@@ -215,8 +228,8 @@ export default function PrintSalesModal({
       onClose={onClose}
       layout="compact"
       maxWidthClass="max-w-6xl"
-      title="Print sales"
-      subtitle="Pick a business date range, then download an Excel report."
+      title="Export sales"
+      subtitle="Pick a business date range, then download a report."
       icon={CalendarIcon}
       bodyClassName="max-h-[85vh] overflow-auto"
       footer={
@@ -246,7 +259,7 @@ export default function PrintSalesModal({
 
             <button
               type="button"
-              onClick={downloadExcel}
+              onClick={downloadReport}
               disabled={!canDownload}
               className={cx(
                 "inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-extrabold text-white ring-1 transition focus:outline-none focus:ring-4",
@@ -256,7 +269,7 @@ export default function PrintSalesModal({
               )}
             >
               <Download className="h-4 w-4" />
-              {downloading ? "Downloading..." : "Download Excel"}
+              {downloading ? "Downloading..." : downloadLabel}
             </button>
           </div>
         </div>
@@ -355,41 +368,55 @@ export default function PrintSalesModal({
                   </Select>
                 </Field>
 
-                <button
-                  type="button"
-                  onClick={() => setIncludeItems((v) => !v)}
-                  className={cx(
-                    "w-full rounded-3xl px-4 py-4 text-left ring-1 transition focus:outline-none focus:ring-4 focus:ring-teal-500/15",
-                    includeItems
-                      ? "bg-teal-600/10 ring-teal-700/10"
-                      : "bg-white ring-slate-200 hover:bg-slate-50"
-                  )}
-                >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={cx(
-                        "mt-0.5 h-5 w-5 rounded-md ring-1 flex items-center justify-center",
-                        includeItems ? "bg-teal-600 ring-teal-600" : "bg-white ring-slate-300"
-                      )}
-                    >
+                {formatOptions.length > 1 ? (
+                  <Field label="File type" hint="Choose CSV for imports or Excel for formatting.">
+                    <Select value={format} onChange={(e) => setFormat(e.target.value)}>
+                      {formatOptions.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt === "csv" ? "CSV (.csv)" : "Excel (.xlsx)"}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                ) : null}
+
+                {supportsItems ? (
+                  <button
+                    type="button"
+                    onClick={() => setIncludeItems((v) => !v)}
+                    className={cx(
+                      "w-full rounded-3xl px-4 py-4 text-left ring-1 transition focus:outline-none focus:ring-4 focus:ring-teal-500/15",
+                      includeItems
+                        ? "bg-teal-600/10 ring-teal-700/10"
+                        : "bg-white ring-slate-200 hover:bg-slate-50"
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
                       <div
                         className={cx(
-                          "h-2.5 w-2.5 rounded-sm",
-                          includeItems ? "bg-white" : "bg-transparent"
+                          "mt-0.5 h-5 w-5 rounded-md ring-1 flex items-center justify-center",
+                          includeItems ? "bg-teal-600 ring-teal-600" : "bg-white ring-slate-300"
                         )}
-                      />
-                    </div>
+                      >
+                        <div
+                          className={cx(
+                            "h-2.5 w-2.5 rounded-sm",
+                            includeItems ? "bg-white" : "bg-transparent"
+                          )}
+                        />
+                      </div>
 
-                    <div className="min-w-0">
-                      <div className="text-sm font-extrabold text-slate-900">
-                        Include item breakdown
-                      </div>
-                      <div className="mt-0.5 text-xs text-slate-500">
-                        Adds a second sheet with items per sale.
+                      <div className="min-w-0">
+                        <div className="text-sm font-extrabold text-slate-900">
+                          Include item breakdown
+                        </div>
+                        <div className="mt-0.5 text-xs text-slate-500">
+                          Adds a second sheet with items per sale.
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </button>
+                  </button>
+                ) : null}
 
                 <Field label="File name" hint="You can rename this before downloading.">
                   <Input value={fileName} readOnly />

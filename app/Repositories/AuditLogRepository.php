@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use App\Models\AuditLog;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -91,6 +92,19 @@ class AuditLogRepository
         if (!empty($filters['entity_type']) && $filters['entity_type'] !== 'all') {
             $types = $this->expandEntityTypes([$filters['entity_type']]);
             $this->query->whereIn('entity_type', $types);
+        }
+
+        if (!empty($filters['from']) || !empty($filters['to'])) {
+            $from = !empty($filters['from']) ? Carbon::parse($filters['from'])->startOfDay() : null;
+            $to = !empty($filters['to']) ? Carbon::parse($filters['to'])->endOfDay() : null;
+
+            if ($from && $to) {
+                $this->query->whereBetween('created_at', [$from, $to]);
+            } elseif ($from) {
+                $this->query->where('created_at', '>=', $from);
+            } elseif ($to) {
+                $this->query->where('created_at', '<=', $to);
+            }
         }
 
         return $this;

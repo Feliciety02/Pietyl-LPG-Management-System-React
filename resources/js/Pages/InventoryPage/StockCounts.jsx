@@ -601,13 +601,13 @@ export default function StockCounts() {
                       ? `/dashboard/inventory/audit?entity_type=StockMovement&q=${encodeURIComponent(
                           x.latest_movement_id || ""
                         )}`
-                      : `/dashboard/inventory/movements?q=${encodeURIComponent(x.sku || "")}`
+                      : `/dashboard/inventory/audit?sector=inventory&q=${encodeURIComponent(x.sku || "")}`
                   }
                   className="inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
-                  title={isAdmin ? "View audit logs" : "View related movements"}
+                  title={isAdmin ? "View audit logs" : "View inventory audit logs"}
                 >
                   <Boxes className="h-4 w-4 text-slate-600" />
-                  {isAdmin ? "Audit Logs" : "Movements"}
+                  Audit Logs
                 </Link>
               </div>
             )

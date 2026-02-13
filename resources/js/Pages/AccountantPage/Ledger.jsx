@@ -6,13 +6,10 @@ import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
 
-import axios from "axios";
 import { Info, FileText } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
-import { TableActionButton } from "@/components/Table/ActionTableButton";
 
 import LedgerCodeReminderModal from "@/components/modals/AccountantModals/LedgerCodeReminderModal";
-import LedgerReferenceModal from "@/components/modals/AccountantModals/LedgerReferenceModal";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -52,29 +49,6 @@ function formatDateTime(value) {
   } catch {
     return String(value);
   }
-}
-
-function RefPill({ type }) {
-  const t = String(type || "entry").toLowerCase();
-
-  const map = {
-    sale: "bg-teal-600/10 text-teal-900 ring-teal-700/10",
-    remittance: "bg-slate-100 text-slate-800 ring-slate-200",
-    adjustment: "bg-amber-600/10 text-amber-900 ring-amber-700/10",
-    expense: "bg-rose-600/10 text-rose-900 ring-rose-700/10",
-    entry: "bg-white text-slate-700 ring-slate-200",
-  };
-
-  return (
-    <span
-      className={cx(
-        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ring-1",
-        map[t] || map.entry
-      )}
-    >
-      {t.toUpperCase()}
-    </span>
-  );
 }
 
 const fallbackAccountOptions = [
@@ -169,18 +143,6 @@ export default function Ledger() {
   const [sort, setSort] = useState(sortInitial);
   const [cleared, setCleared] = useState(clearedInitial);
   const [bankRef, setBankRef] = useState(bankRefInitial);
-
-  const [referenceModalOpen, setReferenceModalOpen] = useState(false);
-  const [referenceLines, setReferenceLines] = useState([]);
-  const [referenceTotals, setReferenceTotals] = useState(null);
-  const [referenceMeta, setReferenceMeta] = useState({
-    referenceId: "",
-    referenceType: "",
-    postedAt: "",
-    balanced: true,
-  });
-  const [referenceLoading, setReferenceLoading] = useState(false);
-  const [referenceError, setReferenceError] = useState("");
 
   const [glOpen, setGlOpen] = useState(false);
 
@@ -309,44 +271,6 @@ export default function Ledger() {
   useEffect(() => setCleared(clearedInitial), [clearedInitial]);
   useEffect(() => setBankRef(bankRefInitial), [bankRefInitial]);
 
-  const handleOpenReferenceModal = useCallback(async (refId) => {
-    if (!refId) return;
-
-    setReferenceModalOpen(true);
-    setReferenceLoading(true);
-    setReferenceLines([]);
-    setReferenceTotals(null);
-    setReferenceError("");
-    setReferenceMeta({ referenceId: refId, referenceType: "", postedAt: "", balanced: true });
-
-    try {
-      const encodedId = encodeURIComponent(refId);
-      const { data } = await axios.get(`/dashboard/accountant/ledger/reference/${encodedId}`);
-      setReferenceLines(Array.isArray(data?.lines) ? data.lines : []);
-      setReferenceTotals(data?.totals ?? null);
-      setReferenceMeta({
-        referenceId: data?.reference_id || refId,
-        referenceType: data?.reference_type,
-        postedAt: data?.posted_at,
-        balanced: Boolean(data?.balanced),
-      });
-    } catch (err) {
-      const message = err?.response?.data?.message || "Unable to load transaction lines.";
-      setReferenceError(message);
-    } finally {
-      setReferenceLoading(false);
-    }
-  }, []);
-
-  const handleCloseReferenceModal = useCallback(() => {
-    setReferenceModalOpen(false);
-    setReferenceLines([]);
-    setReferenceTotals(null);
-    setReferenceMeta({ referenceId: "", referenceType: "", postedAt: "", balanced: true });
-    setReferenceError("");
-    setReferenceLoading(false);
-  }, []);
-
   const sampleRows = useMemo(
     () => [
       {
@@ -396,30 +320,6 @@ export default function Ledger() {
           ) : (
             <div className="min-w-0">
               <div className="text-sm font-extrabold text-slate-900">{formatDateTime(r?.created_at)}</div>
-            </div>
-          ),
-      },
-      {
-        key: "reference",
-        label: "Reference",
-        render: (r) =>
-          r?.__filler ? (
-            <div className="space-y-2">
-              <SkeletonLine w="w-32" />
-              <SkeletonPill w="w-20" />
-            </div>
-          ) : (
-            <div className="min-w-0">
-              <button
-                type="button"
-                onClick={() => handleOpenReferenceModal(r.reference_id)}
-                className="text-left text-sm font-extrabold text-slate-900 hover:text-teal-700 focus:text-teal-700 focus:outline-none"
-              >
-                {r?.reference_id || "N/A"}
-              </button>
-              <div className="mt-2">
-                <RefPill type={r?.reference_type} />
-              </div>
             </div>
           ),
       },
@@ -607,7 +507,7 @@ export default function Ledger() {
     });
 
     return common;
-  }, [showBalanceColumn, showClearedColumns, handleOpenReferenceModal, vatActive]);
+  }, [showBalanceColumn, showClearedColumns, vatActive]);
 
   const filterRightSlot = (
     <div className="flex flex-wrap items-center gap-3">
@@ -674,7 +574,7 @@ export default function Ledger() {
           q={q}
           onQ={setQ}
           onQDebounced={(value) => pushQuery({ q: value, page: 1 })}
-          placeholder="Search reference, account, description..."
+          placeholder="Search account or description..."
           filters={[
             { key: "type", value: type, onChange: handleType, options: typeOptions },
             { key: "account", value: account, onChange: handleAccount, options: accountOptions },
@@ -705,24 +605,6 @@ export default function Ledger() {
           searchQuery={q}
           emptyTitle="No ledger entries found"
           emptyHint="Ledger entries appear after sales, turnover, or adjustments are posted."
-          renderActions={(r) =>
-            r?.__filler ? (
-              <div className="flex items-center justify-end gap-2">
-                <SkeletonButton w="w-24" />
-              </div>
-            ) : (
-              <div className="flex items-center justify-end gap-2">
-                <TableActionButton
-                  icon={FileText}
-                  title="View transaction lines"
-                  onClick={() => handleOpenReferenceModal(r.reference_id)}
-                  tone="primary"
-                >
-                  Lines
-                </TableActionButton>
-              </div>
-            )
-          }
         />
 
         <DataTablePagination
@@ -735,19 +617,6 @@ export default function Ledger() {
           disableNext={!meta || meta.current_page >= meta.last_page}
         />
       </div>
-
-      <LedgerReferenceModal
-        open={referenceModalOpen}
-        onClose={handleCloseReferenceModal}
-        loading={referenceLoading}
-        error={referenceError}
-        referenceId={referenceMeta.referenceId}
-        referenceType={referenceMeta.referenceType}
-        postedAt={referenceMeta.postedAt}
-        lines={referenceLines}
-        totals={referenceTotals}
-        balanced={referenceMeta.balanced}
-      />
 
       <LedgerCodeReminderModal open={glOpen} onClose={() => setGlOpen(false)} />
     </Layout>

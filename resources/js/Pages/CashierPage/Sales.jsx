@@ -155,7 +155,11 @@ function LineSummary({ lines }) {
 /* Page                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export default function Sales() {
+export default function Sales({
+  basePath: basePathProp,
+  defaultExportFormat = "xlsx",
+  exportFormats,
+}) {
   const page = usePage();
   const vatSettings = page.props?.vat_settings || {};
   const vatActive = Boolean(vatSettings.vat_active);
@@ -164,6 +168,13 @@ export default function Sales() {
   const isAdmin = role === "admin";
   const isCashier = role === "cashier";
   const readOnly = !(isAdmin || isCashier);
+
+  const salesBasePath = (basePathProp || page.props?.sales_base_path || "/dashboard/cashier/sales")
+    .replace(/\/+$/, "");
+  const buildSalesUrl = (suffix) => `${salesBasePath}${suffix}`;
+  const allowedExportFormats = Array.isArray(exportFormats) && exportFormats.length
+    ? exportFormats
+    : ["xlsx", "csv"];
 
   const query = page.props?.filters || {};
   const per = Number(query?.per || 10);
@@ -206,7 +217,7 @@ export default function Sales() {
     let active = true;
     const fetchLiveSales = async () => {
       try {
-        const { data: live } = await axios.get("/dashboard/cashier/sales/latest", {
+        const { data: live } = await axios.get(buildSalesUrl("/latest"), {
           params: { q, status, per, page: currentPage },
         });
 
@@ -225,7 +236,7 @@ export default function Sales() {
       active = false;
       clearInterval(intervalId);
     };
-  }, [q, status, per, currentPage]);
+  }, [q, status, per, currentPage, salesBasePath]);
 
   const statusOptions = [
     { value: "all", label: "All status" },
@@ -238,7 +249,7 @@ export default function Sales() {
     const newPage = patch.page !== undefined ? patch.page : currentPage;
 
     router.get(
-      "/dashboard/cashier/sales",
+      salesBasePath,
       { q, status, per, page: newPage, ...patch },
       { preserveScroll: true, preserveState: true, replace: true }
     );
@@ -274,7 +285,7 @@ export default function Sales() {
     setSummaryMessage("");
 
     try {
-      const { data } = await axios.get("/dashboard/cashier/sales/summary", {
+      const { data } = await axios.get(buildSalesUrl("/summary"), {
         params: { date: targetDate },
       });
       setDailySummary(data.summary);
@@ -306,7 +317,7 @@ export default function Sales() {
     setSummaryMessage("");
 
     try {
-      await axios.post("/dashboard/cashier/sales/summary/finalize", { date: summaryDate });
+      await axios.post(buildSalesUrl("/summary/finalize"), { date: summaryDate });
       await loadSummary(summaryDate);
       setSummaryMessage("Business date closed. New POS sales will be blocked until it is reopened.");
     } catch (error) {
@@ -323,7 +334,7 @@ export default function Sales() {
     setSummaryMessage("");
 
     try {
-      await axios.post("/dashboard/cashier/sales/summary/reopen", { date: summaryDate });
+      await axios.post(buildSalesUrl("/summary/reopen"), { date: summaryDate });
       await loadSummary(summaryDate);
       setSummaryMessage("Business date reopened. POS transactions are now allowed again.");
     } catch (error) {
@@ -517,37 +528,39 @@ export default function Sales() {
                   : "Ready to close when variance is zero."}
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                {isFinalized ? (
-                  <button
-                    type="button"
-                    onClick={reopenBusinessDate}
-                    disabled={reopening || summaryLoading}
-                    className={cx(
-                      "inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-extrabold ring-1 transition focus:outline-none",
-                      reopening || summaryLoading
-                        ? "bg-slate-200 text-slate-500 ring-slate-200 cursor-not-allowed"
-                        : "bg-white text-slate-800 ring-slate-300 hover:bg-slate-50 focus:ring-4 focus:ring-teal-500/15"
-                    )}
-                  >
-                    {reopening ? "Reopening..." : "Reopen business date"}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={finalizeBusinessDate}
-                    disabled={!canFinalizeDate || finalizing || summaryLoading}
-                    className={cx(
-                      "inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-extrabold transition focus:outline-none focus:ring-4",
-                      !canFinalizeDate || finalizing || summaryLoading
-                        ? "bg-slate-200 text-slate-500 ring-slate-200 cursor-not-allowed"
-                        : "bg-teal-600 text-white ring-teal-600 hover:bg-teal-700 focus:ring-teal-500/25"
-                    )}
-                  >
-                    {finalizing ? "Closing..." : "Close business date"}
-                  </button>
-                )}
-              </div>
+              {!readOnly && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {isFinalized ? (
+                    <button
+                      type="button"
+                      onClick={reopenBusinessDate}
+                      disabled={reopening || summaryLoading}
+                      className={cx(
+                        "inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-extrabold ring-1 transition focus:outline-none",
+                        reopening || summaryLoading
+                          ? "bg-slate-200 text-slate-500 ring-slate-200 cursor-not-allowed"
+                          : "bg-white text-slate-800 ring-slate-300 hover:bg-slate-50 focus:ring-4 focus:ring-teal-500/15"
+                      )}
+                    >
+                      {reopening ? "Reopening..." : "Reopen business date"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={finalizeBusinessDate}
+                      disabled={!canFinalizeDate || finalizing || summaryLoading}
+                      className={cx(
+                        "inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-extrabold transition focus:outline-none focus:ring-4",
+                        !canFinalizeDate || finalizing || summaryLoading
+                          ? "bg-slate-200 text-slate-500 ring-slate-200 cursor-not-allowed"
+                          : "bg-teal-600 text-white ring-teal-600 hover:bg-teal-700 focus:ring-teal-500/25"
+                      )}
+                    >
+                      {finalizing ? "Closing..." : "Close business date"}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -569,15 +582,13 @@ export default function Sales() {
             },
           ]}
           actions={
-            !readOnly && (
-              <button
-                type="button"
-                onClick={() => setPrintOpen(true)}
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-extrabold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
-              >
-                Print sales
-              </button>
-            )
+            <button
+              type="button"
+              onClick={() => setPrintOpen(true)}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-extrabold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+            >
+              Export sales
+            </button>
           }
         />
 
@@ -596,13 +607,15 @@ export default function Sales() {
               </div>
             ) : (
               <div className="flex items-center justify-end gap-2">
-                <TableActionButton
-                  icon={ReceiptIcon}
-                  onClick={() => openReprint(row)}
-                  title="Reprint receipt"
-                >
-                  Reprint
-                </TableActionButton>
+                {!readOnly && (
+                  <TableActionButton
+                    icon={ReceiptIcon}
+                    onClick={() => openReprint(row)}
+                    title="Reprint receipt"
+                  >
+                    Reprint
+                  </TableActionButton>
+                )}
 
                 <TableActionButton
                   icon={ViewIcon}
@@ -629,7 +642,13 @@ export default function Sales() {
         />
       </div>
 
-      <PrintSalesModal open={printOpen} onClose={() => setPrintOpen(false)} />
+      <PrintSalesModal
+        open={printOpen}
+        onClose={() => setPrintOpen(false)}
+        exportUrl={buildSalesUrl("/export")}
+        defaultFormat={defaultExportFormat}
+        formats={allowedExportFormats}
+      />
 
       <SaleDetailsModal
         open={viewOpen}
@@ -641,6 +660,7 @@ export default function Sales() {
         open={reprintOpen}
         onClose={() => setReprintOpen(false)}
         sale={activeSale}
+        basePath={salesBasePath}
         onReprint={(payload) => {
           setActiveSale(payload);
           setViewOpen(true);

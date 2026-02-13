@@ -250,6 +250,19 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('dashboard/accountant')->middleware('role:accountant')->group(function () {
         Route::get('/', fn () => Inertia::render('Dashboard/Dashboard'))->name('dash.accountant');
 
+        Route::get('/sales', [SaleController::class, 'indexAccountant'])
+            ->middleware('permission:accountant.sales.view')
+            ->name('dash.accountant.sales');
+        Route::get('/sales/latest', [SaleController::class, 'latest'])
+            ->middleware('permission:accountant.sales.view')
+            ->name('dash.accountant.sales.latest');
+        Route::get('/sales/export', [SaleController::class, 'export'])
+            ->middleware('permission:accountant.sales.view')
+            ->name('dash.accountant.sales.export');
+        Route::get('/sales/summary', [CashierDailySummaryController::class, 'summary'])
+            ->middleware('permission:accountant.sales.view')
+            ->name('dash.accountant.sales.summary');
+
         Route::get('/remittances', [AccountantRemittanceController::class, 'index'])
             ->middleware('permission:accountant.remittances.view')
             ->name('dash.accountant.remittances');
@@ -447,10 +460,6 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/purchases/{purchase}/discrepancy', [PurchaseController::class, 'discrepancy'])
             ->middleware('permission:inventory.purchases.confirm')
             ->name('dash.inventory.purchases.discrepancy');
-
-        Route::get('/movements', [StockController::class, 'movements'])
-            ->middleware('permission:inventory.movements.view')
-            ->name('dash.inventory.movements');
 
         Route::get('/suppliers', [SupplierController::class, 'index'])
             ->middleware('permission:inventory.suppliers.view')

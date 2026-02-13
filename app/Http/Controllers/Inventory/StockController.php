@@ -314,26 +314,6 @@ class StockController extends Controller
     }
 
 
-    public function movements(Request $request)
-    {
-        $user = $request->user();
-        if (!$user || !$user->can('inventory.movements.view')) {
-            abort(403);
-        }
-
-        $movements = $this->stockService->getStockMovementsForIndex(
-            search: $request->input('q'),
-            type: $request->input('type'),
-            direction: $request->input('direction'),
-            perPage: $request->input('per', 10)
-        );
-
-        return Inertia::render('InventoryPage/Movements', [
-            'movements' => $movements,
-            'filters' => $request->only(['q', 'type', 'direction', 'per']),
-        ]);
-    }
-
     public function exportInventoryReport(Request $request, \Maatwebsite\Excel\Excel $excel)
     {
         $user = $request->user();

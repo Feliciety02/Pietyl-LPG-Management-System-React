@@ -85,6 +85,7 @@ class PermissionSeeder extends Seeder
             'accountant.remittances.verify',
             'accountant.purchase_requests.view',
             'accountant.purchase_requests.export',
+            'accountant.sales.view',
             'accountant.daily.view',
             'accountant.payables.view',
             'accountant.payables.pay',

@@ -232,6 +232,9 @@ export default function MyDeliveries() {
 
   const selected = useMemo(() => deliveries.find((d) => d.id === selectedId) || null, [deliveries, selectedId]);
   const selectedAddress = selected?.address || "";
+  const isCompletedStatus = selected
+    ? ["delivered", "failed"].includes(normalizeStatus(selected.status))
+    : false;
 
   function resetStepState() {
     setActiveStep(0);
@@ -322,6 +325,12 @@ export default function MyDeliveries() {
       resetStepState();
     }
   }, [selectedId]);
+
+  useEffect(() => {
+    if (isCompletedStatus) {
+      setActiveStep(0);
+    }
+  }, [isCompletedStatus]);
 
   useEffect(() => {
     if (!selected || activeStep !== 1) return;
@@ -651,17 +660,19 @@ export default function MyDeliveries() {
   }
 
   const stepCompletion = selected
-    ? [
-        Boolean(onTheWayConfirmed),
-        Boolean(proofGeo.lat && proofGeo.lng && proofCapturedAt),
-        Boolean(proofPhotoPreview && photoConfirmed),
-        customerAvailable === "yes"
-          ? Boolean(signatureData)
-          : customerAvailable === "no"
-          ? Boolean(absenceReason) && (absenceReason !== "Others" || absenceOther.trim())
-          : false,
-        Boolean(deliveryStatus),
-      ]
+    ? isCompletedStatus
+      ? [true]
+      : [
+          Boolean(onTheWayConfirmed),
+          Boolean(proofGeo.lat && proofGeo.lng && proofCapturedAt),
+          Boolean(proofPhotoPreview && photoConfirmed),
+          customerAvailable === "yes"
+            ? Boolean(signatureData)
+            : customerAvailable === "no"
+            ? Boolean(absenceReason) && (absenceReason !== "Others" || absenceOther.trim())
+            : false,
+          Boolean(deliveryStatus),
+        ]
     : [];
 
   const firstIncomplete = stepCompletion.findIndex((val) => !val);
@@ -752,90 +763,113 @@ export default function MyDeliveries() {
   }
 
   const steps = selected
-    ? [
-        {
-          key: "customer",
-          label: "Customer",
-          isComplete: stepCompletion[0],
-          content: (
-            <Step1CustomerInfo
-              delivery={selected}
-              address={selectedAddress}
-              confirmed={onTheWayConfirmed}
-              onConfirmOnTheWay={handleConfirmOnTheWay}
-            />
-          ),
-        },
-        {
-          key: "items",
-          label: "Items + Geo",
-          isComplete: stepCompletion[1],
-          content: (
-            <Step2ItemsGeo
-              items={deliveredItems}
-              geo={proofGeo}
-              capturedAt={proofCapturedAt}
-              geoBusy={geoBusy}
-              geoError={geoError}
-              onCaptureLocation={captureLocation}
-              onSetTimeNow={setTimeNow}
-            />
-          ),
-        },
-        {
-          key: "proof",
-          label: "Proof",
-          isComplete: stepCompletion[2],
-          content: (
-            <Step3ProofOfDelivery
-              photoPreview={proofPhotoPreview}
-              photoConfirmed={photoConfirmed}
-              onPhotoChange={handlePhotoChange}
-              onRetake={handleRetakePhoto}
-              onConfirmPhoto={handleConfirmPhoto}
-              photoInputRef={photoInputRef}
-              autoOpenSignal={cameraTrigger}
-            />
-          ),
-        },
-        {
-          key: "signature",
-          label: "Signature",
-          isComplete: stepCompletion[3],
-          content: (
-            <Step4SignatureOrReason
-              customerAvailable={customerAvailable}
-              onCustomerAvailableChange={handleCustomerAvailableChange}
-              signatureData={signatureData}
-              onSignatureChange={setSignatureData}
-              absenceReason={absenceReason}
-              onAbsenceReasonChange={handleAbsenceReasonChange}
-              absenceOther={absenceOther}
-              onAbsenceOtherChange={setAbsenceOther}
-            />
-          ),
-        },
-        {
-          key: "review",
-          label: "Review",
-          isComplete: stepCompletion[4],
-          content: (
-            <Step5ReviewAndStatus
-              delivery={selected}
-              items={deliveredItems}
-              geo={proofGeo}
-              capturedAt={proofCapturedAt}
-              photoPreview={proofPhotoPreview}
-              signatureData={signatureData}
-              customerAvailable={customerAvailable}
-              absenceReason={absenceReason}
-              absenceOther={absenceOther}
-              status={deliveryStatus}
-              onStatusChange={setDeliveryStatus}
-            />
-          ),
-        },
-      ]
+    ? isCompletedStatus
+      ? [
+          {
+            key: "summary",
+            label: "Summary",
+            isComplete: true,
+            content: (
+              <Step5ReviewAndStatus
+                delivery={selected}
+                items={deliveredItems}
+                geo={proofGeo}
+                capturedAt={proofCapturedAt}
+                photoPreview={proofPhotoPreview}
+                signatureData={signatureData}
+                customerAvailable={customerAvailable}
+                absenceReason={absenceReason}
+                absenceOther={absenceOther}
+                status={selected.status}
+                readOnly
+              />
+            ),
+          },
+        ]
+      : [
+          {
+            key: "customer",
+            label: "Customer",
+            isComplete: stepCompletion[0],
+            content: (
+              <Step1CustomerInfo
+                delivery={selected}
+                address={selectedAddress}
+                confirmed={onTheWayConfirmed}
+                onConfirmOnTheWay={handleConfirmOnTheWay}
+              />
+            ),
+          },
+          {
+            key: "items",
+            label: "Items + Geo",
+            isComplete: stepCompletion[1],
+            content: (
+              <Step2ItemsGeo
+                items={deliveredItems}
+                geo={proofGeo}
+                capturedAt={proofCapturedAt}
+                geoBusy={geoBusy}
+                geoError={geoError}
+                onCaptureLocation={captureLocation}
+                onSetTimeNow={setTimeNow}
+              />
+            ),
+          },
+          {
+            key: "proof",
+            label: "Proof",
+            isComplete: stepCompletion[2],
+            content: (
+              <Step3ProofOfDelivery
+                photoPreview={proofPhotoPreview}
+                photoConfirmed={photoConfirmed}
+                onPhotoChange={handlePhotoChange}
+                onRetake={handleRetakePhoto}
+                onConfirmPhoto={handleConfirmPhoto}
+                photoInputRef={photoInputRef}
+                autoOpenSignal={cameraTrigger}
+              />
+            ),
+          },
+          {
+            key: "signature",
+            label: "Signature",
+            isComplete: stepCompletion[3],
+            content: (
+              <Step4SignatureOrReason
+                customerAvailable={customerAvailable}
+                onCustomerAvailableChange={handleCustomerAvailableChange}
+                signatureData={signatureData}
+                onSignatureChange={setSignatureData}
+                absenceReason={absenceReason}
+                onAbsenceReasonChange={handleAbsenceReasonChange}
+                absenceOther={absenceOther}
+                onAbsenceOtherChange={setAbsenceOther}
+              />
+            ),
+          },
+          {
+            key: "review",
+            label: "Review",
+            isComplete: stepCompletion[4],
+            content: (
+              <Step5ReviewAndStatus
+                delivery={selected}
+                items={deliveredItems}
+                geo={proofGeo}
+                capturedAt={proofCapturedAt}
+                photoPreview={proofPhotoPreview}
+                signatureData={signatureData}
+                customerAvailable={customerAvailable}
+                absenceReason={absenceReason}
+                absenceOther={absenceOther}
+                status={deliveryStatus}
+                onStatusChange={setDeliveryStatus}
+              />
+            ),
+          },
+        ]
     : [
         {
           key: "empty",
@@ -928,8 +962,8 @@ export default function MyDeliveries() {
                       className={cx(
                         "rounded-2xl px-3 py-1.5 text-xs font-extrabold ring-1 transition",
                         filter === opt.key
-                          ? "bg-slate-900 text-white ring-slate-900"
-                          : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
+                          ? "bg-teal-600 text-white ring-teal-600"
+                          : "bg-white text-teal-700 ring-teal-200 hover:bg-teal-50"
                       )}
                     >
                       {opt.label}
@@ -990,7 +1024,7 @@ export default function MyDeliveries() {
                 nextDisabled={nextDisabled}
                 finishDisabled={finishDisabled}
                 stepError={stepError}
-                hideControls={!selected}
+                hideControls={!selected || isCompletedStatus}
               />
             </div>
           </div>

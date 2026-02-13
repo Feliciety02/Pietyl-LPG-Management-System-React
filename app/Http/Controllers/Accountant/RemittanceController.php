@@ -387,6 +387,13 @@ class RemittanceController extends Controller
                     'status' => 'finalized',
                     'business_date' => $validated['business_date'],
                     'cashier_user_id' => $validated['cashier_user_id'],
+                    'cash_counted' => round((float) ($remittance->remitted_cash_amount ?? 0), 2),
+                    'cashless_verified_amount' => round((float) ($remittance->noncash_verification['amount'] ?? 0), 2),
+                    'total_amount' => round(
+                        (float) ($remittance->remitted_cash_amount ?? 0) +
+                        (float) ($remittance->noncash_verification['amount'] ?? 0),
+                        2
+                    ),
                 ],
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->userAgent(),
@@ -534,6 +541,8 @@ class RemittanceController extends Controller
                 'verified_count' => count($allVerifiedIds),
                 'verified_amount' => round($verifiedTotalAmount, 2),
                 'status' => $stage,
+                'business_date' => $businessDate,
+                'cashier_user_id' => $cashierId,
             ],
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
@@ -699,6 +708,10 @@ class RemittanceController extends Controller
                 'status' => $status,
                 'business_date' => $businessDate,
                 'cashier_user_id' => $cashierId,
+                'cash_counted' => round($cashCounted, 2),
+                'expected_cash' => round($expected['expected_cash'] ?? 0, 2),
+                'expected_noncash_total' => round($expected['expected_noncash_total'] ?? 0, 2),
+                'cash_variance' => round($variance, 2),
             ],
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),

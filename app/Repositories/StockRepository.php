@@ -7,6 +7,7 @@ use App\Models\StockMovement;
 use App\Models\StockCount;
 use App\Models\ProductVariant;
 use App\Models\Location;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class StockRepository
@@ -99,7 +100,14 @@ class StockRepository
         return StockMovement::create($data);
     }
 
-    public function getStockMovements(?string $search, ?string $type, ?string $direction, int $perPage)
+    public function getStockMovements(
+        ?string $search,
+        ?string $type,
+        ?string $direction,
+        int $perPage,
+        ?string $from = null,
+        ?string $to = null
+    )
     {
         $query = StockMovement::with([
             'productVariant.product',
@@ -124,6 +132,19 @@ class StockRepository
             $query->where('qty', '>', 0);
         } elseif ($direction === 'out') {
             $query->where('qty', '<', 0);
+        }
+
+        if (!empty($from) || !empty($to)) {
+            $fromDate = !empty($from) ? Carbon::parse($from)->startOfDay() : null;
+            $toDate = !empty($to) ? Carbon::parse($to)->endOfDay() : null;
+
+            if ($fromDate && $toDate) {
+                $query->whereBetween('moved_at', [$fromDate, $toDate]);
+            } elseif ($fromDate) {
+                $query->where('moved_at', '>=', $fromDate);
+            } elseif ($toDate) {
+                $query->where('moved_at', '<=', $toDate);
+            }
         }
 
         return $query->orderBy('moved_at', 'desc')->paginate($perPage);
