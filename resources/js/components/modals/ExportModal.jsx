@@ -3,13 +3,22 @@ import axios from "axios";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 
-import { Calendar as CalendarIcon, Download, CheckCircle2, X } from "lucide-react";
+import {
+  Calendar as CalendarIcon,
+  Download,
+  SlidersHorizontal,
+  FileText,
+  Layers,
+  Clock3,
+} from "lucide-react";
 import ModalShell from "./ModalShell";
 import { useExportAction } from "@/components/Table/ExportContext";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
+
+/* ---------------- helpers ---------------- */
 
 function pad2(n) {
   return String(n).padStart(2, "0");
@@ -68,13 +77,7 @@ function normalizeOptions(options) {
   );
 }
 
-function SoftCard({ className = "", children }) {
-  return (
-    <div className={cx("rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm", className)}>
-      {children}
-    </div>
-  );
-}
+/* ---------------- UI primitives ---------------- */
 
 function Field({ label, hint, children }) {
   return (
@@ -86,20 +89,41 @@ function Field({ label, hint, children }) {
   );
 }
 
-function Select({ children, ...props }) {
+function Input({ icon: Icon, left, right, ...props }) {
   return (
     <div className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-slate-200 px-3 py-2.5 focus-within:ring-teal-500/30">
-      <select {...props} className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none">
-        {children}
-      </select>
+      {Icon ? <Icon className="h-4 w-4 text-slate-500" /> : null}
+
+      {left ? (
+        <div className="shrink-0 pr-2 border-r border-slate-200/70 text-xs font-extrabold text-slate-600">
+          {left}
+        </div>
+      ) : null}
+
+      <input
+        {...props}
+        className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+      />
+
+      {right ? (
+        <div className="shrink-0 pl-2 border-l border-slate-200/70 text-xs font-extrabold text-slate-600">
+          {right}
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function Input({ ...props }) {
+function Select({ icon: Icon, children, ...props }) {
   return (
-    <div className="flex items-center gap-2 rounded-2xl bg-slate-50 ring-1 ring-slate-200 px-3 py-2.5">
-      <input {...props} className="w-full bg-transparent text-sm font-extrabold text-slate-900 outline-none" />
+    <div className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-slate-200 px-3 py-2.5 focus-within:ring-teal-500/30">
+      {Icon ? <Icon className="h-4 w-4 text-slate-500" /> : null}
+      <select
+        {...props}
+        className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none"
+      >
+        {children}
+      </select>
     </div>
   );
 }
@@ -116,6 +140,58 @@ function Chip({ children, onClick }) {
   );
 }
 
+function ToggleCard({ checked, label, hint, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cx(
+        "w-full rounded-2xl px-4 py-3 text-left ring-1 transition focus:outline-none focus:ring-4 focus:ring-teal-500/15",
+        checked ? "bg-teal-600/10 ring-teal-700/10" : "bg-white ring-slate-200 hover:bg-slate-50"
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm font-extrabold text-slate-900">{label}</div>
+          {hint ? <div className="mt-0.5 text-[11px] text-slate-500">{hint}</div> : null}
+        </div>
+
+        <span
+          className={cx(
+            "inline-flex items-center rounded-full px-2 py-1 text-[11px] font-extrabold ring-1",
+            checked
+              ? "bg-teal-600 text-white ring-teal-600"
+              : "bg-slate-100 text-slate-700 ring-slate-200"
+          )}
+        >
+          {checked ? "On" : "Off"}
+        </span>
+      </div>
+    </button>
+  );
+}
+
+function SoftPanel({ title, subtitle, right, children, className = "" }) {
+  return (
+    <div className={cx("rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm", className)}>
+      <div className="p-5 sm:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-sm font-extrabold text-slate-900">{title}</div>
+            {subtitle ? <div className="mt-1 text-xs text-slate-500">{subtitle}</div> : null}
+          </div>
+
+          {right ? <div className="ml-auto">{right}</div> : null}
+        </div>
+
+        <div className="mt-5">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- component ---------------- */
+
 export default function ExportModal() {
   const { exportConfig, exportOpen, setExportOpen } = useExportAction();
   const open = Boolean(exportOpen && exportConfig);
@@ -124,6 +200,7 @@ export default function ExportModal() {
   const today = useMemo(() => startOfDay(new Date()), []);
   const formats = useMemo(() => normalizeFormats(config.formats), [config.formats]);
   const formatFallback = formats[0]?.value || "csv";
+
   const dateRangeEnabled = config?.dateRange?.enabled ?? true;
   const allowFuture = Boolean(config?.dateRange?.allowFuture);
   const selectFields = useMemo(() => config.selects || [], [config.selects]);
@@ -178,10 +255,15 @@ export default function ExportModal() {
     : null;
 
   const daysSelected = dateRangeEnabled ? rangeDays(fromDate, toDate) : 0;
-  const selectRows = selectFields.map((field) => ({
-    ...field,
-    options: normalizeOptions(field.options),
-  }));
+
+  const selectRows = useMemo(
+    () =>
+      selectFields.map((field) => ({
+        ...field,
+        options: normalizeOptions(field.options),
+      })),
+    [selectFields]
+  );
 
   const supportsItems =
     config?.includeItems?.enabled &&
@@ -200,9 +282,7 @@ export default function ExportModal() {
   );
 
   const computedFileName = useMemo(() => {
-    if (typeof config.fileName === "function") {
-      return config.fileName(state);
-    }
+    if (typeof config.fileName === "function") return config.fileName(state);
 
     const base = String(config?.label || "Export").replace(/\s+/g, "_");
     const ext = format === "pdf" ? "pdf" : format === "csv" ? "csv" : "xlsx";
@@ -223,9 +303,18 @@ export default function ExportModal() {
 
   const handleShortcut = (daysBack) => {
     if (!dateRangeEnabled) return;
-    const d = startOfDay(new Date());
-    d.setDate(d.getDate() - daysBack);
-    setRange({ from: d, to: startOfDay(new Date()) });
+    const end = startOfDay(new Date());
+    const start = startOfDay(new Date());
+    start.setDate(start.getDate() - daysBack);
+    setRange({ from: start, to: end });
+  };
+
+  const handleToday = () => setRange({ from: today, to: today });
+
+  const handleYesterday = () => {
+    const y = startOfDay(new Date());
+    y.setDate(y.getDate() - 1);
+    setRange({ from: y, to: y });
   };
 
   const handleExport = async () => {
@@ -240,19 +329,14 @@ export default function ExportModal() {
         return;
       }
 
-      if (!config.endpoint) {
-        throw new Error("No export endpoint configured.");
-      }
+      if (!config.endpoint) throw new Error("No export endpoint configured.");
 
       const params =
         typeof config.buildParams === "function"
           ? config.buildParams(state)
           : { ...state.selects, from: state.from, to: state.to, format: state.format };
 
-      const response = await axios.get(config.endpoint, {
-        params,
-        responseType: "blob",
-      });
+      const response = await axios.get(config.endpoint, { params, responseType: "blob" });
 
       const blob = new Blob([response.data], {
         type:
@@ -282,162 +366,112 @@ export default function ExportModal() {
     }
   };
 
+  const subtitleText = dateRangeEnabled
+    ? fromDate
+      ? `${toISODate(fromDate)} to ${toISODate(toDate)} • ${daysSelected} day${daysSelected > 1 ? "s" : ""}`
+      : "Pick a date range"
+    : "Exports the current view";
+
   return (
     <ModalShell
       open={open}
       onClose={() => setExportOpen(false)}
-      layout="compact"
       maxWidthClass="max-w-6xl"
-      title={config.title || "Export"}
-      subtitle={config.subtitle || "Pick a range, then export."}
+      layout="compact"
+      title={config.title || "Export sales"}
+      subtitle={config.subtitle || subtitleText}
       icon={config.icon || CalendarIcon}
       bodyClassName="max-h-[85vh] overflow-auto"
       footer={
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-xs text-slate-500">
-            {dateRangeEnabled ? (
-              fromDate ? (
-                <span>
-                  Selected{" "}
-                  <span className="font-extrabold text-slate-700">{daysSelected}</span>{" "}
-                  day{daysSelected > 1 ? "s" : ""}.
-                </span>
-              ) : (
-                "Select a date range to continue."
-              )
-            ) : (
-              "Ready to export the current view."
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setExportOpen(false)}
+            className="rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
+            disabled={downloading}
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={!canDownload}
+            className={cx(
+              "rounded-2xl px-4 py-2 text-sm font-extrabold text-white ring-1 transition focus:outline-none focus:ring-4 focus:ring-teal-500/25",
+              !canDownload
+                ? "bg-slate-300 ring-slate-300 cursor-not-allowed"
+                : "bg-teal-600 ring-teal-600 hover:bg-teal-700"
             )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setExportOpen(false)}
-              disabled={downloading}
-              className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-teal-500/15"
-            >
-              <X className="h-4 w-4" />
-              Cancel
-            </button>
-
-            <button
-              type="button"
-              onClick={handleExport}
-              disabled={!canDownload}
-              className={cx(
-                "inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-extrabold text-white ring-1 transition focus:outline-none focus:ring-4",
-                !canDownload
-                  ? "bg-slate-300 ring-slate-300 cursor-not-allowed"
-                  : "bg-teal-600 ring-teal-600 hover:bg-teal-700 focus:ring-teal-500/25"
-              )}
-            >
-              <Download className="h-4 w-4" />
-              {downloading ? "Downloading..." : downloadLabel}
-            </button>
-          </div>
+          >
+            {downloading ? "Downloading..." : downloadLabel}
+          </button>
         </div>
       }
     >
-      <div className="px-1 sm:px-2">
-        <div className={cx("grid gap-6", dateRangeEnabled ? "lg:grid-cols-12" : "")}>
-          {dateRangeEnabled ? (
-            <SoftCard className="lg:col-span-7">
-              <div className="p-5 sm:p-6">
-                <div className="space-y-3">
-                  <div className="text-sm font-extrabold text-slate-900">Pick dates</div>
-                  <div className="text-xs text-slate-500">
-                    Select a start date and end date.{" "}
-                    {allowFuture ? "Future dates are allowed." : "Future dates are disabled."}
-                  </div>
-                  <div className="flex flex-wrap gap-2.5">
-                    <Chip onClick={() => handleShortcut(0)}>Today</Chip>
-                    <Chip onClick={() => handleShortcut(1)}>Yesterday</Chip>
+      <div className="px-6 pb-6 pt-3">
+        <div className="grid gap-6 lg:grid-cols-12">
+          <div className="lg:col-span-7">
+            <SoftPanel
+              title="Date range"
+              subtitle={allowFuture ? "Future dates allowed." : "Future dates disabled."}
+            >
+              <div className="rounded-3xl bg-slate-50 ring-1 ring-slate-200 p-4 sm:p-6">
+                <div className="rdp-polished">
+                  <DayPicker
+                    mode="range"
+                    selected={{ from: fromDate, to: toDate }}
+                    onSelect={(next) => {
+                      if (!next) return;
+
+                      const nf = next?.from
+                        ? allowFuture
+                          ? startOfDay(next.from)
+                          : clampToToday(next.from)
+                        : undefined;
+
+                      const nt = next?.to
+                        ? allowFuture
+                          ? startOfDay(next.to)
+                          : clampToToday(next.to)
+                        : undefined;
+
+                      setRange({ from: nf, to: nt });
+                    }}
+                    disabled={allowFuture ? undefined : { after: today }}
+                    numberOfMonths={1}
+                    showOutsideDays
+                  />
+                </div>
+
+                <div className="mt-3 text-xs text-slate-500">
+                  Selected{" "}
+                  <span className="font-extrabold text-slate-700">{daysSelected}</span>{" "}
+                  day{daysSelected > 1 ? "s" : ""}.
+                </div>
+              </div>
+            </SoftPanel>
+          </div>
+
+          <div className="lg:col-span-5">
+            <SoftPanel
+              title="Report options"
+              subtitle="Keep it simple, then download."
+              right={
+                dateRangeEnabled ? (
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <Chip onClick={handleToday}>Today</Chip>
+                    <Chip onClick={handleYesterday}>Yesterday</Chip>
                     <Chip onClick={() => handleShortcut(7)}>Last 7 days</Chip>
                   </div>
-                </div>
-
-                <div className="mt-6 rounded-3xl bg-slate-50/80 ring-1 ring-slate-200/80 p-4 sm:p-6">
-                  <div className="rdp-teal">
-                    <DayPicker
-                      mode="range"
-                      selected={{ from: fromDate, to: toDate }}
-                      onSelect={(next) => {
-                        if (!next) return;
-                        const nf = next?.from
-                          ? allowFuture
-                            ? startOfDay(next.from)
-                            : clampToToday(next.from)
-                          : undefined;
-                        const nt = next?.to
-                          ? allowFuture
-                            ? startOfDay(next.to)
-                            : clampToToday(next.to)
-                          : undefined;
-                        setRange({ from: nf, to: nt });
-                      }}
-                      disabled={allowFuture ? undefined : { after: today }}
-                      numberOfMonths={1}
-                      showOutsideDays
-                    />
-                  </div>
-
-                  <div className="mt-3 text-xs text-slate-500">
-                    Tip: use quick chips for faster ranges.
-                  </div>
-                </div>
-              </div>
-            </SoftCard>
-          ) : null}
-
-          <SoftCard className={dateRangeEnabled ? "lg:col-span-5" : ""}>
-            <div className="p-5 sm:p-6">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-sm font-extrabold text-slate-900">Report options</div>
-                  <div className="mt-1 text-xs text-slate-500">Keep it simple, then export.</div>
-                </div>
-
-                <div className="shrink-0 inline-flex items-center gap-2 rounded-2xl bg-teal-600/10 px-3 py-2 ring-1 ring-teal-700/10">
-                  <CheckCircle2 className="h-4 w-4 text-teal-700" />
-                  <span className="text-xs font-extrabold text-teal-900">Ready</span>
-                </div>
-              </div>
-
-              {error ? (
-                <div className="mt-4 rounded-2xl bg-rose-600/10 px-4 py-3 text-sm font-semibold text-rose-800 ring-1 ring-rose-700/10">
-                  {error}
-                </div>
-              ) : null}
-
-              <div className="mt-6 grid gap-5">
-                {dateRangeEnabled ? (
-                  <div className="rounded-3xl bg-slate-50 ring-1 ring-slate-200 p-4">
-                    <div className="text-xs font-extrabold text-slate-600">Selected range</div>
-                    <div className="mt-1 text-base font-extrabold text-slate-900 tabular-nums">
-                      {fromDate ? toISODate(fromDate) : "--"}{" "}
-                      <span className="text-slate-400">to</span>{" "}
-                      {toDate ? toISODate(toDate) : "--"}
-                    </div>
-                    <div className="mt-1 text-xs text-slate-500">
-                      {fromDate
-                        ? `${daysSelected} day${daysSelected > 1 ? "s" : ""} selected`
-                        : "Select a start date"}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="rounded-3xl bg-slate-50 ring-1 ring-slate-200 p-4">
-                    <div className="text-xs font-extrabold text-slate-600">Scope</div>
-                    <div className="mt-1 text-sm font-extrabold text-slate-900">Current filters</div>
-                    <div className="mt-1 text-xs text-slate-500">
-                      Uses the active filters on this page.
-                    </div>
-                  </div>
-                )}
-
+                ) : null
+              }
+            >
+              <div className="grid gap-4">
                 {selectRows.map((field) => (
                   <Field key={field.key} label={field.label} hint={field.hint}>
                     <Select
+                      icon={SlidersHorizontal}
                       value={selectValues[field.key] ?? ""}
                       onChange={(e) =>
                         setSelectValues((prev) => ({ ...prev, [field.key]: e.target.value }))
@@ -453,8 +487,8 @@ export default function ExportModal() {
                 ))}
 
                 {formats.length > 1 ? (
-                  <Field label="File type">
-                    <Select value={format} onChange={(e) => setFormat(e.target.value)}>
+                  <Field label="File type" hint="Choose a format to download.">
+                    <Select icon={FileText} value={format} onChange={(e) => setFormat(e.target.value)}>
                       {formats.map((opt) => (
                         <option key={opt.value} value={opt.value}>
                           {opt.label}
@@ -465,120 +499,133 @@ export default function ExportModal() {
                 ) : null}
 
                 {supportsItems ? (
-                  <button
-                    type="button"
+                  <ToggleCard
+                    checked={includeItems}
+                    label={config?.includeItems?.label || "Include item breakdown"}
+                    hint={config?.includeItems?.hint || "Adds more detail to the export."}
                     onClick={() => setIncludeItems((v) => !v)}
-                    className={cx(
-                      "w-full rounded-3xl px-4 py-4 text-left ring-1 transition focus:outline-none focus:ring-4 focus:ring-teal-500/15",
-                      includeItems
-                        ? "bg-teal-600/10 ring-teal-700/10"
-                        : "bg-white ring-slate-200 hover:bg-slate-50"
-                    )}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={cx(
-                          "mt-0.5 h-5 w-5 rounded-md ring-1 flex items-center justify-center",
-                          includeItems ? "bg-teal-600 ring-teal-600" : "bg-white ring-slate-300"
-                        )}
-                      >
-                        <div
-                          className={cx(
-                            "h-2.5 w-2.5 rounded-sm",
-                            includeItems ? "bg-white" : "bg-transparent"
-                          )}
-                        />
-                      </div>
-
-                      <div className="min-w-0">
-                        <div className="text-sm font-extrabold text-slate-900">
-                          {config?.includeItems?.label || "Include item breakdown"}
-                        </div>
-                        <div className="mt-0.5 text-xs text-slate-500">
-                          {config?.includeItems?.hint || "Adds more detail to the export."}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
+                  />
                 ) : null}
 
-                <Field label="File name" hint="You can rename this before downloading.">
-                  <Input value={computedFileName} readOnly />
+                <Field label="File name" hint="Auto generated file name.">
+                  <Input icon={Layers} value={computedFileName} readOnly />
                 </Field>
+
+                {error ? (
+                  <div className="rounded-2xl bg-rose-600/10 px-4 py-3 text-sm font-semibold text-rose-800 ring-1 ring-rose-700/10">
+                    {error}
+                  </div>
+                ) : null}
               </div>
-            </div>
-          </SoftCard>
+            </SoftPanel>
+          </div>
+
+          <style>{`
+            .rdp-polished .rdp {
+              --rdp-accent-color: rgb(13 148 136);
+              --rdp-accent-background-color: rgba(13, 148, 136, 0.14);
+              --rdp-outline: rgba(13, 148, 136, 0.32);
+              --rdp-background-color: transparent;
+              margin: 0;
+            }
+
+            .rdp-polished .rdp-months {
+              justify-content: center;
+            }
+
+            .rdp-polished .rdp-caption_label {
+              font-weight: 900;
+              color: rgb(15 23 42);
+              font-size: 18px;
+              letter-spacing: -0.01em;
+            }
+
+            .rdp-polished .rdp-nav_button {
+              border-radius: 9999px;
+              width: 36px;
+              height: 36px;
+              color: rgb(13 148 136);
+            }
+            .rdp-polished .rdp-nav_button svg {
+              color: rgb(13 148 136);
+              fill: rgb(13 148 136);
+            }
+            .rdp-polished .rdp-nav_button:hover {
+              background-color: rgba(13, 148, 136, 0.10);
+            }
+
+            .rdp-polished .rdp-head_cell {
+              color: rgb(100 116 139);
+              font-weight: 900;
+              font-size: 11px;
+              letter-spacing: 0.10em;
+              text-transform: uppercase;
+              padding-bottom: 10px;
+            }
+
+            .rdp-polished .rdp-table {
+              width: 100%;
+              border-collapse: separate;
+              border-spacing: 10px 10px;
+            }
+
+            .rdp-polished .rdp-cell {
+              padding: 0;
+              text-align: center;
+            }
+
+            .rdp-polished .rdp-day {
+              padding: 0;
+            }
+
+            .rdp-polished .rdp-day_button,
+            .rdp-polished .rdp-button {
+              width: 44px;
+              height: 44px;
+              border-radius: 9999px;
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              font-weight: 900;
+              font-size: 14px;
+              line-height: 1;
+              color: rgb(15 23 42);
+            }
+
+            .rdp-polished .rdp-day_today:not(.rdp-day_selected) .rdp-day_button {
+              color: rgb(13 148 136);
+            }
+
+            .rdp-polished .rdp-day_selected .rdp-day_button,
+            .rdp-polished .rdp-day_range_start .rdp-day_button,
+            .rdp-polished .rdp-day_range_end .rdp-day_button {
+              background-color: rgb(13 148 136);
+              color: white;
+            }
+
+            .rdp-polished .rdp-day_range_middle .rdp-day_button {
+              background-color: rgba(13, 148, 136, 0.12);
+              color: rgb(13 148 136);
+            }
+
+            .rdp-polished
+              .rdp-day:hover:not(.rdp-day_selected):not(.rdp-day_range_start):not(.rdp-day_range_end)
+              .rdp-day_button {
+              background-color: rgba(13, 148, 136, 0.10);
+              color: rgb(13 148 136);
+            }
+
+            .rdp-polished .rdp-day_outside .rdp-day_button {
+              color: rgb(148 163 184);
+              font-weight: 800;
+            }
+
+            .rdp-polished .rdp-day_disabled .rdp-day_button {
+              opacity: 0.45;
+              cursor: not-allowed;
+            }
+          `}</style>
         </div>
-
-        <style>{`
-          .rdp-teal .rdp {
-            --rdp-accent-color: rgb(13 148 136);
-            --rdp-accent-background-color: rgba(13, 148, 136, 0.16);
-            --rdp-outline: rgba(13, 148, 136, 0.45);
-            --rdp-background-color: transparent;
-            margin: 0;
-          }
-
-          .rdp-teal .rdp-months {
-            justify-content: center;
-            gap: 0;
-          }
-
-          .rdp-teal .rdp-caption_label {
-            font-weight: 800;
-            color: rgb(15 23 42);
-            font-size: 16px;
-          }
-
-          .rdp-teal .rdp-nav_button {
-            border-radius: 12px;
-            color: rgb(15 118 110);
-          }
-
-          .rdp-teal .rdp-nav_button:hover {
-            background-color: rgba(13, 148, 136, 0.12);
-          }
-
-          .rdp-teal .rdp-head_cell {
-            color: rgb(15 118 110);
-            font-weight: 700;
-            font-size: 11px;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-          }
-
-          .rdp-teal .rdp-day {
-            border-radius: 9999px;
-            font-weight: 700;
-          }
-
-          .rdp-teal .rdp-day_today:not(.rdp-day_selected) {
-            color: rgb(13 148 136);
-            font-weight: 800;
-          }
-
-          .rdp-teal .rdp-day_selected,
-          .rdp-teal .rdp-day_range_start,
-          .rdp-teal .rdp-day_range_end {
-            background-color: rgb(13 148 136);
-            color: white;
-          }
-
-          .rdp-teal .rdp-day_range_middle {
-            background-color: rgba(13, 148, 136, 0.18);
-            color: rgb(15 118 110);
-            border-radius: 9999px;
-          }
-
-          .rdp-teal .rdp-day:hover:not(.rdp-day_selected):not(.rdp-day_range_start):not(.rdp-day_range_end) {
-            background-color: rgba(13, 148, 136, 0.12);
-            color: rgb(15 118 110);
-          }
-
-          .rdp-teal .rdp-table {
-            width: 100%;
-          }
-        `}</style>
       </div>
     </ModalShell>
   );
