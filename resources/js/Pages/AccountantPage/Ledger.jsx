@@ -6,10 +6,12 @@ import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
 
-import { Info, FileText } from "lucide-react";
+import { Info } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 
 import LedgerCodeReminderModal from "@/components/modals/AccountantModals/LedgerCodeReminderModal";
+import ExportRegistrar from "@/components/Table/ExportRegistrar";
+import KpiCard from "@/components/ui/KpiCard";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -84,21 +86,6 @@ function DateRangeFilterMinimal({ from, to, onFromChange, onToChange }) {
   );
 }
 
-function SummaryStat({ label, value, tone = "white" }) {
-  const toneClass =
-    tone === "teal"
-      ? "bg-teal-50 ring-teal-100 text-teal-900"
-      : tone === "rose"
-      ? "bg-rose-50 ring-rose-100 text-rose-900"
-      : "bg-white ring-slate-200 text-slate-900";
-
-  return (
-    <div className={`rounded-2xl px-4 py-3 ring-1 ${toneClass}`}>
-      <div className="text-[11px] font-extrabold text-slate-500">{label}</div>
-      <div className="mt-1 text-sm font-extrabold tabular-nums">{value}</div>
-    </div>
-  );
-}
 
 const SOURCE_ROUTES = {
   sale: (refId) => `/dashboard/cashier/sales/${encodeURIComponent(refId)}`,
@@ -257,6 +244,19 @@ export default function Ledger() {
     const url = `/dashboard/accountant/ledger/export/${format}${queryString ? `?${queryString}` : ""}`;
     window.location.assign(url);
   };
+
+  const exportConfig = useMemo(
+    () => ({
+      label: "Export",
+      title: "Export ledger",
+      subtitle: "Exports the current filters.",
+      formats: ["csv", "pdf"],
+      defaultFormat: "csv",
+      dateRange: { enabled: false },
+      onExport: (state) => handleExport(state.format),
+    }),
+    [buildExportParams, handleExport]
+  );
 
   const loading = Boolean(page.props?.loading);
   const ledgerTotals = page.props?.ledgerTotals ?? { debit: 0, credit: 0, net: 0 };
@@ -539,6 +539,7 @@ export default function Ledger() {
   return (
     <Layout title="Ledger">
       <div className="grid gap-6">
+        <ExportRegistrar config={exportConfig} />
         <div className="rounded-3xl bg-teal-600/5 ring-1 ring-teal-200 shadow-sm">
           <div className="p-6 flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -548,15 +549,6 @@ export default function Ledger() {
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => handleExport("csv")}
-                className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white ring-1 ring-teal-500 hover:bg-teal-700 transition focus:ring-4 focus:ring-teal-500/25"
-              >
-                <FileText className="h-4 w-4 text-white" />
-                Export CSV
-              </button>
-
               <button
                 type="button"
                 onClick={() => setGlOpen(true)}
@@ -592,9 +584,9 @@ export default function Ledger() {
             <div className="text-xs font-semibold text-slate-500">Debit vs credit</div>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <SummaryStat label="Total debit" value={money(ledgerTotals.debit)} tone="teal" />
-            <SummaryStat label="Total credit" value={money(ledgerTotals.credit)} />
-            <SummaryStat label="Net (debit - credit)" value={money(ledgerTotals.net)} tone={netTone} />
+            <KpiCard label="Total debit" value={money(ledgerTotals.debit)} tone="teal" />
+            <KpiCard label="Total credit" value={money(ledgerTotals.credit)} />
+            <KpiCard label="Net (debit - credit)" value={money(ledgerTotals.net)} tone={netTone} />
           </div>
         </div>
 

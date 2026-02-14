@@ -37,7 +37,10 @@ class SaleRepository
             $query->where('status', $filters['status']);
         }
 
-        if (!empty($filters['from']) || !empty($filters['to'])) {
+        if (!empty($filters['summary_date'])) {
+            $summaryDate = Carbon::parse($filters['summary_date'])->toDateString();
+            $query->whereDate('sale_datetime', $summaryDate);
+        } elseif (!empty($filters['from']) || !empty($filters['to'])) {
             $from = !empty($filters['from']) ? Carbon::parse($filters['from'])->startOfDay() : null;
             $to = !empty($filters['to']) ? Carbon::parse($filters['to'])->endOfDay() : null;
 

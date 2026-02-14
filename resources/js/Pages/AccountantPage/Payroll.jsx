@@ -4,8 +4,9 @@ import Layout from "../Dashboard/Layout";
 import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
-import { MoreVertical, Download, CheckCircle2, Flag, Lock, Unlock } from "lucide-react";
+import { MoreVertical, CheckCircle2, Flag, Lock, Unlock } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
+import ExportRegistrar from "@/components/Table/ExportRegistrar";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -470,6 +471,19 @@ export default function Payroll() {
     URL.revokeObjectURL(url);
   };
 
+  const exportConfig = useMemo(
+    () => ({
+      label: "Export",
+      title: "Export payroll",
+      subtitle: "Exports the current payroll list.",
+      formats: ["csv"],
+      defaultFormat: "csv",
+      dateRange: { enabled: false },
+      onExport: () => exportVisibleCSV(),
+    }),
+    [exportVisibleCSV]
+  );
+
   const periodActions = {
     lock: () => {
       if (!isAdmin) return;
@@ -555,22 +569,12 @@ export default function Payroll() {
          Attendance capture is separate, payroll only consumes approved attendance
       */}
       <div className="grid gap-6">
+        <ExportRegistrar config={exportConfig} />
         <TopCard
           title="Payroll"
           subtitle="Accountant verifies and flags inconsistencies. Admin approves and releases."
           right={
             <div className="flex flex-wrap items-center gap-2">
-              {(isAdmin || isAccountant) && (
-                <button
-                  type="button"
-                  onClick={exportVisibleCSV}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
-                >
-                  <Download className="h-4 w-4" />
-                  Export CSV
-                </button>
-              )}
-
               {isAdmin && (
                 <button
                   type="button"

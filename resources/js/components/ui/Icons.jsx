@@ -50,6 +50,7 @@ import {
   ScanLine,
   Receipt,
   Search,
+  Tag,
   Flame,
   Wrench,
   ChefHat,
@@ -102,6 +103,7 @@ export const sidebarIconMap = {
   vatSettings: Banknote,
   payables: Wallet,
   costTracking: Banknote,
+  promos: Tag,
 };
 
 /**

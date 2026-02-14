@@ -44,6 +44,10 @@ class PermissionSeeder extends Seeder
             'admin.products.create',
             'admin.products.update',
             'admin.products.archive',
+            'admin.promos.view',
+            'admin.promos.create',
+            'admin.promos.update',
+            'admin.promos.archive',
 
             // Cashier
             'cashier.pos.use',

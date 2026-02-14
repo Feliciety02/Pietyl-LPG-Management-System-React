@@ -14,13 +14,13 @@ import {
   ShoppingCart,
   Boxes,
   Banknote,
-  Download,
 } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 import * as XLSX from "xlsx";
 
 import { TableActionButton } from "@/components/Table/ActionTableButton";
 import AuditDetailsModal from "@/components/modals/AuditLogModals/AuditDetailsModal";
+import ExportRegistrar from "@/components/Table/ExportRegistrar";
 
 function cx() {
   return Array.prototype.slice.call(arguments).filter(Boolean).join(" ");
@@ -1356,9 +1356,24 @@ export default function AuditLogs() {
     }
   }
 
+  const exportConfig = useMemo(
+    () => ({
+      label: isExporting ? "Exporting..." : "Export",
+      title: "Export audit logs",
+      subtitle: "Exports the current filtered view.",
+      formats: ["xlsx"],
+      defaultFormat: "xlsx",
+      dateRange: { enabled: false },
+      disabled: !canExport || isExporting,
+      onExport: () => exportCurrentTab(),
+    }),
+    [canExport, isExporting, exportCurrentTab]
+  );
+
   return (
     <Layout title="Audit Logs">
       <div className="grid gap-6">
+        <ExportRegistrar config={exportConfig} />
         <TopCard
           title="Audit Logs"
           subtitle="Read only system activity for accountability and investigation."
@@ -1387,20 +1402,6 @@ export default function AuditLogs() {
                 onFromChange={handleDateFrom}
                 onToChange={handleDateTo}
               />
-              <button
-                type="button"
-                onClick={exportCurrentTab}
-                disabled={!canExport || isExporting}
-                className={cx(
-                  "inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-xs font-extrabold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-500/25 focus-visible:ring-offset-1",
-                  isExporting || !canExport
-                    ? "bg-slate-100 text-slate-400 ring-slate-200 cursor-not-allowed"
-                    : "bg-teal-600 text-white ring-teal-600 hover:bg-teal-700 active:bg-teal-800"
-                )}
-              >
-                <Download className={cx("h-4 w-4", isExporting ? "text-slate-400" : "text-white")} />
-                {isExporting ? "Exporting..." : "Export Excel"}
-              </button>
             </div>
           }
           filters={activeFilters}

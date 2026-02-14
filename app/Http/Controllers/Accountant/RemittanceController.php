@@ -10,7 +10,6 @@ use App\Models\Remittance;
 use App\Models\User;
 use App\Services\Accounting\LedgerService;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -35,114 +34,90 @@ class RemittanceController extends Controller
         $toDate = $filters['date'] ?: now()->toDateString();
 
         $methods = $this->getPaymentMethods();
-        $expectedRows = $this->loadExpectedRows($fromDate, $toDate);
+        $baseQuery = $this->buildTurnoverBaseQuery($fromDate, $toDate);
+        $this->applyTurnoverFilters($baseQuery, $filters);
 
-        $remittances = Remittance::whereBetween('business_date', [$fromDate, $toDate])
-            ->with('noncashVerifier')
-            ->get()
-            ->keyBy(function (Remittance $remittance) {
-                return $remittance->business_date->toDateString() . '::' . $remittance->cashier_user_id;
-            });
+        $rowsQuery = (clone $baseQuery)
+            ->leftJoin('users as nv', 'nv.id', '=', 'r.noncash_verified_by_user_id')
+            ->select(
+                'expected.business_date',
+                'expected.cashier_user_id',
+                'expected.cashier_name',
+                'expected.expected_cash',
+                'expected.expected_noncash_total',
+                'r.id as remittance_id',
+                'r.remitted_cash_amount',
+                'r.note',
+                'r.recorded_at',
+                'r.noncash_verified_at',
+                'r.noncash_verification',
+                'nv.name as noncash_verified_by'
+            )
+            ->selectRaw($this->cashVarianceSql() . ' as cash_variance')
+            ->selectRaw($this->statusCaseSql() . ' as status')
+            ->selectRaw('CASE WHEN dc.business_date IS NULL THEN 0 ELSE 1 END as finalized')
+            ->selectRaw($this->noncashVerifiedTotalSql() . ' as noncash_verified_total')
+            ->selectRaw($this->noncashVerifiedCountSql() . ' as noncash_verified_count')
+            ->orderByDesc('expected.business_date')
+            ->orderBy('expected.cashier_name');
 
-        $finalizedDates = DailyClose::whereBetween('business_date', [$fromDate, $toDate])
-            ->pluck('business_date')
-            ->map(fn ($date) => $date->toDateString())
-            ->all();
+        $paginator = $rowsQuery->paginate(max(1, $filters['per']))->withQueryString();
+        $rawRows = collect($paginator->items());
+        $expectedByMethod = $this->loadExpectedByMethodForRows($rawRows, $methods);
 
-        $rows = $expectedRows->map(function ($item) use ($remittances, $finalizedDates) {
-            $key = $item['business_date'] . '::' . $item['cashier_user_id'];
-            $record = $remittances->get($key);
-
-            $cashVariance = $record?->cash_variance;
-            if ($cashVariance === null && $record?->remitted_cash_amount !== null) {
-                $cashVariance = round($record->remitted_cash_amount - $item['expected_cash'], 2);
+        $rows = $rawRows->map(function ($row) use ($expectedByMethod, $methods) {
+            $key = $row->business_date . '::' . $row->cashier_user_id;
+            $expectedForRow = $expectedByMethod[$key] ?? [];
+            foreach ($methods as $method) {
+                if (!array_key_exists($method->method_key, $expectedForRow)) {
+                    $expectedForRow[$method->method_key] = 0.0;
+                }
             }
 
-            $finalized = in_array($item['business_date'], $finalizedDates, true);
-            $stage = $this->deriveStage($record, $finalized);
-            $verification = $record?->noncash_verification ?? [];
+            $verification = $row->noncash_verification ?? [];
+            if (is_string($verification)) {
+                $decoded = json_decode($verification, true);
+                $verification = is_array($decoded) ? $decoded : [];
+            }
+
             $verifiedTransactionIds = is_array($verification['transaction_ids'] ?? null)
                 ? $verification['transaction_ids']
                 : [];
-            $noncashVerifiedAmount = round((float) ($verification['amount'] ?? 0), 2);
+
+            $noncashVerifiedAmount = $row->noncash_verified_total ?? ($verification['amount'] ?? 0);
 
             return [
-                'id' => $record?->id,
-                'business_date' => $item['business_date'],
-                'cashier_user_id' => $item['cashier_user_id'],
-                'cashier_name' => $item['cashier_name'],
-                'expected_cash' => $item['expected_cash'],
-                'expected_cashless_total' => $item['expected_noncash_total'],
-                'expected_noncash_total' => $item['expected_noncash_total'],
-                'expected_by_method' => $item['expected_by_method'],
-                'remitted_cash_amount' => $record?->remitted_cash_amount,
-                'cash_counted' => $record?->remitted_cash_amount,
-                'cash_variance' => is_null($cashVariance) ? null : (float) round($cashVariance, 2),
-                'cash_status' => $stage,
-                'status' => $stage,
-                'finalized' => $finalized,
-                'note' => $record?->note,
-                'recorded_at' => $record?->recorded_at?->format('Y-m-d H:i') ?? '-',
-                'noncash_verified_at' => $record?->noncash_verified_at?->format('Y-m-d H:i'),
-                'noncash_verified_by' => $record?->noncashVerifier?->name,
-                'noncash_verification' => $record?->noncash_verification ?? [],
-                'noncash_status' => $record?->noncash_verified_at ? 'verified' : 'unverified',
-                'noncash_verified_total' => $noncashVerifiedAmount,
-                'noncash_verified_count' => count($verifiedTransactionIds),
+                'id' => $row->remittance_id,
+                'business_date' => $row->business_date,
+                'cashier_user_id' => (int) $row->cashier_user_id,
+                'cashier_name' => $row->cashier_name,
+                'expected_cash' => (float) ($row->expected_cash ?? 0),
+                'expected_cashless_total' => (float) ($row->expected_noncash_total ?? 0),
+                'expected_noncash_total' => (float) ($row->expected_noncash_total ?? 0),
+                'expected_by_method' => $expectedForRow,
+                'remitted_cash_amount' => $row->remitted_cash_amount,
+                'cash_counted' => $row->remitted_cash_amount,
+                'cash_variance' => $row->cash_variance !== null ? (float) $row->cash_variance : null,
+                'cash_status' => $row->status,
+                'status' => $row->status,
+                'finalized' => (bool) $row->finalized,
+                'note' => $row->note,
+                'recorded_at' => $row->recorded_at ? date('Y-m-d H:i', strtotime($row->recorded_at)) : '-',
+                'noncash_verified_at' => $row->noncash_verified_at ? date('Y-m-d H:i', strtotime($row->noncash_verified_at)) : null,
+                'noncash_verified_by' => $row->noncash_verified_by,
+                'noncash_verification' => $verification,
+                'noncash_status' => $row->noncash_verified_at ? 'verified' : 'unverified',
+                'noncash_verified_total' => round((float) $noncashVerifiedAmount, 2),
+                'noncash_verified_count' => (int) ($row->noncash_verified_count ?? count($verifiedTransactionIds)),
                 'verified_transaction_ids' => $verifiedTransactionIds,
             ];
-        });
+        })->values();
 
-        if (!empty($filters['q'])) {
-            $q = mb_strtolower($filters['q']);
-            $rows = $rows->filter(fn ($row) => str_contains(mb_strtolower($row['cashier_name'] ?? ''), $q));
-        }
-
-        if ($filters['status'] !== 'all') {
-            $rows = $rows->filter(fn ($row) => $row['status'] === $filters['status']);
-        }
-
-        $rows = $rows->values();
-
-        $totalExpectedCash = $rows->sum(fn ($row) => (float) ($row['expected_cash'] ?? 0));
-        $totalExpectedNonCash = $rows->sum(fn ($row) => (float) ($row['expected_noncash_total'] ?? 0));
-        $totalProjectedIncome = $totalExpectedCash + $totalExpectedNonCash;
-        $totalCashRecorded = $rows->sum(fn ($row) => (float) ($row['remitted_cash_amount'] ?? 0));
-        $totalVariance = $rows->sum(fn ($row) => (float) ($row['cash_variance'] ?? 0));
-        $totalCashlessVerified = $rows->sum(fn ($row) => (float) ($row['noncash_verified_total'] ?? 0));
-        $totalCashlessTxnCount = $rows->sum(fn ($row) => (int) ($row['noncash_verified_count'] ?? 0));
-        $finalizedCount = $rows->filter(fn ($row) => !empty($row['finalized']))->count();
-
-        $remittanceKpis = [
-            'projected_income' => round($totalProjectedIncome, 2),
-            'expected_cash' => round($totalExpectedCash, 2),
-            'expected_non_cash' => round($totalExpectedNonCash, 2),
-            'cash_recorded' => round($totalCashRecorded, 2),
-            'cash_variance' => round($totalVariance, 2),
-            'cashless_verified_total' => round($totalCashlessVerified, 2),
-            'cashless_verified_count' => $totalCashlessTxnCount,
-            'finalized_count' => $finalizedCount,
-        ];
-
-        $per = max(1, $filters['per']);
-        $page = max(1, $filters['page']);
-        $total = $rows->count();
-        $items = $rows->slice(($page - 1) * $per, $per)->values();
-
-        $paginator = new LengthAwarePaginator(
-            $items,
-            $total,
-            $per,
-            $page,
-            [
-                'path' => $request->url(),
-                'query' => $request->query(),
-            ]
-        );
+        $remittanceKpis = $this->buildTurnoverKpis($fromDate, $toDate, $filters);
 
         return Inertia::render('AccountantPage/Remittances', [
             'remittances' => [
-                'data' => $paginator->items(),
+                'data' => $rows,
                 'meta' => [
                     'current_page' => $paginator->currentPage(),
                     'last_page' => $paginator->lastPage(),
@@ -741,58 +716,153 @@ class RemittanceController extends Controller
             ->get();
     }
 
-    private function loadExpectedRows(string $fromDate, string $toDate): Collection
+    private function buildTurnoverBaseQuery(string $fromDate, string $toDate)
     {
-        $methods = $this->getPaymentMethods();
+        $expectedTotals = $this->buildExpectedTotalsQuery($fromDate, $toDate);
 
-        $totals = DB::table('payments as p')
+        return DB::query()
+            ->fromSub($expectedTotals, 'expected')
+            ->leftJoin('remittances as r', function ($join) {
+                $join->on('r.business_date', '=', 'expected.business_date')
+                    ->on('r.cashier_user_id', '=', 'expected.cashier_user_id');
+            })
+            ->leftJoin('daily_closes as dc', 'dc.business_date', '=', 'expected.business_date');
+    }
+
+    private function applyTurnoverFilters($query, array $filters): void
+    {
+        if (!empty($filters['q'])) {
+            $query->where('expected.cashier_name', 'like', '%' . $filters['q'] . '%');
+        }
+
+        if (($filters['status'] ?? 'all') !== 'all') {
+            $query->whereRaw($this->statusCaseSql() . ' = ?', [$filters['status']]);
+        }
+    }
+
+    private function buildExpectedTotalsQuery(string $fromDate, string $toDate)
+    {
+        return DB::table('payments as p')
             ->join('payment_methods as pm', 'pm.id', '=', 'p.payment_method_id')
             ->join('sales as s', 's.id', '=', 'p.sale_id')
             ->join('users as u', 'u.id', '=', 's.cashier_user_id')
             ->whereDate('s.sale_datetime', '>=', $fromDate)
             ->whereDate('s.sale_datetime', '<=', $toDate)
             ->where('s.status', 'paid')
-            ->selectRaw(
-                'DATE(s.sale_datetime) as business_date, s.cashier_user_id, u.name as cashier_name, pm.method_key, pm.is_cashless, SUM(p.amount) as amount'
-            )
-            ->groupBy('business_date', 's.cashier_user_id', 'u.name', 'pm.method_key', 'pm.is_cashless')
-            ->orderByDesc('business_date')
-            ->get()
-            ->groupBy(fn ($row) => "{$row->business_date}::{$row->cashier_user_id}");
+            ->selectRaw('DATE(s.sale_datetime) as business_date')
+            ->selectRaw('s.cashier_user_id as cashier_user_id')
+            ->selectRaw('u.name as cashier_name')
+            ->selectRaw('SUM(CASE WHEN LOWER(pm.method_key) = \'cash\' THEN p.amount ELSE 0 END) as expected_cash')
+            ->selectRaw('SUM(CASE WHEN LOWER(pm.method_key) <> \'cash\' THEN p.amount ELSE 0 END) as expected_noncash_total')
+            ->groupBy('business_date', 's.cashier_user_id', 'u.name');
+    }
 
-        $rows = collect();
-        foreach ($totals as $key => $items) {
-            [$businessDate, $cashierId] = explode('::', $key);
-            $expectedByMethod = [];
-            $expectedCash = 0;
-            $expectedNonCashTotal = 0;
-            foreach ($items as $item) {
-                $amount = (float) $item->amount;
-                $expectedByMethod[$item->method_key] = $amount;
-                if (Str::lower($item->method_key) === "cash") {
-                    $expectedCash += $amount;
-                } else {
-                    $expectedNonCashTotal += $amount;
-                }
-            }
-
-            foreach ($methods as $method) {
-                if (!array_key_exists($method->method_key, $expectedByMethod)) {
-                    $expectedByMethod[$method->method_key] = 0.0;
-                }
-            }
-
-            $rows->push([
-                'business_date' => $businessDate,
-                'cashier_user_id' => (int) $cashierId,
-                'cashier_name' => $items->first()->cashier_name,
-                'expected_cash' => (float) $expectedCash,
-                'expected_noncash_total' => (float) $expectedNonCashTotal,
-                'expected_by_method' => $expectedByMethod,
-            ]);
+    private function loadExpectedByMethodForRows(Collection $rows, Collection $methods): array
+    {
+        if ($rows->isEmpty()) {
+            return [];
         }
 
-        return $rows;
+        $pairs = $rows
+            ->map(fn ($row) => [$row->business_date, $row->cashier_user_id])
+            ->unique(fn ($pair) => $pair[0] . '::' . $pair[1])
+            ->values();
+
+        if ($pairs->isEmpty()) {
+            return [];
+        }
+
+        $query = DB::table('payments as p')
+            ->join('payment_methods as pm', 'pm.id', '=', 'p.payment_method_id')
+            ->join('sales as s', 's.id', '=', 'p.sale_id')
+            ->where('s.status', 'paid')
+            ->where(function ($sub) use ($pairs) {
+                foreach ($pairs as $pair) {
+                    [$date, $cashierId] = $pair;
+                    $sub->orWhere(function ($inner) use ($date, $cashierId) {
+                        $inner->whereDate('s.sale_datetime', $date)
+                            ->where('s.cashier_user_id', $cashierId);
+                    });
+                }
+            })
+            ->selectRaw('DATE(s.sale_datetime) as business_date, s.cashier_user_id, pm.method_key, SUM(p.amount) as amount')
+            ->groupBy('business_date', 's.cashier_user_id', 'pm.method_key')
+            ->get();
+
+        $map = [];
+        foreach ($query as $row) {
+            $key = $row->business_date . '::' . $row->cashier_user_id;
+            $map[$key][$row->method_key] = (float) $row->amount;
+        }
+
+        foreach ($pairs as $pair) {
+            [$date, $cashierId] = $pair;
+            $key = $date . '::' . $cashierId;
+            $map[$key] = $map[$key] ?? [];
+            foreach ($methods as $method) {
+                if (!array_key_exists($method->method_key, $map[$key])) {
+                    $map[$key][$method->method_key] = 0.0;
+                }
+            }
+        }
+
+        return $map;
+    }
+
+    private function buildTurnoverKpis(string $fromDate, string $toDate, array $filters): array
+    {
+        $query = $this->buildTurnoverBaseQuery($fromDate, $toDate);
+        $this->applyTurnoverFilters($query, $filters);
+
+        $totals = $query->selectRaw(
+            'COALESCE(SUM(expected.expected_cash), 0) as expected_cash,
+            COALESCE(SUM(expected.expected_noncash_total), 0) as expected_noncash_total,
+            COALESCE(SUM(r.remitted_cash_amount), 0) as cash_recorded,
+            COALESCE(SUM(' . $this->cashVarianceSql() . '), 0) as cash_variance,
+            COALESCE(SUM(' . $this->noncashVerifiedTotalSql() . '), 0) as cashless_verified_total,
+            COALESCE(SUM(' . $this->noncashVerifiedCountSql() . '), 0) as cashless_verified_count,
+            COALESCE(SUM(CASE WHEN dc.business_date IS NULL THEN 0 ELSE 1 END), 0) as finalized_count'
+        )->first();
+
+        $expectedCash = (float) ($totals->expected_cash ?? 0);
+        $expectedNonCash = (float) ($totals->expected_noncash_total ?? 0);
+
+        return [
+            'projected_income' => round($expectedCash + $expectedNonCash, 2),
+            'expected_cash' => round($expectedCash, 2),
+            'expected_non_cash' => round($expectedNonCash, 2),
+            'cash_recorded' => round((float) ($totals->cash_recorded ?? 0), 2),
+            'cash_variance' => round((float) ($totals->cash_variance ?? 0), 2),
+            'cashless_verified_total' => round((float) ($totals->cashless_verified_total ?? 0), 2),
+            'cashless_verified_count' => (int) ($totals->cashless_verified_count ?? 0),
+            'finalized_count' => (int) ($totals->finalized_count ?? 0),
+        ];
+    }
+
+    private function statusCaseSql(): string
+    {
+        return "CASE
+            WHEN dc.business_date IS NOT NULL THEN 'finalized'
+            WHEN r.remitted_cash_amount IS NOT NULL AND r.noncash_verified_at IS NOT NULL THEN 'ready_to_finalize'
+            WHEN r.noncash_verified_at IS NOT NULL THEN 'cashless_verified'
+            WHEN r.remitted_cash_amount IS NOT NULL THEN 'cash_recorded'
+            ELSE 'draft'
+        END";
+    }
+
+    private function cashVarianceSql(): string
+    {
+        return "COALESCE(r.cash_variance, CASE WHEN r.remitted_cash_amount IS NOT NULL THEN (r.remitted_cash_amount - expected.expected_cash) ELSE NULL END)";
+    }
+
+    private function noncashVerifiedTotalSql(): string
+    {
+        return "COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(r.noncash_verification, '$.amount')) AS DECIMAL(12,2)), 0)";
+    }
+
+    private function noncashVerifiedCountSql(): string
+    {
+        return "COALESCE(JSON_LENGTH(JSON_EXTRACT(r.noncash_verification, '$.transaction_ids')), 0)";
     }
 
     private function expectedForRow(string $businessDate, int $cashierId): array

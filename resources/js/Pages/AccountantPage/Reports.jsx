@@ -5,8 +5,9 @@ import Layout from "../Dashboard/Layout";
 import DataTable from "@/components/Table/DataTable";
 import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
-import { FileText, ShieldCheck } from "lucide-react";
-import { SkeletonLine, SkeletonButton, SkeletonPill } from "@/components/ui/Skeleton";
+import { ShieldCheck } from "lucide-react";
+import { SkeletonLine, SkeletonPill } from "@/components/ui/Skeleton";
+import ExportRegistrar from "@/components/Table/ExportRegistrar";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -463,48 +464,48 @@ export default function Reports() {
 
   const exportBase = "/dashboard/accountant/reports/export";
 
-  const exportHref = (format, row = null) => {
-    const reportType = row?.report_type ?? type;
-    const dateFrom = row?.date_from ?? from;
-    const dateTo = row?.date_to ?? to;
-    const params = new URLSearchParams();
-    if (reportType) params.set("type", reportType);
-    if (dateFrom) params.set("from", dateFrom);
-    if (dateTo) params.set("to", dateTo);
-    params.set("format", format);
-    return `${exportBase}?${params.toString()}`;
-  };
+  const exportConfig = useMemo(
+    () => ({
+      label: "Export",
+      title: "Export report",
+      subtitle: "Pick a range and report type, then download.",
+      endpoint: exportBase,
+      formats: ["csv", "pdf", "xlsx"],
+      defaultFormat: "csv",
+      dateRange: {
+        enabled: true,
+        allowFuture: false,
+        defaultFrom: from,
+        defaultTo: to,
+      },
+      selects: [
+        {
+          key: "type",
+          label: "Report type",
+          options: typeOptions,
+          defaultValue: type,
+        },
+      ],
+      buildParams: (state) => ({
+        type: state.selects.type,
+        from: state.from,
+        to: state.to,
+        format: state.format,
+      }),
+      fileName: (state) => `Report_${state.selects.type}_${state.from}_to_${state.to}.${state.format}`,
+    }),
+    [exportBase, from, to, type, typeOptions]
+  );
 
   return (
     <Layout title="Reports">
       <div className="grid gap-6">
+        <ExportRegistrar config={exportConfig} />
         <TopCard
           title="Reports"
           subtitle="Generate financial reports for owner review and record keeping. Exports are read-only snapshots."
           right={
             <div className="flex flex-wrap items-center gap-2">
-              <a
-                href={exportHref("csv")}
-                className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700 transition focus:ring-4 focus:ring-teal-500/25"
-              >
-                <FileText className="h-4 w-4" />
-                Export CSV
-              </a>
-
-              <a
-                href={exportHref("pdf")}
-                className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
-              >
-                Export PDF
-              </a>
-
-              <a
-                href={exportHref("xlsx")}
-                className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
-              >
-                Export XLSX
-              </a>
-
               <Link
                 href="/dashboard/accountant/audit"
                 className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
@@ -565,40 +566,6 @@ export default function Reports() {
           searchQuery={q}
           emptyTitle="No reports yet"
           emptyHint="Generate a report by choosing a type and date range, then export."
-          renderActions={(r) =>
-            r?.__filler ? (
-              <div className="flex items-center justify-end gap-2">
-                <SkeletonButton w="w-24" />
-                <div className="h-9 w-9 rounded-2xl bg-slate-200/80 animate-pulse" />
-              </div>
-            ) : (
-              <div className="flex items-center justify-end gap-2">
-                <a
-                  href={exportHref("csv", r)}
-                  className="rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
-                  title="Export this report to CSV"
-                >
-                  CSV
-                </a>
-
-                <a
-                  href={exportHref("pdf", r)}
-                  className="rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
-                  title="Export this report to PDF"
-                >
-                  PDF
-                </a>
-
-                <a
-                  href={exportHref("xlsx", r)}
-                  className="rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 transition focus:ring-4 focus:ring-teal-500/15"
-                  title="Export this report to XLSX"
-                >
-                  XLSX
-                </a>
-              </div>
-            )
-          }
         />
 
         <DataTablePagination

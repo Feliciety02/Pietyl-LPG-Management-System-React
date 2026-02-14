@@ -69,6 +69,7 @@ class SaleController extends Controller
             "status" => $request->input("status", "all"),
             "per" => $request->input("per", 10),
             "page" => $request->input("page", 1),
+            "summary_date" => $request->input("summary_date"),
         ];
 
         return response()->json($this->saleService->getSalesForPage($filters));
@@ -192,6 +193,8 @@ class SaleController extends Controller
                     "unit_price" => $item->unit_price,
                 ];
             })->toArray(),
+            "subtotal" => $sale->subtotal,
+            "discount" => $sale->discount_total,
             "net_amount" => $sale->net_amount,
             "vat_amount" => $sale->vat_amount,
             "gross_amount" => $sale->gross_amount ?? $sale->grand_total,
@@ -300,6 +303,8 @@ class SaleController extends Controller
                     "unit_price" => $item->unit_price,
                 ];
             })->toArray(),
+            "subtotal" => $sale->subtotal,
+            "discount" => $sale->discount_total,
             "net_amount" => $sale->net_amount,
             "vat_amount" => $sale->vat_amount,
             "gross_amount" => $sale->gross_amount ?? $sale->grand_total,

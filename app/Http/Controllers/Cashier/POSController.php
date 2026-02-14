@@ -34,6 +34,7 @@ class POSController extends Controller
             'products' => $products,
             'customers' => $customers,
             'vat_settings' => $this->settingsService->getVatSnapshot(),
+            'discount_settings' => $this->settingsService->getDiscountSnapshot(),
         ]);
     }
 
@@ -54,6 +55,14 @@ class POSController extends Controller
             'vat_inclusive' => 'required|boolean',
             'vat_rate' => 'nullable|numeric|min:0',
             'cash_tendered' => 'nullable|numeric|min:0',
+            'discount_total' => 'nullable|numeric|min:0',
+            'manager_pin' => 'nullable|string',
+            'discounts' => 'nullable|array',
+            'discounts.*.kind' => 'required_with:discounts|string|in:promo,voucher,manual',
+            'discounts.*.code' => 'nullable|string|max:50',
+            'discounts.*.value' => 'nullable|numeric|min:0',
+            'discounts.*.discount_type' => 'nullable|string|in:percent,amount',
+            'discounts.*.promo_id' => 'nullable|integer',
             'lines' => 'required|array|min:1',
             'lines.*.product_id' => 'required|exists:product_variants,id',
             'lines.*.qty' => 'required|numeric|min:1',

@@ -20,6 +20,7 @@ use App\Models\RestockRequestItem;
 use App\Models\Role;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Models\PromoVoucher;
 use App\Models\PurchaseRequest;
 use App\Models\StockMovement;
 use App\Models\Supplier;
@@ -99,6 +100,7 @@ class AppServiceProvider extends ServiceProvider
             Payment::class,
             PaymentMethod::class,
             Receipt::class,
+            PromoVoucher::class,
             Delivery::class,
             Location::class,
         ];

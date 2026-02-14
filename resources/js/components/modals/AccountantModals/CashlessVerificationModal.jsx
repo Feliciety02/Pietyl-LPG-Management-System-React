@@ -4,6 +4,7 @@ import { CheckCircle2, CreditCard, RotateCcw } from "lucide-react";
 import TableHeaderCell from "@/components/Table/TableHeaderCell";
 import { TableActionButton } from "@/components/Table/ActionTableButton";
 import ModalShell from "../ModalShell";
+import KpiCard from "@/components/ui/KpiCard";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -25,17 +26,6 @@ function formatTime(value) {
   } catch {
     return String(value);
   }
-}
-
-function StatCard({ label, value }) {
-  return (
-    <div className="rounded-2xl bg-white ring-1 ring-slate-200 px-4 py-3">
-      <div className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500">
-        {label}
-      </div>
-      <div className="mt-1 text-sm font-extrabold text-slate-900 tabular-nums">{value}</div>
-    </div>
-  );
 }
 
 export default function CashlessVerificationModal({
@@ -236,10 +226,10 @@ export default function CashlessVerificationModal({
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-4">
-        <StatCard label="Expected cashless" value={money(row?.expected_noncash_total)} />
-        <StatCard label="Verified total" value={money(verifiedTotal)} />
-        <StatCard label="Pending" value={String(pendingRows.length)} />
-        <StatCard label="Selected total" value={money(selectedTotal)} />
+        <KpiCard label="Expected cashless" value={money(row?.expected_noncash_total)} />
+        <KpiCard label="Verified total" value={money(verifiedTotal)} />
+        <KpiCard label="Pending" value={String(pendingRows.length)} />
+        <KpiCard label="Selected total" value={money(selectedTotal)} />
       </div>
 
       {error ? (

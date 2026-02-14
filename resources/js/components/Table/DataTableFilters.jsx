@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Search } from "lucide-react";
+import { Search, Download } from "lucide-react";
+import ExportTableButton from "@/components/Table/ExportTableButton";
+import { useExportAction } from "@/components/Table/ExportContext";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -18,12 +20,30 @@ export default function DataTableFilters({
   containerClass,
   innerClass,
 }) {
+  const { exportConfig, setExportOpen } = useExportAction();
   const [localQ, setLocalQ] = useState(q || "");
   const skipRef = useRef(false);
   const typedRef = useRef(false);
   const onQDebouncedRef = useRef(onQDebounced);
   const safeFilters = Array.isArray(filters) ? filters : [];
   const actionSlot = actions ?? rightSlot;
+  const exportButton = exportConfig ? (
+    <ExportTableButton
+      href={exportConfig.href}
+      onClick={(event) => {
+        event?.preventDefault?.();
+        if (exportConfig.disabled) return;
+        setExportOpen?.(true);
+      }}
+      disabled={exportConfig.disabled}
+      showIcon
+      icon={Download}
+      variant="teal"
+      size="sm"
+    >
+      {exportConfig.label || "Export"}
+    </ExportTableButton>
+  ) : null;
 
   useEffect(() => {
     skipRef.current = true;
@@ -111,8 +131,11 @@ export default function DataTableFilters({
           })}
         </div>
 
-        {actionSlot ? (
-          <div className="flex flex-shrink-0 items-center gap-2">{actionSlot}</div>
+        {actionSlot || exportButton ? (
+          <div className="flex flex-shrink-0 items-center gap-2">
+            {actionSlot}
+            {exportButton}
+          </div>
         ) : null}
       </div>
     </div>

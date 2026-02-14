@@ -1,4 +1,5 @@
 import React from "react";
+import KpiCard from "@/components/ui/KpiCard";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -150,21 +151,15 @@ export function PurchaseSummary({ purchase }) {
         {/* KPI STACK (Damage + Total) */}
         <div className="shrink-0 flex items-start gap-3">
           {damageAmount > 0 ? (
-            <div className="rounded-3xl bg-rose-600/10 ring-1 ring-rose-700/10 px-5 py-4 text-right">
-              <div className="text-[11px] font-semibold text-rose-900/70">Damage</div>
-              <div className="mt-1 text-xl font-extrabold text-rose-900 tabular-nums">
-                {money(damageAmount)}
-              </div>
-              <div className="mt-1 text-[11px] text-rose-900/70">
-                {damagedQty} unit{damagedQty === 1 ? "" : "s"}
-              </div>
-            </div>
+            <KpiCard
+              label="Damage"
+              value={money(damageAmount)}
+              hint={`${damagedQty} unit${damagedQty === 1 ? "" : "s"}`}
+              tone="rose"
+            />
           ) : null}
 
-          <div className="rounded-3xl bg-teal-600/10 ring-1 ring-teal-700/10 px-5 py-4 text-right">
-            <div className="text-[11px] font-semibold text-teal-900/70">Total</div>
-            <div className="mt-1 text-2xl font-extrabold text-teal-900">{meta.total}</div>
-          </div>
+          <KpiCard label="Total" value={meta.total} tone="teal" />
         </div>
       </div>
     </div>

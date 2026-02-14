@@ -8,12 +8,14 @@ import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
 
 import { posIcons } from "@/components/ui/Icons";
+import { CalendarDays } from "lucide-react";
 import { SkeletonLine, SkeletonButton } from "@/components/ui/Skeleton";
 import { TableActionButton } from "@/components/Table/ActionTableButton";
+import ExportRegistrar from "@/components/Table/ExportRegistrar";
+import KpiCard from "@/components/ui/KpiCard";
 
 import SaleDetailsModal from "@/components/modals/CashierModals/SaleDetailsModal";
 import ReprintReceiptModal from "@/components/modals/CashierModals/ReprintReceiptModal";
-import PrintSalesModal from "@/components/modals/CashierModals/PrintSalesModal";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -71,6 +73,31 @@ function Pill({ tone = "slate", children }) {
   );
 }
 
+function SummaryDateInput({ value, onChange }) {
+  return (
+    <div className="relative">
+      <input
+        type="date"
+        value={value}
+        onChange={onChange}
+        className={cx(
+          "summary-date-input rounded-2xl border border-slate-200 bg-white px-3 py-2 pr-10 text-sm font-semibold text-slate-700",
+          "outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/40"
+        )}
+      />
+      <CalendarDays className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+      <style>{`
+        input.summary-date-input::-webkit-calendar-picker-indicator {
+          opacity: 0;
+        }
+        input.summary-date-input::-webkit-inner-spin-button {
+          display: none;
+        }
+      `}</style>
+    </div>
+  );
+}
+
 function MethodPill({ method }) {
   const m = String(method || "cash").toLowerCase();
   const tone =
@@ -106,22 +133,6 @@ function SaleAvatar({ ref }) {
   );
 }
 
-function StatCard({ label, value, hint, tone = "slate" }) {
-  const toneMap = {
-    slate: "bg-white ring-slate-200",
-    teal: "bg-teal-600/10 ring-teal-700/10",
-    amber: "bg-amber-600/10 ring-amber-700/10",
-    rose: "bg-rose-600/10 ring-rose-700/10",
-  };
-
-  return (
-    <div className={cx("rounded-3xl p-4 ring-1", toneMap[tone] || toneMap.slate)}>
-      <div className="text-[11px] font-extrabold text-slate-500">{label}</div>
-      <div className="mt-1 text-base font-extrabold text-slate-900 tabular-nums">{value}</div>
-      {hint ? <div className="mt-1 text-[11px] text-slate-500">{hint}</div> : null}
-    </div>
-  );
-}
 
 function LineSummary({ lines }) {
   const list = Array.isArray(lines) ? lines : [];
@@ -197,7 +208,6 @@ export default function Sales({
   const [activeSale, setActiveSale] = useState(null);
   const [viewOpen, setViewOpen] = useState(false);
   const [reprintOpen, setReprintOpen] = useState(false);
-  const [printOpen, setPrintOpen] = useState(false);
 
   const sales = page.props?.sales ?? { data: [], meta: null };
   const rows = sales?.data ?? [];
@@ -218,7 +228,7 @@ export default function Sales({
     const fetchLiveSales = async () => {
       try {
         const { data: live } = await axios.get(buildSalesUrl("/latest"), {
-          params: { q, status, per, page: currentPage },
+          params: { q, status, per, page: currentPage, summary_date: summaryDate },
         });
 
         if (!active) return;
@@ -236,7 +246,7 @@ export default function Sales({
       active = false;
       clearInterval(intervalId);
     };
-  }, [q, status, per, currentPage, salesBasePath]);
+  }, [q, status, per, currentPage, salesBasePath, summaryDate]);
 
   const statusOptions = [
     { value: "all", label: "All status" },
@@ -245,12 +255,66 @@ export default function Sales({
     { value: "pending", label: "Pending" },
   ];
 
+  const exportConfig = useMemo(() => {
+    const formatOptions = allowedExportFormats.length ? allowedExportFormats : ["xlsx"];
+    const defaultStatus = status === "all" ? "paid" : status;
+
+    return {
+      label: "Export",
+      title: "Export sales",
+      subtitle: "Pick a business date range, then download a report.",
+      endpoint: `${salesBasePath}/export`,
+      formats: formatOptions,
+      defaultFormat: formatOptions.includes(defaultExportFormat)
+        ? defaultExportFormat
+        : formatOptions[0],
+      dateRange: {
+        enabled: true,
+        allowFuture: false,
+        defaultFrom: summaryDate,
+        defaultTo: summaryDate,
+      },
+      selects: [
+        {
+          key: "status_scope",
+          label: "Sales to include",
+          hint: "Most cashiers export paid only.",
+          options: [
+            { value: "paid", label: "Paid only" },
+            { value: "all", label: "All status" },
+            { value: "pending", label: "Pending only" },
+            { value: "failed", label: "Failed only" },
+          ],
+          defaultValue: defaultStatus,
+        },
+      ],
+      includeItems: {
+        enabled: true,
+        default: true,
+        label: "Include item breakdown",
+        hint: "Adds a second sheet with items per sale.",
+        formats: ["xlsx"],
+      },
+      buildParams: (state) => ({
+        from_date: state.from,
+        to_date: state.to,
+        status_scope: state.selects.status_scope,
+        format: state.format,
+        include_items: state.includeItems ? 1 : 0,
+      }),
+      fileName: (state) => {
+        const ext = state.format === "csv" ? "csv" : "xlsx";
+        return `Sales_${state.from}_to_${state.to}.${ext}`;
+      },
+    };
+  }, [allowedExportFormats, defaultExportFormat, status, summaryDate, salesBasePath]);
+
   const pushQuery = (patch) => {
     const newPage = patch.page !== undefined ? patch.page : currentPage;
 
     router.get(
       salesBasePath,
-      { q, status, per, page: newPage, ...patch },
+      { q, status, per, page: newPage, summary_date: summaryDate, ...patch },
       { preserveScroll: true, preserveState: true, replace: true }
     );
   };
@@ -307,6 +371,7 @@ export default function Sales({
     const nextDate = event.target.value;
     if (!nextDate) return;
     setSummaryDate(nextDate);
+    pushQuery({ summary_date: nextDate, page: 1 });
     loadSummary(nextDate);
   };
 
@@ -436,6 +501,7 @@ export default function Sales({
   return (
     <Layout title="Sales">
       <div className="grid gap-6">
+        <ExportRegistrar config={exportConfig} />
         <TopCard
           title="Sales history"
           subtitle="View sales records and reprint receipts."
@@ -463,13 +529,8 @@ export default function Sales({
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <input
-                  type="date"
-                  value={summaryDate}
-                  onChange={handleSummaryDateChange}
-                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/40"
-                />
+            <div className="flex flex-wrap items-center gap-2">
+                <SummaryDateInput value={summaryDate} onChange={handleSummaryDateChange} />
 
                 <Pill tone={isFinalized ? "teal" : "amber"}>
                   {isFinalized ? "FINALIZED" : "OPEN"}
@@ -478,27 +539,27 @@ export default function Sales({
             </div>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              <StatCard
+              <KpiCard
                 label="Gross sales"
                 value={summaryLoading ? "Loading..." : money(dailySummary?.sales_total ?? 0)}
                 hint={summaryVatHint}
               />
-              <StatCard
+              <KpiCard
                 label="Cash expected"
                 value={summaryLoading ? "Loading..." : money(dailySummary?.cash_expected ?? 0)}
                 hint="Should be in drawer"
               />
-              <StatCard
+              <KpiCard
                 label="Cash turned over"
                 value={summaryLoading ? "Loading..." : money(dailySummary?.cash_counted ?? 0)}
                 hint="Counted and submitted"
               />
-              <StatCard
+              <KpiCard
                 label="Non cash total"
                 value={summaryLoading ? "Loading..." : money(dailySummary?.non_cash_total ?? 0)}
                 hint="GCash, bank, card"
               />
-              <StatCard
+              <KpiCard
                 label="Variance"
                 value={summaryLoading ? "Loading..." : money(summaryVariance)}
                 hint="Must be zero to close"
@@ -581,15 +642,6 @@ export default function Sales({
               options: statusOptions,
             },
           ]}
-          actions={
-            <button
-              type="button"
-              onClick={() => setPrintOpen(true)}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-extrabold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
-            >
-              Export sales
-            </button>
-          }
         />
 
         <DataTable
@@ -641,14 +693,6 @@ export default function Sales({
           disableNext={!meta || meta.current_page >= meta.last_page}
         />
       </div>
-
-      <PrintSalesModal
-        open={printOpen}
-        onClose={() => setPrintOpen(false)}
-        exportUrl={buildSalesUrl("/export")}
-        defaultFormat={defaultExportFormat}
-        formats={allowedExportFormats}
-      />
 
       <SaleDetailsModal
         open={viewOpen}

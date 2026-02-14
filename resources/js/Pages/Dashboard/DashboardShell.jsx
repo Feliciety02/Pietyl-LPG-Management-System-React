@@ -1,11 +1,13 @@
 // resources/js/components/layouts/DashboardShell.jsx
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Link, usePage } from "@inertiajs/react";
 import { motion } from "framer-motion";
 import HeaderLogo from "../../../images/Header_Logo.png";
 import { Search, Bell, ChevronRight, Command } from "lucide-react";
 import Sidebar from "../../components/layouts/Sidebar";
 import ToastMessage from "../../components/layouts/ToastMessage";
+import { ExportProvider } from "@/components/Table/ExportContext";
+import ExportModal from "@/components/modals/ExportModal";
 
 function normalize(u = "") {
   return String(u).split("?")[0];
@@ -75,6 +77,18 @@ export default function DashboardShell({
   const roleBadge = user?.role ? titleCase(String(user.role).replace(/_/g, " ")) : "Role";
 
   const [q, setQ] = useState("");
+  const [exportConfig, setExportConfig] = useState(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportValue = useMemo(
+    () => ({ exportConfig, setExportConfig, exportOpen, setExportOpen }),
+    [exportConfig, exportOpen]
+  );
+
+  useEffect(() => {
+    if (!exportConfig && exportOpen) {
+      setExportOpen(false);
+    }
+  }, [exportConfig, exportOpen]);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -143,7 +157,10 @@ export default function DashboardShell({
             transition={{ duration: 0.18 }}
             className="p-6"
           >
-            {children}
+            <ExportProvider value={exportValue}>
+              {children}
+              <ExportModal />
+            </ExportProvider>
           </motion.div>
         </main>
       </div>

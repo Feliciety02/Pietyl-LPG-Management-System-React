@@ -9,11 +9,13 @@ use App\Http\Controllers\Cashier\CustomerController;
 use App\Http\Controllers\Cashier\SaleController;
 use App\Http\Controllers\Inventory\StockController;
 use App\Http\Controllers\Cashier\POSController;
+use App\Http\Controllers\Cashier\DiscountController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\EmployeeController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\PromoVoucherController;
 use App\Http\Controllers\Admin\ReportsController;
 use App\Http\Controllers\Admin\VatSettingsController;
 use App\Http\Controllers\Accounting\CostTrackingController;
@@ -175,6 +177,25 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('permission:admin.products.archive')
             ->name('dash.admin.products.restore');
 
+        Route::get('/promos', [PromoVoucherController::class, 'index'])
+            ->middleware('permission:admin.promos.view')
+            ->name('dash.admin.promos');
+        Route::post('/promos', [PromoVoucherController::class, 'store'])
+            ->middleware('permission:admin.promos.create')
+            ->name('dash.admin.promos.store');
+        Route::put('/promos/{promo}', [PromoVoucherController::class, 'update'])
+            ->middleware('permission:admin.promos.update')
+            ->name('dash.admin.promos.update');
+        Route::post('/promos/{promo}/discontinue', [PromoVoucherController::class, 'discontinue'])
+            ->middleware('permission:admin.promos.archive')
+            ->name('dash.admin.promos.discontinue');
+        Route::put('/promos/{promo}/restore', [PromoVoucherController::class, 'restore'])
+            ->middleware('permission:admin.promos.archive')
+            ->name('dash.admin.promos.restore');
+        Route::post('/promos/manager-pin', [PromoVoucherController::class, 'updateManagerPin'])
+            ->middleware('permission:admin.promos.update')
+            ->name('dash.admin.promos.manager-pin');
+
         Route::post('/purchase-requests/{id}/approve', [RestockRequestController::class, 'approve'])
             ->middleware('permission:inventory.purchases.update')
             ->name('dash.admin.purchase-requests.approve');
@@ -196,6 +217,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/POS', [POSController::class, 'store'])
             ->middleware('permission:cashier.sales.create')
             ->name('dash.cashier.POS.store');
+        Route::post('/discounts/validate', [DiscountController::class, 'validateCode'])
+            ->middleware('permission:cashier.pos.use')
+            ->name('dash.cashier.discounts.validate');
 
         Route::get('/sales', [SaleController::class, 'index'])
             ->middleware('permission:cashier.sales.view')

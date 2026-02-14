@@ -7,7 +7,6 @@ use App\Models\ChartOfAccount;
 use App\Models\LedgerLine;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\View;
 use Inertia\Inertia;
@@ -17,35 +16,24 @@ class LedgerController extends Controller
     public function index(Request $request)
     {
         $filters = $this->resolveFilters($request);
-        $baseQuery = $this->buildQuery($filters);
-
-        $lines = (clone $baseQuery);
-        $this->applySort($lines, $filters['sort']);
-        $lines = $lines->get();
-
-        $totalDebit = $lines->sum(fn ($line) => (float) $line->debit);
-        $totalCredit = $lines->sum(fn ($line) => (float) $line->credit);
-
-        $balances = [];
-        $mapped = $lines->map(function ($line) use (&$balances) {
-            $code = $line->account_code;
-            $balances[$code] = ($balances[$code] ?? 0) + (float) $line->debit - (float) $line->credit;
-
-            return $this->normalizeLine($line, $balances[$code]);
-        });
+        $totals = $this->buildTotalsQuery($filters)->first();
+        $totalDebit = (float) ($totals->total_debit ?? 0);
+        $totalCredit = (float) ($totals->total_credit ?? 0);
 
         $per = max(1, $filters['per']);
-        $page = max(1, $filters['page']);
-        $items = $mapped->slice(($page - 1) * $per, $per)->values();
 
-        $paginator = new LengthAwarePaginator($items, $mapped->count(), $per, $page, [
-            'path' => $request->url(),
-            'query' => $request->query(),
-        ]);
+        $linesQuery = $this->buildQuery($filters);
+        $this->applySort($linesQuery, $filters['sort']);
+        $linesQuery->selectRaw($this->runningBalanceExpression($filters['sort']) . ' as running_balance');
+
+        $paginator = $linesQuery->paginate($per)->withQueryString();
+        $items = collect($paginator->items())->map(function ($line) {
+            return $this->normalizeLine($line, (float) ($line->running_balance ?? 0));
+        })->values();
 
         return Inertia::render('AccountantPage/Ledger', [
             'ledger' => [
-                'data' => $paginator->items(),
+                'data' => $items,
                 'meta' => [
                     'current_page' => $paginator->currentPage(),
                     'last_page' => $paginator->lastPage(),
@@ -239,6 +227,19 @@ class LedgerController extends Controller
         return $this->applyFilters($query, $filters);
     }
 
+    protected function buildTotalsQuery(array $filters)
+    {
+        $query = LedgerLine::query()
+            ->join('ledger_entries as le', 'le.id', '=', 'ledger_lines.ledger_entry_id')
+            ->join('chart_of_accounts as coa', 'coa.id', '=', 'ledger_lines.account_id');
+
+        $query = $this->applyFilters($query, $filters);
+
+        return $query->selectRaw(
+            'COALESCE(SUM(ledger_lines.debit), 0) as total_debit, COALESCE(SUM(ledger_lines.credit), 0) as total_credit'
+        );
+    }
+
     protected function applyFilters($query, array $filters)
     {
         if (!empty($filters['q'])) {
@@ -283,23 +284,47 @@ class LedgerController extends Controller
 
     protected function applySort($query, string $sort)
     {
-        switch ($sort) {
-            case 'posted_at_asc':
-                $query->orderBy('le.entry_date')->orderBy('ledger_lines.id');
-                break;
-            case 'created_at_asc':
-                $query->orderBy('ledger_lines.created_at')->orderBy('ledger_lines.id');
-                break;
-            case 'created_at_desc':
-                $query->orderBy('ledger_lines.created_at', 'desc')->orderBy('ledger_lines.id', 'desc');
-                break;
-            case 'posted_at_desc':
-            default:
-                $query->orderBy('le.entry_date', 'desc')->orderBy('ledger_lines.id', 'desc');
-                break;
+        foreach ($this->sortOrderSpec($sort) as [$column, $direction]) {
+            $query->orderBy($column, $direction);
         }
 
         return $query;
+    }
+
+    protected function sortOrderSpec(string $sort): array
+    {
+        switch ($sort) {
+            case 'posted_at_asc':
+                return [
+                    ['le.entry_date', 'asc'],
+                    ['ledger_lines.id', 'asc'],
+                ];
+            case 'created_at_asc':
+                return [
+                    ['ledger_lines.created_at', 'asc'],
+                    ['ledger_lines.id', 'asc'],
+                ];
+            case 'created_at_desc':
+                return [
+                    ['ledger_lines.created_at', 'desc'],
+                    ['ledger_lines.id', 'desc'],
+                ];
+            case 'posted_at_desc':
+            default:
+                return [
+                    ['le.entry_date', 'desc'],
+                    ['ledger_lines.id', 'desc'],
+                ];
+        }
+    }
+
+    protected function runningBalanceExpression(string $sort): string
+    {
+        $order = collect($this->sortOrderSpec($sort))
+            ->map(fn ($spec) => $spec[0] . ' ' . $spec[1])
+            ->implode(', ');
+
+        return "SUM(ledger_lines.debit - ledger_lines.credit) OVER (PARTITION BY coa.code ORDER BY {$order} ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)";
     }
 
     protected function normalizeLine($line, float $balance)

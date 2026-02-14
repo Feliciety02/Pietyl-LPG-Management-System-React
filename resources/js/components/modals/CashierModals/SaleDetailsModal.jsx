@@ -11,8 +11,7 @@ function formatCurrency(amount) {
 
 function safeText(v) {
   if (v == null) return "";
-  const s = String(v).trim();
-  return s;
+  return String(v).trim();
 }
 
 function toNumber(value) {
@@ -25,19 +24,24 @@ export default function SaleDetailsModal({ open, onClose, sale }) {
 
   const lines = Array.isArray(sale.lines) ? sale.lines : [];
 
-  const treatmentLabel =
-    treatmentLabels[sale.vat_treatment] || "VAT/Tax";
+  const treatmentLabel = treatmentLabels[sale.vat_treatment] || "VAT/Tax";
   const netAmount = toNumber(sale.net_amount);
   const vatAmount = toNumber(sale.vat_amount);
   const grossAmount = toNumber(sale.gross_amount || sale.grand_total);
+  const subtotalAmount = toNumber(sale.subtotal);
+  const discountAmount = toNumber(sale.discount);
+
+  const showDiscount = discountAmount > 0;
+  const showSubtotal = showDiscount && subtotalAmount > 0;
+
   const vatApplied = Boolean(sale.vat_applied);
   const rawRate = Number.isFinite(Number(sale.vat_rate)) ? Number(sale.vat_rate) * 100 : 0;
   const displayRate = vatApplied ? rawRate : 0;
   const rateLabel = `${displayRate.toFixed(2)}%`;
 
   const methodRaw = String(sale.method || "cash").toLowerCase();
-  const method =
-    methodRaw === "gcash" ? "GCash" : methodRaw === "card" ? "Card" : "Cash";
+  const method = methodRaw === "gcash" ? "GCash" : methodRaw === "card" ? "Card" : "Cash";
+
   const paymentRef = safeText(sale.payment_ref || sale.reference_no || "");
   const showPaymentRef = (methodRaw === "gcash" || methodRaw === "card") && paymentRef;
 
@@ -46,93 +50,84 @@ export default function SaleDetailsModal({ open, onClose, sale }) {
     Number.isFinite(Number(sale.amount_received)) &&
     Number.isFinite(Number(sale.change));
 
+  const dateLabel = safeText(sale.date_label) || safeText(sale.date) || "--";
+  const timeLabel = safeText(sale.time_label) || safeText(sale.time);
+  const dateTimeLabel = timeLabel ? `${dateLabel} ${timeLabel}` : dateLabel;
+
   const handlePrint = () => window.print();
 
   return (
     <ModalShell
       open={open}
       onClose={onClose}
-      maxWidthClass="max-w-4xl"
+      maxWidthClass="max-w-3xl"
       layout="compact"
-      title="Transaction Complete"
-      subtitle="Sales receipt"
+      title="Receipt"
       icon={FileText}
       headerRight={
         <button
           type="button"
           onClick={handlePrint}
-          className="inline-flex items-center rounded-2xl bg-white px-3 py-2 text-xs font-bold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
+          className="inline-flex items-center rounded-2xl bg-white px-3 py-2 text-xs font-extrabold text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-teal-500/15"
         >
           <Printer className="h-4 w-4 mr-2" />
           Print
         </button>
       }
     >
-      <div className="receipt-shell font-arial">
-        <div className="receipt-scroll">
-          <div className="receipt-card">
-            <div className="receipt-head">
-              <img src={HeaderLogo} alt="Header Logo" className="receipt-logo-img" />
-
-              <div className="receipt-company">
-                <div className="receipt-company-name">PIEYTL LPG MARKETING</div>
-                <div className="receipt-company-meta">
-                  {safeText(sale.company_address) || "123 Main Street, Quezon City"}
-                </div>
-                <div className="receipt-company-meta">
-                  Tel: {safeText(sale.company_phone) || "(02) 8123-4567"}
-                </div>
-                <div className="receipt-company-meta">
-                  TIN: {safeText(sale.company_tin) || "123-456-789-000"}
+      <div className="r-shell">
+        <div className="r-wrap">
+          <div className="r-card">
+            <header className="r-head">
+              <div className="r-brand">
+                <img src={HeaderLogo} alt="Header Logo" className="r-logo" />
+                <div className="r-brandtext">
+                  <div className="r-name">PIEYTL LPG MARKETING</div>
+                  <div className="r-meta">{safeText(sale.company_address) || "123 Main Street, Quezon City"}</div>
+                  <div className="r-meta">Tel: {safeText(sale.company_phone) || "(02) 8123-4567"}</div>
+                  <div className="r-meta">TIN: {safeText(sale.company_tin) || "123-456-789-000"}</div>
                 </div>
               </div>
-            </div>
 
-            <div className="receipt-divider" />
+            </header>
 
-            <div className="receipt-title">
-              <span className="receipt-title-text">SALES RECEIPT</span>
-            </div>
+            <div className="r-rule" />
 
-            <div className="receipt-divider" />
-
-            <div className="receipt-meta">
-              <div className="receipt-meta-row">
-                <span className="k">Receipt No:</span>
-                <span className="v strong">{safeText(sale.ref) || "—"}</span>
-              </div>
-              <div className="receipt-meta-row">
-                <span className="k">Payment Method:</span>
-                <span className="v strong">{method}</span>
-              </div>
-
-              {showPaymentRef ? (
-                <div className="receipt-meta-row">
-                  <span className="k">Reference No:</span>
-                  <span className="v strong">{paymentRef}</span>
+            <section className="r-section">
+              <div className="r-grid">
+                <div className="r-row">
+                  <div className="k">Receipt</div>
+                  <div className="v">{safeText(sale.ref) || "—"}</div>
                 </div>
-              ) : null}
 
-              <div className="receipt-meta-row">
-                <span className="k">Date:</span>
-                <span className="v">
-                  {safeText(sale.date_label) || safeText(sale.date) || "—"}
-                </span>
-              </div>
-              <div className="receipt-meta-row">
-                <span className="k">Time:</span>
-                <span className="v">
-                  {safeText(sale.time_label) || safeText(sale.time) || "—"}
-                </span>
-              </div>
-            </div>
+                <div className="r-row">
+                  <div className="k">Paid via</div>
+                  <div className="v">{method}</div>
+                </div>
 
-            <div className="receipt-table-wrap">
-              <table className="receipt-table">
+                {showPaymentRef ? (
+                  <div className="r-row">
+                    <div className="k">Ref</div>
+                    <div className="v">{paymentRef}</div>
+                  </div>
+                ) : null}
+
+                <div className="r-row">
+                  <div className="k">Date</div>
+                  <div className="v">{dateTimeLabel}</div>
+                </div>
+
+              </div>
+            </section>
+
+            <div className="r-rule" />
+
+            <section className="r-section">
+              <table className="r-table">
                 <thead>
                   <tr>
                     <th className="qty">Qty</th>
-                    <th className="desc">Description</th>
+                    <th className="desc">Item</th>
                     <th className="price">Price</th>
                     <th className="amt">Amount</th>
                   </tr>
@@ -148,10 +143,8 @@ export default function SaleDetailsModal({ open, onClose, sale }) {
                         <tr key={i}>
                           <td className="qty">{qty}</td>
                           <td className="desc">
-                            <div className="desc-name">{safeText(l.name) || "—"}</div>
-                            {l.variant ? (
-                              <div className="desc-sub">{safeText(l.variant)}</div>
-                            ) : null}
+                            <div className="item">{safeText(l.name) || "—"}</div>
+                            {l.variant ? <div className="sub">{safeText(l.variant)}</div> : null}
                           </td>
                           <td className="price">{formatCurrency(unit)}</td>
                           <td className="amt">{formatCurrency(lineTotal)}</td>
@@ -167,260 +160,331 @@ export default function SaleDetailsModal({ open, onClose, sale }) {
                   )}
                 </tbody>
               </table>
-            </div>
+            </section>
 
-            <div className="receipt-totals">
-            {vatApplied ? (
+            <div className="r-rule" />
+
+            <section className="r-section">
+              <div className="r-totals">
+                {showSubtotal ? (
+                  <div className="trow">
+                    <span className="k">Subtotal</span>
+                    <span className="v">{formatCurrency(subtotalAmount)}</span>
+                  </div>
+                ) : null}
+
+                {showDiscount ? (
+                  <div className="trow">
+                    <span className="k">Discount</span>
+                    <span className="v">({formatCurrency(discountAmount)})</span>
+                  </div>
+                ) : null}
+
+                {vatApplied ? (
+                  <>
+                    <div className="trow">
+                      <span className="k">Net</span>
+                      <span className="v">{formatCurrency(netAmount)}</span>
+                    </div>
+                    <div className="trow">
+                      <span className="k">VAT {rateLabel}</span>
+                      <span className="v">{formatCurrency(vatAmount)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="note">VAT not applied.</div>
+                )}
+
+                <div className="r-rule subtle" />
+
+                <div className="trow total">
+                  <span className="k">Total</span>
+                  <span className="v">{formatCurrency(grossAmount)}</span>
+                </div>
+
+                <div className="fine">
+                  <div>{treatmentLabel}</div>
+                  <div>{sale.vat_inclusive ? "Prices include VAT" : "Prices exclude VAT"}</div>
+                </div>
+              </div>
+            </section>
+
+            {showCash ? (
               <>
-                <div className="trow">
-                  <span className="k">Net</span>
-                  <span className="v">{formatCurrency(netAmount)}</span>
-                </div>
-                <div className="trow">
-                  <span className="k">VAT ({rateLabel})</span>
-                  <span className="v">{formatCurrency(vatAmount)}</span>
-                </div>
-                <div className="receipt-divider soft" />
+                <div className="r-rule" />
+                <section className="r-section">
+                  <div className="r-pay">
+                    <div className="prow">
+                      <span className="k">Received</span>
+                      <span className="v">{formatCurrency(sale.amount_received)}</span>
+                    </div>
+                    <div className="prow strong">
+                      <span className="k">Change</span>
+                      <span className="v">{formatCurrency(sale.change)}</span>
+                    </div>
+                  </div>
+                </section>
               </>
-            ) : (
-              <div className="text-xs font-semibold text-slate-500">
-                VAT is not applied for this transaction.
-              </div>
-            )}
+            ) : null}
 
-              <div className="trow total">
-                <span className="k">Gross</span>
-                <span className="v">{formatCurrency(grossAmount)}</span>
-              </div>
+            <div className="r-rule" />
 
-              <div className="mt-2 text-[11px] font-semibold text-slate-500">
-                <div>{treatmentLabel}</div>
-                <div>{sale.vat_inclusive ? "Prices include VAT" : "Prices exclude VAT"}</div>
-              </div>
-            </div>
-
-            <div className="receipt-payment">
-              <div className="prow">
-                <span className="k">Payment Method:</span>
-                <span className="v strong">{method}</span>
-              </div>
-
-              {showCash ? (
-                <>
-                  <div className="prow">
-                    <span className="k">Amount Received:</span>
-                    <span className="v">{formatCurrency(sale.amount_received)}</span>
-                  </div>
-                  <div className="prow">
-                    <span className="k strong">Change:</span>
-                    <span className="v strong">{formatCurrency(sale.change)}</span>
-                  </div>
-                </>
-              ) : null}
-            </div>
-
-            <div className="receipt-divider" />
-
-            <div className="receipt-footer">
-              <div className="thanks">Thank you for your purchase!</div>
-              <div className="help">
-                For inquiries, please call {safeText(sale.company_phone) || "(02) 8123-4567"}
-              </div>
-            </div>
+            <footer className="r-foot">
+              <div className="thanks">Thank you</div>
+              <div className="help">Inquiries: {safeText(sale.company_phone) || "(02) 8123-4567"}</div>
+            </footer>
           </div>
         </div>
       </div>
 
       <style>{`
-        .font-arial,
-        .font-arial * {
-          font-family: Arial, Helvetica, sans-serif;
+        .r-shell{
+          background: #ffffff;
+          padding: 8px;
         }
 
-        /* FORCE EVERYTHING TO WHITE ONLY */
-        .receipt-shell{
-          background: #ffffff !important;
-          border-radius: 14px;
-          padding: 12px;
-        }
-
-        .receipt-scroll{
+        .r-wrap{
           max-height: 75vh;
-          overflow-y: auto;
-          padding: 10px;
+          overflow: auto;
           -webkit-overflow-scrolling: touch;
-          background: #ffffff !important;
+          padding: 8px 6px;
           scrollbar-width: none;
         }
-        .receipt-scroll::-webkit-scrollbar {
-          width: 0;
-          background: transparent;
-        }
+        .r-wrap::-webkit-scrollbar{ width: 0; height: 0; }
 
-        .receipt-card{
+        .r-card{
           width: 100%;
-          max-width: 820px;
+          max-width: 720px;
           margin: 0 auto;
-          background: #ffffff !important;
-          border-radius: 16px;
-          border: 1px solid rgba(15,23,42,0.10);
-          box-shadow: 0 10px 30px rgba(15,23,42,0.10);
-          padding: 34px 34px;
+          background: #ffffff;
+          border-radius: 18px;
+          border: 1px solid rgba(15,23,42,0.08);
+          padding: 18px 18px;
         }
 
-        .receipt-head{
+        .r-head{
           display:flex;
           flex-direction: column;
-          align-items:center;
-          gap:10px;
+          gap: 10px;
+          align-items: center;
+          text-align: center;
         }
 
-        .receipt-logo-img{
-          width: 62px;
-          height: 62px;
-          object-fit: contain;
-        }
-
-        .receipt-company{
-          text-align:center;
-        }
-
-        .receipt-company-name{
-          font-weight: 700;
-          font-size: 26px;
-          color:#111827;
-        }
-
-        .receipt-company-meta{
-          font-size: 13px;
-          color:#6b7280;
-          margin-top: 2px;
-        }
-
-        .receipt-divider{
-          margin: 18px 0;
-          border-top: 1px dashed rgba(148,163,184,0.65);
-        }
-
-        .receipt-divider.soft{
-          margin: 14px 0;
-          border-top: 1px dashed rgba(148,163,184,0.55);
-        }
-
-        .receipt-title{
-          text-align:center;
-          padding: 6px 0;
-        }
-
-        .receipt-title-text{
-          font-weight: 700;
-          font-size: 16px;
-          letter-spacing: 0.12em;
-        }
-
-        .receipt-meta{
-          font-size: 14px;
-          color:#374151;
-        }
-
-        .receipt-meta-row{
+        .r-brand{
+          width: 100%;
           display:flex;
-          justify-content:space-between;
-          padding: 6px 0;
+          align-items: flex-start;
+          gap: 8px;
+          justify-content: center;
         }
 
-        .receipt-meta-row .k{
-          color:#6b7280;
+        .r-logo{
+          width: 42px;
+          height: 42px;
+          object-fit: contain;
+          flex: 0 0 auto;
         }
 
-        .receipt-meta-row .v{
+        .r-brandtext{
+          max-width: 520px;
+          text-align: left;
+        }
+
+        .r-name{
+          font-weight: 900;
+          font-size: 13px;
+          color: #0f172a;
+        }
+
+        .r-meta{
+          margin-top: 2px;
+          font-size: 11px;
+          color: #64748b;
+          line-height: 1.35;
+        }
+
+        .r-rule{
+          margin: 10px 0;
+          border-top: 1px solid rgba(148,163,184,0.35);
+        }
+
+        .r-rule.subtle{
+          margin: 8px 0;
+          border-top: 1px solid rgba(148,163,184,0.22);
+        }
+
+        .r-section{
+          width: 100%;
+        }
+
+        .r-grid{
+          display:grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px 14px;
+        }
+
+        .r-row .k{
+          font-size: 10px;
+          color: #64748b;
           font-weight: 700;
-          color:#111827;
         }
 
-        .receipt-table-wrap{
-          margin-top: 16px;
-          border: 1px solid rgba(0,0,0,0.12);
-          border-radius: 8px;
-          overflow:hidden;
-          background: #ffffff !important;
+        .r-row .v{
+          margin-top: 2px;
+          font-size: 12px;
+          color: #0f172a;
+          font-weight: 900;
+          word-break: break-word;
         }
 
-        .receipt-table{
-          width:100%;
+        .r-table{
+          width: 100%;
           border-collapse: collapse;
-          font-size: 14px;
-          background: #ffffff !important;
+          font-size: 12px;
         }
 
-        .receipt-table thead th{
-          background: #e5e7eb;
-          padding: 12px 14px;
-          font-weight: 700;
+        .r-table thead th{
           text-align:left;
+          padding: 8px 0;
+          color: #64748b;
+          font-weight: 900;
+          border-bottom: 1px solid rgba(148,163,184,0.35);
         }
 
-        .receipt-table td{
-          padding: 14px;
-          border-bottom: 1px solid #e5e7eb;
-          background: #ffffff !important;
+        .r-table td{
+          padding: 8px 0;
+          border-bottom: 1px solid rgba(148,163,184,0.22);
+          vertical-align: top;
         }
 
-        .receipt-table tbody tr:last-child td{
+        .r-table tbody tr:last-child td{
           border-bottom: none;
         }
 
-        .receipt-table .qty{ width: 70px; }
-        .receipt-table .price{ width: 140px; text-align:right; }
-        .receipt-table .amt{ width: 150px; text-align:right; font-weight: 700; }
+        .r-table .qty{ width: 56px; }
+        .r-table .price{ width: 110px; text-align:right; color:#0f172a; font-weight: 800; }
+        .r-table .amt{ width: 120px; text-align:right; color:#0f172a; font-weight: 900; }
 
-        .receipt-totals{
-          margin-top: 18px;
-          font-size: 16px;
-          background: #ffffff !important;
+        .item{
+          font-weight: 900;
+          color: #0f172a;
+          line-height: 1.25;
         }
 
-        .receipt-totals .trow{
+        .sub{
+          margin-top: 2px;
+          font-size: 11px;
+          color: #64748b;
+        }
+
+        .empty{
+          padding: 12px 0;
+          text-align:center;
+          color:#64748b;
+          font-weight: 800;
+        }
+
+        .r-totals .trow{
           display:flex;
           justify-content:space-between;
-          padding: 6px 0;
+          padding: 4px 0;
         }
 
-        .receipt-totals .total{
-          font-size: 22px;
+        .r-totals .k{
+          color:#64748b;
+          font-weight: 800;
+          font-size: 12px;
+        }
+
+        .r-totals .v{
+          color:#0f172a;
+          font-weight: 900;
+          font-size: 12px;
+        }
+
+        .r-totals .total .k,
+        .r-totals .total .v{
+          font-size: 14px;
+        }
+
+        .note{
+          margin-top: 4px;
+          font-size: 11px;
+          color:#64748b;
           font-weight: 700;
         }
 
-        .receipt-payment{
-          margin-top: 16px;
-          padding: 16px;
-          border-radius: 10px;
-          background: #ffffff !important;
-          border: 1px solid #e5e7eb;
-          font-size: 14px;
+        .fine{
+          margin-top: 8px;
+          font-size: 11px;
+          color:#64748b;
+          font-weight: 700;
+          line-height: 1.35;
         }
 
-        .receipt-footer{
-          margin-top: 12px;
+        .r-pay .prow{
+          display:flex;
+          justify-content:space-between;
+          padding: 4px 0;
+        }
+
+        .r-pay .k{
+          color:#64748b;
+          font-weight: 800;
+          font-size: 12px;
+        }
+
+        .r-pay .v{
+          color:#0f172a;
+          font-weight: 900;
+          font-size: 12px;
+        }
+
+        .r-foot{
           text-align:center;
-          font-size: 14px;
-          color:#6b7280;
-          background: #ffffff !important;
+          color:#64748b;
+          font-size: 12px;
+        }
+
+        .thanks{
+          font-weight: 900;
+          color:#0f172a;
+        }
+
+        .help{
+          margin-top: 4px;
+          font-weight: 700;
+        }
+
+        @media (max-width: 520px){
+          .r-grid{
+            grid-template-columns: 1fr;
+          }
+          .r-brand{
+            justify-content: flex-start;
+          }
+          .r-head{
+            align-items: flex-start;
+            text-align: left;
+          }
+          .r-brandtext{
+            text-align: left;
+          }
         }
 
         @media print{
-          .receipt-shell,
-          .receipt-scroll,
-          .receipt-card{
+          .r-shell,
+          .r-wrap,
+          .r-card{
             background: #ffffff !important;
           }
-          .receipt-card{
-            box-shadow:none !important;
+          .r-card{
             border:none !important;
             margin: 0 !important;
             max-width: none !important;
+            padding: 0 !important;
           }
-          .receipt-scroll{
+          .r-wrap{
             max-height: none !important;
             overflow: visible !important;
             padding: 0 !important;

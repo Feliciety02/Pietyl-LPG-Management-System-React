@@ -19,6 +19,7 @@ class POSSaleService
         private SaleRepository $saleRepository,
         private PaymentRepository $paymentRepository,
         private SaleTotalsService $saleTotalsService,
+        private DiscountService $discountService,
         private PaymentProcessingService $paymentProcessingService,
         private StockManagementService $stockManagementService,
         private AccountingService $accountingService,
@@ -55,6 +56,9 @@ class POSSaleService
 
             // Calculate totals
             $saleDate = Carbon::now();
+            $discountSummary = $this->discountService->validateDiscounts($data, $user, $data['lines'], $saleDate);
+            $data['discount_total'] = $discountSummary['total'];
+
             $totals = $this->saleTotalsService->calculateTotals($data['lines'], $data, $saleDate);
 
             Log::info('POSSaleService: totals calculated', $totals);
@@ -76,6 +80,9 @@ class POSSaleService
 
             // Create sale items and process stock
             $this->processSaleItems($sale, $data['lines'], $totals, $user);
+
+            // Record promo/voucher redemptions and manual discount audit
+            $this->discountService->recordDiscounts($sale, $discountSummary['items'], $user, $saleDate);
 
             // Create payment record
             $this->createPayment($sale, $data, $totals['gross_amount'], $user);

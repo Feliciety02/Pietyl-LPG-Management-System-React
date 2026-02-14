@@ -6,6 +6,7 @@ use App\Models\CompanySetting;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Hash;
 
 class SettingsService
 {
@@ -74,6 +75,15 @@ class SettingsService
             $setting->vat_mode = $payload['vat_mode'];
         }
 
+        if (array_key_exists('manager_pin', $payload)) {
+            $pin = trim((string) ($payload['manager_pin'] ?? ''));
+            $setting->manager_pin_hash = $pin !== '' ? Hash::make($pin) : null;
+        }
+
+        if (!empty($payload['clear_manager_pin'])) {
+            $setting->manager_pin_hash = null;
+        }
+
         $setting->save();
         $this->cachedSetting = $setting;
 
@@ -112,6 +122,25 @@ class SettingsService
             'vat_mode' => $settings->vat_mode,
             'vat_active' => $this->isVatActiveForDate($dateTime),
         ];
+    }
+
+    public function getDiscountSnapshot(): array
+    {
+        $settings = $this->getSettings();
+        return [
+            'manager_pin_set' => !empty($settings->manager_pin_hash),
+        ];
+    }
+
+    public function verifyManagerPin(?string $pin): bool
+    {
+        $settings = $this->getSettings();
+        $hash = $settings->manager_pin_hash;
+        if (!$hash || !$pin) {
+            return false;
+        }
+
+        return Hash::check($pin, $hash);
     }
 
     private function normalizeDate(CarbonInterface|string|null $value): Carbon

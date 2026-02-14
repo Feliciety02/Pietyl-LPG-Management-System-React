@@ -41,6 +41,7 @@ const ROLE_META = {
           { label: "Reports", href: "/dashboard/admin/reports", icon: "reports", permission: "admin.reports.view" },
           { label: "Cost Tracking", href: "/dashboard/admin/cost-tracking", icon: "costTracking", permission: "admin.reports.view" },
           { label: "VAT Settings", href: "/dashboard/admin/settings/vat", icon: "vatSettings", permission: "admin.settings.manage" },
+          { label: "Promos & Vouchers", href: "/dashboard/admin/promos", icon: "promos", permission: "admin.promos.view" },
         ],
       },
       {

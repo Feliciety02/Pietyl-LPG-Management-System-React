@@ -9,7 +9,7 @@ import TransactionResultModal from "@/components/modals/TransactionResultModal";
 import { posIcons, sidebarIconMap } from "@/components/ui/Icons";
 import { calculateVat, VatTreatments, treatmentLabels } from "@/services/vatCalculator";
 
-import { Info, PackageSearch, SlidersHorizontal, ShoppingCart, CreditCard, Users, Truck } from "lucide-react";
+import { Info, PackageSearch, SlidersHorizontal, ShoppingCart, CreditCard, Users, Truck, BadgeDollarSign } from "lucide-react";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -63,6 +63,33 @@ function IconPill({ active, onClick, icon: Icon, label }) {
       <Icon className={cx("h-4 w-4", active ? "text-white" : "text-slate-600")} />
       {label}
     </button>
+  );
+}
+
+function ToggleSwitch({ checked, onChange, labelOn = "On", labelOff = "Off" }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[11px] font-extrabold text-slate-500">{checked ? labelOn : labelOff}</span>
+      <button
+        type="button"
+        onClick={() => onChange?.(!checked)}
+        className={cx(
+          "relative inline-flex h-7 w-12 items-center rounded-full ring-1 transition focus:outline-none focus:ring-4",
+          checked
+            ? "bg-teal-600 ring-teal-600 focus:ring-teal-500/25"
+            : "bg-white ring-slate-200 hover:bg-slate-50 focus:ring-teal-500/15"
+        )}
+        aria-pressed={checked}
+        aria-label={checked ? "Promos on" : "Promos off"}
+      >
+        <span
+          className={cx(
+            "inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition",
+            checked ? "translate-x-5" : "translate-x-1"
+          )}
+        />
+      </button>
+    </div>
   );
 }
 
@@ -155,6 +182,72 @@ function PesoAmountInput({ value, onValueChange, disabled, placeholder = "0.00" 
   );
 }
 
+function PercentInput({ value, onValueChange, disabled, placeholder = "0" }) {
+  const sanitize = (raw) => {
+    let s = String(raw ?? "");
+
+    s = s.replace(/[^\d.]/g, "");
+
+    const firstDot = s.indexOf(".");
+    if (firstDot !== -1) {
+      const before = s.slice(0, firstDot + 1);
+      const after = s.slice(firstDot + 1).replace(/\./g, "");
+      s = before + after;
+    }
+
+    if (s.length > 1 && s[0] === "0" && s[1] !== ".") {
+      s = s.replace(/^0+/, "");
+      if (s === "") s = "0";
+    }
+
+    if (s !== "") {
+      const n = Number(s);
+      if (Number.isFinite(n) && n > 100) s = "100";
+    }
+
+    return s;
+  };
+
+  const handleChange = (e) => {
+    onValueChange(sanitize(e.target.value));
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "-" || e.key === "+" || e.key === "e" || e.key === "E") {
+      e.preventDefault();
+    }
+  };
+
+  const handlePaste = (e) => {
+    const text = e.clipboardData.getData("text");
+    const clean = sanitize(text);
+    e.preventDefault();
+    onValueChange(clean);
+  };
+
+  return (
+    <div
+      className={cx(
+        "mt-2 flex items-center rounded-2xl border border-slate-200 bg-white focus-within:ring-4 focus-within:ring-teal-500/15",
+        disabled ? "opacity-80" : ""
+      )}
+    >
+      <input
+        type="text"
+        inputMode="decimal"
+        value={value}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        onPaste={handlePaste}
+        disabled={disabled}
+        placeholder={placeholder}
+        className="w-full rounded-2xl bg-transparent pl-4 py-2 text-sm font-extrabold text-slate-700 outline-none placeholder:text-slate-400"
+      />
+      <span className="pr-4 text-sm font-extrabold text-slate-600 select-none">%</span>
+    </div>
+  );
+}
+
 export default function POS() {
   const page = usePage();
   const user = page.props?.auth?.user;
@@ -199,6 +292,17 @@ export default function POS() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [cashTendered, setCashTendered] = useState("");
+  const [discountKind, setDiscountKind] = useState("promo");
+  const [discountCode, setDiscountCode] = useState("");
+  const [discountValue, setDiscountValue] = useState("");
+  const [manualType, setManualType] = useState("amount");
+  const [managerPin, setManagerPin] = useState("");
+  const [discountError, setDiscountError] = useState("");
+  const [discountBusy, setDiscountBusy] = useState(false);
+  const [discounts, setDiscounts] = useState([]);
+  const [promosOpen, setPromosOpen] = useState(false);
+  const discountSettings = page.props?.discount_settings || {};
+  const managerPinSet = Boolean(discountSettings.manager_pin_set);
   const vatSettings = page.props?.vat_settings || {};
   const vatRegistered = Boolean(vatSettings.vat_registered);
   const vatActive = Boolean(vatSettings.vat_active);
@@ -218,6 +322,12 @@ export default function POS() {
     setVatTreatment(vatRegistered && vatActive ? VatTreatments.VATABLE : VatTreatments.EXEMPT);
     setVatInclusive(vatMode === "inclusive");
   }, [vatRegistered, vatActive, vatSettings.vat_rate, vatMode]);
+
+  useEffect(() => {
+    if (discounts.length > 0) {
+      setPromosOpen(true);
+    }
+  }, [discounts.length]);
 
   const filteredProducts = useMemo(() => {
     const s = String(q || "").toLowerCase().trim();
@@ -285,19 +395,66 @@ export default function POS() {
     setCart((prev) => prev.filter((x) => x._key !== k));
   };
 
+  const parseMoneyValue = (raw) => {
+    const n = Number(String(raw ?? "").replace(/,/g, ""));
+    return Number.isFinite(n) ? Math.max(0, n) : 0;
+  };
+
+  const parsePercentValue = (raw) => {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return 0;
+    return Math.min(100, Math.max(0, n));
+  };
+
+  const discountInputValue = useMemo(() => {
+    if (discountKind !== "manual") return 0;
+    return manualType === "percent" ? parsePercentValue(discountValue) : parseMoneyValue(discountValue);
+  }, [discountKind, manualType, discountValue]);
+
   const lineTotal = useMemo(() => cart.reduce((sum, x) => sum + Number(x.unit_price || 0) * Number(x.qty || 0), 0), [cart]);
+
+  const canApplyDiscount = useMemo(() => {
+    if (readOnly || discountBusy || lineTotal <= 0) return false;
+    if (discountKind === "manual") {
+      if (!managerPinSet) return false;
+      return discountInputValue > 0 && String(managerPin || "").trim().length >= 4;
+    }
+    return String(discountCode || "").trim().length > 0;
+  }, [readOnly, discountBusy, discountKind, discountInputValue, managerPin, managerPinSet, discountCode, lineTotal]);
+
+  const discountItems = useMemo(() => {
+    return discounts.map((item) => {
+      const baseValue = Number(item.value || 0);
+      const computed =
+        item.discount_type === "percent" ? lineTotal * (Math.max(0, baseValue) / 100) : Math.max(0, baseValue);
+      return { ...item, amount: Math.max(0, computed) };
+    });
+  }, [discounts, lineTotal]);
+
+  const discountTotalRaw = useMemo(
+    () => discountItems.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+    [discountItems]
+  );
+  const discountTotal = Math.min(lineTotal, discountTotalRaw);
+  const discountTotalRounded = useMemo(
+    () => Math.round(discountTotal * 100) / 100,
+    [discountTotal]
+  );
+  const discountCapped = discountTotalRaw > lineTotal;
+  const discountedSubtotal = Math.max(0, lineTotal - discountTotalRounded);
+
   const shouldApplyVat = vatRegistered && vatActive;
   const effectiveVatRate = shouldApplyVat ? vatRate : 0;
   const effectiveVatInclusive = vatMode === "inclusive" ? true : vatInclusive;
 
   const vatResult = useMemo(() => {
     return calculateVat({
-      amount: lineTotal,
+      amount: discountedSubtotal,
       rate: effectiveVatRate,
       inclusive: effectiveVatInclusive,
       treatment: vatTreatment,
     });
-  }, [lineTotal, effectiveVatRate, effectiveVatInclusive, vatTreatment]);
+  }, [discountedSubtotal, effectiveVatRate, effectiveVatInclusive, vatTreatment]);
 
   const grossTotal = Math.max(0, vatResult.gross_amount);
   const netTotal = vatResult.net_amount;
@@ -341,6 +498,89 @@ export default function POS() {
     openSuccessModal();
   };
 
+  const applyDiscount = async () => {
+    if (!canApplyDiscount) return;
+
+    setDiscountError("");
+
+    if (discountKind === "manual") {
+      if (!managerPinSet) {
+        setDiscountError("Manager PIN is not configured yet.");
+        return;
+      }
+      if (!String(managerPin || "").trim()) {
+        setDiscountError("Manager PIN is required for manual discounts.");
+        return;
+      }
+
+      const entry = {
+        id: `disc_${Date.now()}_${Math.round(Math.random() * 10000)}`,
+        kind: "manual",
+        code: String(discountCode || "").trim(),
+        discount_type: manualType,
+        value: discountInputValue,
+      };
+
+      setDiscounts((prev) => [...prev, entry]);
+      setDiscountCode("");
+      setDiscountValue("");
+      return;
+    }
+
+    const cleanCode = String(discountCode || "").trim();
+    if (!cleanCode) {
+      setDiscountError("Enter a promo or voucher code.");
+      return;
+    }
+
+    const exists = discounts.some(
+      (d) => String(d.code || "").toUpperCase() === cleanCode.toUpperCase() && d.kind === discountKind
+    );
+    if (exists) {
+      setDiscountError("This code is already applied.");
+      return;
+    }
+
+    setDiscountBusy(true);
+    try {
+      const { data } = await axios.post("/dashboard/cashier/discounts/validate", {
+        kind: discountKind,
+        code: cleanCode,
+      });
+
+      const entry = {
+        id: `disc_${Date.now()}_${Math.round(Math.random() * 10000)}`,
+        kind: data.kind || discountKind,
+        promo_id: data.id,
+        code: data.code || cleanCode,
+        name: data.name || "",
+        discount_type: data.discount_type || "amount",
+        value: Number(data.value || 0),
+      };
+
+      setDiscounts((prev) => [...prev, entry]);
+      setDiscountCode("");
+    } catch (error) {
+      const msg =
+        error?.response?.data?.errors?.code?.[0] ||
+        error?.response?.data?.message ||
+        "Unable to validate the discount code.";
+      setDiscountError(msg);
+    } finally {
+      setDiscountBusy(false);
+    }
+  };
+
+  const removeDiscount = (id) => {
+    setDiscounts((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const clearDiscounts = () => {
+    setDiscounts([]);
+    setDiscountError("");
+    setPromosOpen(false);
+  };
+
   const loadLatestSaleForReceipt = async () => {
     setReceiptSale(null);
     const { data } = await axios.get("/dashboard/cashier/sales/latest", {
@@ -376,6 +616,15 @@ export default function POS() {
         payment_ref: needsRef ? String(paymentRef || "").trim() : null,
 
         cash_tendered: payment === "cash" ? tenderedNumber : null,
+        discount_total: discountTotalRounded,
+        manager_pin: discounts.some((d) => d.kind === "manual") ? String(managerPin || "").trim() : null,
+        discounts: discounts.map((d) => ({
+          kind: d.kind,
+          code: d.code,
+          value: d.value,
+          discount_type: d.discount_type,
+          promo_id: d.promo_id,
+        })),
         vat_treatment: vatTreatment,
         vat_inclusive: vatInclusive,
         vat_rate: vatRate,
@@ -403,6 +652,12 @@ export default function POS() {
           setQ("");
           setPaymentRef("");
           setCashTendered("");
+          setDiscounts([]);
+          setDiscountCode("");
+          setDiscountValue("");
+          setManagerPin("");
+          setDiscountError("");
+          setPromosOpen(false);
 
           try {
             await loadLatestSaleForReceipt();
@@ -668,6 +923,227 @@ export default function POS() {
             </Card>
 
             <Card>
+              <SectionTitle
+                title="Promos & vouchers"
+                icon={BadgeDollarSign}
+                right={
+                  <div className="flex items-center gap-3">
+                    <div className="text-xs text-slate-500">{discounts.length} applied</div>
+                    <ToggleSwitch
+                      checked={promosOpen}
+                      onChange={setPromosOpen}
+                      labelOn="On"
+                      labelOff="Off"
+                    />
+                  </div>
+                }
+              />
+
+              {promosOpen ? (
+                <div className="p-5 grid gap-4">
+                  <div className="flex flex-wrap gap-2">
+                    <Pill
+                      active={discountKind === "promo"}
+                      onClick={() => {
+                        setDiscountKind("promo");
+                        setDiscountError("");
+                        setDiscountValue("");
+                      }}
+                    >
+                      Promo
+                    </Pill>
+                    <Pill
+                      active={discountKind === "voucher"}
+                      onClick={() => {
+                        setDiscountKind("voucher");
+                        setDiscountError("");
+                        setDiscountValue("");
+                      }}
+                    >
+                      Voucher
+                    </Pill>
+                    <Pill
+                      active={discountKind === "manual"}
+                      onClick={() => {
+                        setDiscountKind("manual");
+                        setDiscountError("");
+                        setDiscountCode("");
+                      }}
+                    >
+                      Manual
+                    </Pill>
+                  </div>
+
+                  {discountKind === "manual" ? (
+                    <>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div>
+                          <label className="text-xs font-extrabold text-slate-700">Reason / label</label>
+                          <input
+                            value={discountCode}
+                            onChange={(e) => setDiscountCode(e.target.value)}
+                            className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm font-extrabold text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-teal-500/15"
+                            placeholder="e.g., Manager override"
+                            disabled={readOnly}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-extrabold text-slate-700">Manager PIN</label>
+                          <input
+                            type="password"
+                            inputMode="numeric"
+                            pattern="\\d*"
+                            value={managerPin}
+                            onChange={(e) => setManagerPin(e.target.value)}
+                            className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm font-extrabold text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-teal-500/15"
+                            placeholder="Enter manager PIN"
+                            disabled={readOnly}
+                          />
+                          {!managerPinSet ? (
+                            <div className="mt-2 text-xs text-amber-700">
+                              Manager PIN is not configured. Ask an admin to set it.
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <Pill active={manualType === "amount"} onClick={() => setManualType("amount")}>
+                          Amount
+                        </Pill>
+                        <Pill active={manualType === "percent"} onClick={() => setManualType("percent")}>
+                          Percent
+                        </Pill>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-extrabold text-slate-700">Discount value</label>
+                        {manualType === "percent" ? (
+                          <PercentInput value={discountValue} onValueChange={setDiscountValue} disabled={readOnly} placeholder="0" />
+                        ) : (
+                          <PesoAmountInput value={discountValue} onValueChange={setDiscountValue} disabled={readOnly} placeholder="0.00" />
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div>
+                      <label className="text-xs font-extrabold text-slate-700">Code</label>
+                      <input
+                        value={discountCode}
+                        onChange={(e) => setDiscountCode(e.target.value)}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm font-extrabold text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-teal-500/15"
+                        placeholder="Enter promo or voucher code"
+                        disabled={readOnly || discountBusy}
+                      />
+                      <div className="mt-2 text-xs text-slate-500">
+                        Codes are validated before they are applied.
+                      </div>
+                    </div>
+                  )}
+
+                  {discountError ? (
+                    <div className="rounded-2xl bg-rose-50 ring-1 ring-rose-200 px-3 py-2 text-xs text-rose-700">
+                      {discountError}
+                    </div>
+                  ) : null}
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={applyDiscount}
+                      disabled={!canApplyDiscount}
+                      className={cx(
+                        "inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-xs font-extrabold ring-1 transition",
+                        canApplyDiscount
+                          ? "bg-slate-900 text-white ring-slate-900 hover:bg-slate-800"
+                          : "bg-slate-200 text-slate-500 ring-slate-200 cursor-not-allowed"
+                      )}
+                    >
+                      {discountBusy ? "Checking..." : discountKind === "manual" ? "Apply manual discount" : "Validate code"}
+                    </button>
+
+                    {discounts.length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={clearDiscounts}
+                        disabled={readOnly}
+                        className={cx(
+                          "inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-extrabold ring-1 transition",
+                          readOnly ? "bg-slate-100 text-slate-400 ring-slate-200 cursor-not-allowed" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
+                        )}
+                      >
+                        Clear all
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {discounts.length === 0 ? (
+                    <div className="rounded-2xl bg-slate-50 ring-1 ring-slate-200 px-3 py-2 text-xs text-slate-600">
+                      No promos or vouchers applied yet.
+                    </div>
+                  ) : (
+                    <div className="grid gap-2">
+                      {discountItems.map((item) => {
+                        const kindLabel =
+                          item.kind === "promo" ? "Promo" : item.kind === "voucher" ? "Voucher" : "Manual";
+                        const meta =
+                          item.discount_type === "percent"
+                            ? `${Number(item.value || 0).toFixed(2)}% off`
+                            : `Amount ${formatPeso(Number(item.value || 0))}`;
+                        const codeLabel = item.code ? ` - ${item.code}` : "";
+                        const nameLabel = item.name ? ` - ${item.name}` : "";
+
+                        return (
+                          <div key={item.id} className="rounded-2xl bg-white ring-1 ring-slate-200 p-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="text-sm font-extrabold text-slate-800 truncate">
+                                  {kindLabel}
+                                  {codeLabel}
+                                  {nameLabel}
+                                </div>
+                                <div className="mt-1 text-xs text-slate-500">{meta}</div>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <div className="text-sm font-extrabold text-emerald-700">- {formatPeso(item.amount)}</div>
+                                <button
+                                  type="button"
+                                  onClick={() => removeDiscount(item.id)}
+                                  disabled={readOnly}
+                                  className={cx(
+                                    "rounded-2xl p-2 ring-1 transition",
+                                    readOnly ? "bg-slate-100 ring-slate-200 text-slate-400 cursor-not-allowed" : "bg-white ring-slate-200 hover:bg-slate-50"
+                                  )}
+                                  title="Remove"
+                                >
+                                  <PosRemove className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {discountCapped && lineTotal > 0 ? (
+                    <div className="rounded-2xl bg-amber-50 ring-1 ring-amber-200 px-3 py-2 text-xs text-amber-700">
+                      Discounts are capped at the current subtotal.
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="p-4">
+                  <div className="rounded-2xl bg-slate-50 ring-1 ring-slate-200 px-3 py-2 text-xs text-slate-600">
+                    Promos are turned off. Turn on to apply a promo, voucher, or manual discount.
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            <Card>
               <SectionTitle title="Payment" icon={CreditCard} right={<div className="text-xs text-slate-500">Select method</div>} />
 
               <div className="p-5 grid gap-4">
@@ -841,9 +1317,16 @@ export default function POS() {
 
                 <div className="rounded-3xl bg-slate-50 ring-1 ring-slate-200 p-5 space-y-3">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-600 font-semibold">Line total</span>
+                    <span className="text-slate-600 font-semibold">Subtotal</span>
                     <span className="text-slate-800 font-extrabold">{formatPeso(lineTotal)}</span>
                   </div>
+
+                  {discountTotalRounded > 0 ? (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600 font-semibold">Discounts</span>
+                      <span className="text-emerald-700 font-extrabold">- {formatPeso(discountTotalRounded)}</span>
+                    </div>
+                  ) : null}
 
                   <div className="border-t border-slate-200" />
 

@@ -9,6 +9,7 @@ import DataTableFilters from "@/components/Table/DataTableFilters";
 
 import { CalendarDays, Wallet, Boxes, Banknote } from "lucide-react";
 import { SkeletonLine, SkeletonPill } from "@/components/ui/Skeleton";
+import KpiCard from "@/components/ui/KpiCard";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -136,23 +137,6 @@ function TrendChartCard({
         />
       </svg>
       <div className="text-[11px] text-slate-400">Showing {sanitized.length} days</div>
-    </Card>
-  );
-}
-
-function StatCard({ Icon, label, value, hint }) {
-  return (
-    <Card>
-      <div className="p-5 flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="text-xs font-semibold text-slate-500">{label}</div>
-          <div className="mt-1 text-2xl font-extrabold text-slate-900">{value}</div>
-          <div className="mt-1 text-xs text-slate-500">{hint}</div>
-        </div>
-        <div className="h-11 w-11 rounded-2xl bg-teal-600/10 ring-1 ring-teal-700/10 flex items-center justify-center">
-          <Icon className="h-5 w-5 text-teal-700" />
-        </div>
-      </div>
     </Card>
   );
 }
@@ -370,19 +354,19 @@ export default function CostTracking() {
       label: "Cost of goods sold",
       value: summary.cogs != null ? formatMoney(summary.cogs) : "₱0.00",
       hint: "Based on supplier costs configured per variant",
-      Icon: Wallet,
+      icon: Wallet,
     },
     {
       label: "Inventory value",
       value: summary.inventory_value != null ? formatMoney(summary.inventory_value) : "₱0.00",
       hint: "On hand stock valued at supplier cost",
-      Icon: Boxes,
+      icon: Boxes,
     },
     {
       label: "Gross profit",
       value: summary.gross_profit != null ? formatMoney(summary.gross_profit) : "₱0.00",
       hint: "Revenue minus COGS",
-      Icon: Banknote,
+      icon: Banknote,
     },
   ];
 
@@ -526,7 +510,7 @@ export default function CostTracking() {
 
         <div className="grid gap-4 md:grid-cols-3">
           {statCards.map((stat) => (
-            <StatCard key={stat.label} {...stat} />
+            <KpiCard key={stat.label} {...stat} />
           ))}
         </div>
 

@@ -66,6 +66,12 @@
 
         <div class="totals">
             <div>
+                @if(!empty($sale['subtotal']) && ($sale['discount'] ?? 0) > 0)
+                    <div>Subtotal: ₱{{ number_format($sale['subtotal'] ?? 0,2) }}</div>
+                @endif
+                @if(($sale['discount'] ?? 0) > 0)
+                    <div>Discount: -₱{{ number_format($sale['discount'] ?? 0,2) }}</div>
+                @endif
                 <div>VAT: ₱{{ number_format($sale['vat_amount'] ?? 0,2) }}</div>
                 <div>Net: ₱{{ number_format($sale['net_amount'] ?? 0,2) }}</div>
             </div>

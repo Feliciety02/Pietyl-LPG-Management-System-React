@@ -10,6 +10,7 @@ import DataTablePagination from "@/components/Table/DataTablePagination";
 
 import { Eye, Wallet, AlertTriangle, ReceiptText } from "lucide-react";
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
+import KpiCard from "@/components/ui/KpiCard";
 
 import { TableActionButton } from "@/components/Table/ActionTableButton";
 import FinancePaymentModal from "@/components/modals/InventoryModals/FinancePaymentModal";
@@ -122,38 +123,6 @@ function TopCard({ title, subtitle, right }) {
   );
 }
 
-function KpiCard({ icon: Icon, label, value, hint, tone = "teal" }) {
-  const toneBox =
-    tone === "amber"
-      ? "bg-amber-600/10 ring-amber-700/10"
-      : tone === "emerald"
-      ? "bg-emerald-600/10 ring-emerald-700/10"
-      : "bg-teal-600/10 ring-teal-700/10";
-
-  const toneIcon =
-    tone === "amber"
-      ? "text-amber-800"
-      : tone === "emerald"
-      ? "text-emerald-800"
-      : "text-teal-700";
-
-  return (
-    <div className="rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm">
-      <div className="p-5 flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="text-xs font-semibold text-slate-500">{label}</div>
-          <div className="mt-1 text-2xl font-extrabold text-slate-900 tabular-nums">
-            {value}
-          </div>
-          {hint ? <div className="mt-1 text-xs text-slate-500">{hint}</div> : null}
-        </div>
-        <div className={cx("h-11 w-11 rounded-2xl ring-1 flex items-center justify-center", toneBox)}>
-          <Icon className={cx("h-5 w-5", toneIcon)} />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function Payables() {
   const page = usePage();

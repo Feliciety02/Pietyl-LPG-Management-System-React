@@ -15,7 +15,8 @@ class SaleTotalsService
     public function calculateTotals(array $lines, array $requestData, Carbon $saleDate): array
     {
         $subtotal = $this->calculateSubtotal($lines);
-        $discount = 0.0;
+        $discount = $this->determineDiscount($subtotal, $requestData);
+        $discountedSubtotal = max(0, $subtotal - $discount);
 
         $vatSettings = $this->settingsService->getSettings();
         $vatApplicable = $this->settingsService->isVatActiveForDate($saleDate);
@@ -24,7 +25,7 @@ class SaleTotalsService
         $vatInclusive = $this->determineVatInclusive($vatSettings, $requestData['vat_inclusive'] ?? null);
         $vatRate = $this->determineVatRate($vatApplicable, $vatSettings, $requestData['vat_rate'] ?? null);
 
-        $vatResult = VatCalculator::calculate($subtotal, $vatRate, $vatInclusive, $vatTreatment);
+        $vatResult = VatCalculator::calculate($discountedSubtotal, $vatRate, $vatInclusive, $vatTreatment);
         
         $vatApplied = $vatApplicable 
             && $vatTreatment === VatCalculator::TREATMENT_VATABLE 
@@ -62,6 +63,23 @@ class SaleTotalsService
         }
 
         return $subtotal;
+    }
+
+    private function determineDiscount(float $subtotal, array $requestData): float
+    {
+        if (!array_key_exists('discount_total', $requestData)) {
+            return 0.0;
+        }
+
+        $raw = (float) ($requestData['discount_total'] ?? 0);
+
+        if (is_nan($raw) || is_infinite($raw)) {
+            return 0.0;
+        }
+
+        $discount = max(0.0, $raw);
+
+        return min($subtotal, $discount);
     }
 
     private function determineVatTreatment(bool $vatApplicable, ?string $requestedTreatment): string

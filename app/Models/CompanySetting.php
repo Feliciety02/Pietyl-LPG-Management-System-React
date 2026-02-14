@@ -14,6 +14,7 @@ class CompanySetting extends Model
         'vat_rate',
         'vat_effective_date',
         'vat_mode',
+        'manager_pin_hash',
     ];
 
     protected $casts = [

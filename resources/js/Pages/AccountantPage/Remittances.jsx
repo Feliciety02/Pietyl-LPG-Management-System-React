@@ -7,6 +7,7 @@ import DataTableFilters from "@/components/Table/DataTableFilters";
 import DataTablePagination from "@/components/Table/DataTablePagination";
 
 import { ShieldCheck, FileText } from "lucide-react";
+import KpiCard from "@/components/ui/KpiCard";
 
 import { SkeletonLine, SkeletonPill, SkeletonButton } from "@/components/ui/Skeleton";
 import { TableActionButton } from "@/components/Table/ActionTableButton";
@@ -39,17 +40,6 @@ function titleCase(s = "") {
     .join(" ");
 }
 
-function KPIStat({ label, value, helper, tone }) {
-  return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</div>
-      <div className={cx("mt-2 text-2xl font-extrabold leading-tight", tone || "text-slate-900")}>
-        {value}
-      </div>
-      {helper ? <div className="mt-1 text-xs text-slate-500">{helper}</div> : null}
-    </div>
-  );
-}
 
 function StatusPill({ status, label }) {
   const s = String(status || "pending").toLowerCase();
@@ -123,13 +113,11 @@ export default function Remittances() {
   const varianceTotal = remittanceKpis.cash_variance ?? null;
   const finalizedCount = remittanceKpis.finalized_count ?? 0;
   const varianceTone =
-    varianceTotal === null
-      ? "text-slate-900"
-      : varianceTotal === 0
-      ? "text-slate-900"
+    varianceTotal === null || varianceTotal === 0
+      ? "slate"
       : varianceTotal < 0
-      ? "text-rose-700"
-      : "text-teal-700";
+      ? "rose"
+      : "teal";
   const finalizedHelper = finalizedCount
     ? `${number(finalizedCount)} finalized closures`
     : "Based on current rows";
@@ -495,41 +483,25 @@ export default function Remittances() {
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {kpiCards.map((card) => (
-            <KPIStat key={card.label} {...card} />
+            <KpiCard
+              key={card.label}
+              label={card.label}
+              value={card.value}
+              hint={card.helper}
+              tone={card.tone || "slate"}
+            />
           ))}
         </div>
 
         <div className="rounded-3xl bg-white ring-1 ring-slate-200 shadow-sm p-4 flex flex-col gap-4">
-          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-            <div className="min-w-0">
-              <div className="text-sm font-extrabold text-slate-900">Daily closure</div>
-              <div className="mt-1 text-xs text-slate-500">
-                One table for each cashier per date; cash and cashless steps progress together.
-              </div>
-              <div className="mt-2 text-[11px] text-slate-500">
-                Cash shows expected, counted, and variance. Cashless shows expected, verified, and pending.
-              </div>
-              <div className="mt-1 text-[11px] text-slate-500">
-                If a day is finalized with pending items, use Reopen to resolve.
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-bold text-slate-600">
-                Cash
-              </span>
-              <span className="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-bold text-slate-600">
-                Cashless
-              </span>
-              <span className="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-bold text-slate-600">
-                Status
-              </span>
-            </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm font-extrabold text-slate-900">Daily closure</div>
           </div>
 
-          <div>
+          <div className="rounded-2xl bg-slate-50/70 p-3 ring-1 ring-slate-200/60">
             <DataTableFilters
               variant="inline"
-              containerClass="w-full md:w-auto"
+              containerClass="w-full"
               q={q}
               onQ={setQ}
               onQDebounced={(value) => pushQuery({ q: value, page: 1 })}
