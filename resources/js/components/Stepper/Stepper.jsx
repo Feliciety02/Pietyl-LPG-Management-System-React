@@ -6,20 +6,20 @@ function cx(...classes) {
 
 const STATE_STYLES = {
   complete: {
-    bubble: "bg-emerald-600 text-white ring-emerald-600/20",
-    line: "bg-emerald-200",
+    bubble: "bg-teal-600 text-white ring-teal-600/20",
+    line: "bg-teal-200",
   },
   active: {
     bubble: "bg-teal-600 text-white ring-teal-600/20",
     line: "bg-teal-200",
   },
   upcoming: {
-    bubble: "bg-white text-slate-700 ring-slate-200",
-    line: "bg-slate-200",
+    bubble: "bg-white text-teal-700 ring-teal-200",
+    line: "bg-teal-200",
   },
   neutral: {
-    bubble: "bg-white text-slate-700 ring-slate-200",
-    line: "bg-slate-200",
+    bubble: "bg-white text-teal-700 ring-teal-200",
+    line: "bg-teal-200",
   },
 };
 
@@ -65,10 +65,10 @@ export default function Stepper({
                 className={cx(
                   "inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-extrabold ring-1 transition",
                   isActive
-                    ? "bg-slate-900 text-white ring-slate-900"
+                    ? "bg-teal-700 text-white ring-teal-700"
                     : index < safeIndex
-                    ? "bg-emerald-50 text-emerald-900 ring-emerald-200 hover:bg-emerald-100"
-                    : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
+                    ? "bg-teal-50 text-teal-800 ring-teal-200 hover:bg-teal-100"
+                    : "bg-white text-teal-700 ring-teal-200 hover:bg-teal-50"
                 )}
               >
                 <span
