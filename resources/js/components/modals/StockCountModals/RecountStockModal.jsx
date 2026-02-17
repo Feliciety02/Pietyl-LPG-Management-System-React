@@ -1,5 +1,12 @@
-import React, { useMemo } from "react";
-import { ShieldAlert, CheckCircle2, Info, PackageSearch, ArrowRightLeft } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  ShieldAlert,
+  CheckCircle2,
+  Info,
+  PackageSearch,
+  ArrowRightLeft,
+  ChevronDown,
+} from "lucide-react";
 import ModalShell from "../ModalShell";
 
 function cx(...classes) {
@@ -26,6 +33,20 @@ function clampNumericInput(raw) {
   const n = Math.min(999999, Number(digits));
   return String(Number.isFinite(n) ? n : "");
 }
+
+const RECOUNT_REASONS = [
+  { value: "Scheduled cycle count", label: "Scheduled cycle count" },
+  { value: "Recount after delivery return", label: "Recount after delivery return" },
+  { value: "Customer exchange / return", label: "Customer exchange / return" },
+  { value: "Damaged or leaking cylinder", label: "Damaged or leaking cylinder" },
+  { value: "Missing or lost cylinder", label: "Missing or lost cylinder" },
+  { value: "Transfer between locations", label: "Transfer between locations" },
+  { value: "Supplier delivery correction", label: "Supplier delivery correction" },
+  { value: "Previous count error", label: "Previous count error" },
+  { value: "System reconciliation", label: "System reconciliation" },
+];
+
+const PRESET_REASON_SET = new Set(RECOUNT_REASONS.map((reason) => reason.value));
 
 /* ---------------- UI primitives ---------------- */
 
@@ -65,6 +86,7 @@ function StatPill({ label, value, tone = "slate" }) {
     slate: "bg-slate-50 ring-slate-200 text-slate-900",
     teal: "bg-teal-50 ring-teal-700/10 text-teal-950",
     amber: "bg-amber-50 ring-amber-700/10 text-amber-950",
+    rose: "bg-rose-50 ring-rose-700/10 text-rose-950",
   };
 
   return (
@@ -142,19 +164,56 @@ export default function RecountStockModal({
   const total = useMemo(() => filledN, [filledN]);
 
   const reasonTrim = String(reason ?? "").trim();
+  const [reasonChoice, setReasonChoice] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    if (!reasonTrim) {
+      if (reasonChoice === "other") return;
+      setReasonChoice("");
+      return;
+    }
+    const nextChoice = PRESET_REASON_SET.has(reasonTrim) ? reasonTrim : "other";
+    if (reasonChoice !== nextChoice) {
+      setReasonChoice(nextChoice);
+    }
+  }, [open, reasonTrim, reasonChoice]);
 
   const filledErr = filled !== "" && !/^\d+$/.test(String(filled)) ? "Numbers only" : "";
-  const reasonErr = !reasonTrim ? "Reason is required" : "";
+  const reasonErr = !reasonTrim
+    ? "Reason is required"
+    : reasonTrim.length < 3
+    ? "Reason must be at least 3 characters."
+    : "";
 
   const canSave =
-    Boolean(reasonTrim) &&
+    !reasonErr &&
     !filledErr &&
     !submitting &&
     Boolean(item || items.length === 0);
 
   const currentFilled = safeInt(item?.current_filled ?? item?.filled_qty ?? item?.system_filled);
-  const currentTotal = currentFilled;
   const hasCurrent = Number.isFinite(Number(item?.current_filled ?? item?.filled_qty ?? item?.system_filled));
+  const delta = filledN - currentFilled;
+  const varianceTone = delta === 0 ? "slate" : delta > 0 ? "teal" : "rose";
+  const isPresetReason = PRESET_REASON_SET.has(reasonTrim);
+  const selectValue = reasonChoice || (reasonTrim ? (isPresetReason ? reasonTrim : "other") : "");
+  const showCustomReason = selectValue === "other";
+
+  const handleReasonSelect = (value) => {
+    setReasonChoice(value);
+    if (!value) {
+      setReason?.("");
+      return;
+    }
+    if (value === "other") {
+      if (isPresetReason) {
+        setReason?.("");
+      }
+      return;
+    }
+    setReason?.(value);
+  };
 
   const submit = () => {
     if (!canSave) return;
@@ -197,7 +256,7 @@ export default function RecountStockModal({
                   ? "bg-slate-300 ring-slate-300 cursor-not-allowed"
                   : "bg-teal-600 ring-teal-600 hover:bg-teal-700 focus:ring-teal-500/25"
               )}
-              title={!reasonTrim ? "Add a reason to enable saving" : undefined}
+              title={reasonErr ? reasonErr : undefined}
             >
               <CheckCircle2 className="h-4 w-4" />
               {submitting ? "Saving..." : submitLabel}
@@ -263,7 +322,15 @@ export default function RecountStockModal({
 
               {/* Keep just 1 KPI here to avoid redundancy */}
               <div className="hidden lg:block">
-                <StatPill label="New filled" value={total} tone="teal" />
+                {hasCurrent ? (
+                  <StatPill
+                    label="Variance"
+                    value={`${delta >= 0 ? "+" : ""}${delta}`}
+                    tone={varianceTone}
+                  />
+                ) : (
+                  <StatPill label="New filled" value={total} tone="teal" />
+                )}
               </div>
             </div>
           </div>
@@ -288,25 +355,52 @@ export default function RecountStockModal({
                       className="w-full bg-transparent text-sm font-extrabold text-slate-900 outline-none placeholder:text-slate-400"
                     />
                   </InputShell>
+                  {hasCurrent ? (
+                    <div className="mt-2 text-[11px] text-slate-500">
+                      Current filled: <span className="font-semibold text-slate-700">{currentFilled}</span>
+                    </div>
+                  ) : null}
                 </Field>
               </div>
 
               <div className="mt-4">
                 <Field
                   label="Reason"
-                  hint="required for audit trail"
+                  hint="Select a standard reason or specify another."
                   error={reasonErr && !submitting ? reasonErr : ""}
                   required
                 >
-                  <InputShell>
-                    <input
-                      value={reason}
-                      onChange={(e) => setReason?.(e.target.value)}
-                      placeholder="Example: recount after delivery return"
-                      disabled={submitting}
-                      className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
-                    />
-                  </InputShell>
+                  <div className="grid gap-2">
+                    <div className="relative">
+                      <select
+                        value={selectValue}
+                        onChange={(e) => handleReasonSelect(e.target.value)}
+                        disabled={submitting}
+                        className="h-11 w-full appearance-none rounded-2xl bg-white px-3 pr-10 text-sm font-semibold text-slate-900 ring-1 ring-slate-200 outline-none transition focus:ring-4 focus:ring-teal-500/15"
+                      >
+                        <option value="">Select a reason</option>
+                        {RECOUNT_REASONS.map((reasonOption) => (
+                          <option key={reasonOption.value} value={reasonOption.value}>
+                            {reasonOption.label}
+                          </option>
+                        ))}
+                        <option value="other">Other (specify)</option>
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    </div>
+
+                    {showCustomReason ? (
+                      <InputShell>
+                        <input
+                          value={isPresetReason ? "" : reason}
+                          onChange={(e) => setReason?.(e.target.value)}
+                          placeholder="Describe the recount reason"
+                          disabled={submitting}
+                          className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+                        />
+                      </InputShell>
+                    ) : null}
+                  </div>
                 </Field>
                 {error ? <div className="mt-2 text-xs font-semibold text-rose-700">{error}</div> : null}
               </div>
@@ -326,10 +420,17 @@ export default function RecountStockModal({
                 ) : null}
               </div>
 
-              {/* Compact totals (3 pills, not a big KPI wall) */}
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <StatPill label="Filled" value={filledN} />
-                <StatPill label="Total" value={total} tone="teal" />
+              {/* Compact totals */}
+              <div className={cx("mt-3 grid gap-3", hasCurrent ? "grid-cols-3" : "grid-cols-1")}>
+                {hasCurrent ? <StatPill label="Current" value={currentFilled} /> : null}
+                <StatPill label="New" value={filledN} tone="teal" />
+                {hasCurrent ? (
+                  <StatPill
+                    label="Delta"
+                    value={`${delta >= 0 ? "+" : ""}${delta}`}
+                    tone={varianceTone}
+                  />
+                ) : null}
               </div>
 
               {hasCurrent ? (

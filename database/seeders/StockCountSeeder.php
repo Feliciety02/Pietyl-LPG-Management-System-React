@@ -23,12 +23,9 @@ class StockCountSeeder extends Seeder
 
         foreach ($balances as $balance) {
             $systemFilled = (int) $balance->qty_filled;
-            $systemEmpty = (int) $balance->qty_empty;
-
             $countedFilled = max(0, $systemFilled + rand(-2, 2));
-            $countedEmpty = max(0, $systemEmpty + rand(-2, 2));
 
-            $variance = ($countedFilled + $countedEmpty) - ($systemFilled + $systemEmpty);
+            $variance = $countedFilled - $systemFilled;
             $status = $variance === 0 ? 'approved' : 'rejected';
 
             $reviewedBy = $status === 'submitted' ? null : $admin?->id;
@@ -40,11 +37,8 @@ class StockCountSeeder extends Seeder
                 'product_variant_id' => $balance->product_variant_id,
                 'location_id' => $balance->location_id,
                 'system_filled' => $systemFilled,
-                'system_empty' => $systemEmpty,
                 'counted_filled' => $countedFilled,
-                'counted_empty' => $countedEmpty,
-                'variance_filled' => $countedFilled - $systemFilled,
-                'variance_empty' => $countedEmpty - $systemEmpty,
+                'variance_filled' => $variance,
                 'status' => $status,
                 'note' => 'Seeded count entry',
                 'created_by_user_id' => $submitter?->id ?? 1,

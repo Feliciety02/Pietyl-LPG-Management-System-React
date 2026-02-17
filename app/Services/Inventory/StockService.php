@@ -2,9 +2,11 @@
 
 namespace App\Services\Inventory;
 
+use App\Models\AuditLog;
 use App\Models\InventoryBalance;
 use App\Models\StockCount;
 use App\Models\StockMovement;
+use App\Models\StockVarianceInvestigation;
 use App\Repositories\StockRepository;
 use Carbon\Carbon;
 
@@ -62,11 +64,8 @@ class StockService
             'product_variant_id' => $inventoryBalance->product_variant_id,
             'location_id' => $inventoryBalance->location_id,
             'system_filled' => $systemFilled,
-            'system_empty' => 0,
             'counted_filled' => $countedFilled,
-            'counted_empty' => 0,
             'variance_filled' => $countedFilled - $systemFilled,
-            'variance_empty' => 0,
             'status' => 'submitted',
             'note' => $validated['reason'],
             'created_by_user_id' => $user->id,
@@ -93,8 +92,13 @@ class StockService
 
             $balance = $this->stockRepository->findInventoryBalanceById($stockCount->inventory_balance_id);
             
-            if ($balance) {
+            if ($balance instanceof InventoryBalance) {
                 $movementId = $this->applyStockCountAdjustment($stockCount, $balance, $user);
+                
+                // Report variance if any
+                if ($stockCount->variance_filled !== 0) {
+                    $this->reportStockVariance($stockCount, $balance, $user);
+                }
             }
         } else {
             $this->stockRepository->updateStockCount($stockCount, [
@@ -102,10 +106,6 @@ class StockService
                 'reviewed_by_user_id' => $user->id,
                 'reviewed_at' => now(),
                 'review_note' => $validated['note'] ?? null,
-                'counted_filled' => 0,
-                'counted_empty' => 0,
-                'variance_filled' => 0,
-                'variance_empty' => 0,
                 'submitted_at' => null,
             ]);
         }
@@ -264,4 +264,99 @@ class StockService
             'notes' => $movement->notes,
         ];
     }
+
+    private function reportStockVariance(StockCount $stockCount, InventoryBalance $balance, $user)
+    {
+        $varianceQty = $stockCount->variance_filled;
+        $direction = $varianceQty > 0 ? 'excess' : 'shortage';
+        $absVariance = abs($varianceQty);
+
+        $product = $balance->productVariant->product;
+        $location = $balance->location;
+
+        // Create notification message
+        $message = "Stock variance of {$absVariance} units ({$direction}) detected for {$product->sku} ({$product->name}) at {$location->name}. "
+            . "System shows {$stockCount->system_filled} units but count recorded {$stockCount->counted_filled} units.";
+
+        $title = ucfirst($direction) . " Stock: {$product->sku}";
+
+        // Create investigation record
+        $investigation = StockVarianceInvestigation::create([
+            'stock_count_id' => $stockCount->id,
+            'product_variant_id' => $balance->product_variant_id,
+            'location_id' => $balance->location_id,
+            'variance_qty' => $varianceQty,
+            'variance_direction' => $direction,
+            'system_qty' => $stockCount->system_filled,
+            'counted_qty' => $stockCount->counted_filled,
+            'status' => StockVarianceInvestigation::STATUS_NEW,
+            'investigation_notes' => "Initial variance detected during stock count. Requires investigation to determine root cause.",
+            'created_by_user_id' => $user->id,
+        ]);
+
+        // Assign to warehouse manager or operations manager if available
+        $investigator = \App\Models\User::whereHas('roles', function ($query) {
+            $query->whereIn('name', ['warehouse_manager', 'operations_manager', 'inventory_manager']);
+        })->first();
+
+        if ($investigator) {
+            $investigation->update([
+                'assigned_to_user_id' => $investigator->id,
+                'status' => StockVarianceInvestigation::STATUS_ASSIGNED,
+            ]);
+        }
+
+        // Notify all relevant roles
+        $rolesToNotify = ['accountant', 'admin', 'warehouse_manager', 'operations_manager', 'inventory_manager', 'finance_manager'];
+        
+        $usersToNotify = \App\Models\User::whereHas('roles', function ($query) use ($rolesToNotify) {
+            $query->whereIn('name', $rolesToNotify);
+        })->get();
+
+        foreach ($usersToNotify as $recipient) {
+            \App\Models\Notification::create([
+                'user_id' => $recipient->id,
+                'type' => 'inventory_variance',
+                'title' => $title,
+                'message' => $message,
+                'entity_type' => StockVarianceInvestigation::class,
+                'entity_id' => $investigation->id,
+                'data' => [
+                    'investigation_id' => $investigation->id,
+                    'product_id' => $product->id,
+                    'location_id' => $location->id,
+                    'variance_qty' => $varianceQty,
+                    'direction' => $direction,
+                    'system_qty' => $stockCount->system_filled,
+                    'counted_qty' => $stockCount->counted_filled,
+                    'investigation_status' => $investigation->status,
+                ],
+                'channel' => 'in_app',
+            ]);
+        }
+
+        // Also create audit log for traceability
+        AuditLog::create([
+            'actor_user_id' => $user->id,
+            'action' => 'inventory.variance.reported',
+            'entity_type' => StockVarianceInvestigation::class,
+            'entity_id' => $investigation->id,
+            'message' => "Stock variance reported: {$direction} of {$absVariance} units for SKU {$product->sku} at {$location->name}. Investigation created and assigned.",
+            'after_json' => [
+                'investigation_id' => $investigation->id,
+                'product_sku' => $product->sku,
+                'product_name' => $product->name,
+                'location_name' => $location->name,
+                'system_qty' => $stockCount->system_filled,
+                'counted_qty' => $stockCount->counted_filled,
+                'variance_qty' => $varianceQty,
+                'variance_direction' => $direction,
+                'assigned_to' => $investigator?->name,
+            ],
+        ]);
+
+        return $investigation;
+    }
 }
+
+
