@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -23,39 +23,104 @@ const STATE_STYLES = {
   },
 };
 
-export default function Stepper({ steps = [], className = "" }) {
-  return (
-    <div className={cx("space-y-6", className)}>
-      {steps.map((step, index) => {
-        const isLast = index === steps.length - 1;
-        const state = step.state || "neutral";
-        const styles = STATE_STYLES[state] || STATE_STYLES.neutral;
+export default function Stepper({
+  steps = [],
+  className = "",
+  activeIndex,
+  onStepChange,
+}) {
+  const [internalIndex, setInternalIndex] = useState(0);
+  const count = steps.length;
+  const isControlled = Number.isFinite(activeIndex);
+  const currentIndex = isControlled ? activeIndex : internalIndex;
+  const safeIndex = count === 0 ? 0 : Math.min(Math.max(currentIndex, 0), count - 1);
 
-        return (
-          <div key={step.key ?? index} className="flex items-stretch gap-4">
-            <div className="flex flex-col items-center">
-              <div
+  function setIndex(next) {
+    if (next < 0 || next >= count) return;
+    if (onStepChange) {
+      onStepChange(next);
+    }
+    if (!isControlled) {
+      setInternalIndex(next);
+    }
+  }
+
+  if (count === 0) return null;
+
+  return (
+    <div className={cx("space-y-4", className)}>
+      {count > 1 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {steps.map((step, index) => {
+            const state =
+              index < safeIndex ? "complete" : index === safeIndex ? "active" : "upcoming";
+            const styles = STATE_STYLES[state] || STATE_STYLES.neutral;
+            const isActive = index === safeIndex;
+
+            return (
+              <button
+                key={step.key ?? index}
+                type="button"
+                onClick={() => setIndex(index)}
                 className={cx(
-                  "flex h-9 w-9 items-center justify-center rounded-2xl text-xs font-extrabold ring-1",
-                  styles.bubble
+                  "inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-extrabold ring-1 transition",
+                  isActive
+                    ? "bg-slate-900 text-white ring-slate-900"
+                    : index < safeIndex
+                    ? "bg-emerald-50 text-emerald-900 ring-emerald-200 hover:bg-emerald-100"
+                    : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
                 )}
               >
-                {index + 1}
-              </div>
-              {!isLast ? <div className={cx("mt-2 w-px flex-1", styles.line)} /> : null}
-            </div>
+                <span
+                  className={cx(
+                    "flex h-6 w-6 items-center justify-center rounded-xl text-[11px] font-extrabold ring-1",
+                    styles.bubble
+                  )}
+                >
+                  {index + 1}
+                </span>
+                <span className="truncate">{step.label || `Step ${index + 1}`}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
 
-            <div className="min-w-0 flex-1">
-              {step.label ? (
-                <div className="mb-2 text-[11px] font-extrabold uppercase tracking-wide text-slate-500">
-                  {step.label}
-                </div>
-              ) : null}
-              {step.content}
-            </div>
+      <div>{steps[safeIndex]?.content}</div>
+
+      {count > 1 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => setIndex(safeIndex - 1)}
+            disabled={safeIndex === 0}
+            className={cx(
+              "inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-extrabold ring-1 transition",
+              safeIndex === 0
+                ? "bg-slate-100 text-slate-400 ring-slate-200 cursor-not-allowed"
+                : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"
+            )}
+          >
+            Back
+          </button>
+          <div className="text-xs font-extrabold text-slate-500">
+            Step {safeIndex + 1} of {count}
           </div>
-        );
-      })}
+          <button
+            type="button"
+            onClick={() => setIndex(safeIndex + 1)}
+            disabled={safeIndex >= count - 1}
+            className={cx(
+              "inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-extrabold ring-1 transition",
+              safeIndex >= count - 1
+                ? "bg-slate-100 text-slate-400 ring-slate-200 cursor-not-allowed"
+                : "bg-teal-600 text-white ring-teal-700/10 hover:bg-teal-700"
+            )}
+          >
+            Next
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
