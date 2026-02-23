@@ -50,9 +50,9 @@ return new class extends Migration
             $table->foreign('created_by_user_id')->references('id')->on('users')->onDelete('restrict');
 
             // Indexes
-            $table->index(['status', 'assigned_to_user_id']);
-            $table->index(['variance_direction', 'root_cause']);
-            $table->index(['location_id', 'created_at']);
+            $table->index(['status', 'assigned_to_user_id'], 'svi_status_assigned_to_idx');
+            $table->index(['variance_direction', 'root_cause'], 'svi_variance_direction_root_cause_idx');
+            $table->index(['location_id', 'created_at'], 'svi_location_created_at_idx');
         });
 
         Schema::create('variance_investigation_notes', function (Blueprint $table) {
@@ -64,11 +64,11 @@ return new class extends Migration
             $table->timestamps();
 
             // Foreign keys
-            $table->foreign('stock_variance_investigation_id')->references('id')->on('stock_variance_investigations')->onDelete('cascade');
+            $table->foreign('stock_variance_investigation_id', 'vin_svi_id_foreign')->references('id')->on('stock_variance_investigations')->onDelete('cascade');
             $table->foreign('created_by_user_id')->references('id')->on('users')->onDelete('restrict');
 
             // Indexes
-            $table->index(['stock_variance_investigation_id', 'created_at']);
+            $table->index(['stock_variance_investigation_id', 'created_at'], 'vin_investigation_created_at_idx');
         });
     }
 

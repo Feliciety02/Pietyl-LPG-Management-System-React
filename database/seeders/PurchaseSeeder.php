@@ -15,8 +15,8 @@ class PurchaseSeeder extends Seeder
     public function run(): void
     {
         $suppliers = Supplier::all();
-        $user = User::first();
-        $variants = ProductVariant::all();
+        $user      = User::first();
+        $variants  = ProductVariant::all();
 
         if ($suppliers->isEmpty() || !$user || $variants->isEmpty()) {
             $this->command->error('Please seed suppliers, users, and product variants first!');
@@ -28,40 +28,31 @@ class PurchaseSeeder extends Seeder
             ->value('purchase_number');
 
         $currentSequence = 45;
-
         if ($latestPurchaseNumber) {
-            $numericPart = intval(substr($latestPurchaseNumber, 2));
+            $numericPart     = intval(substr($latestPurchaseNumber, 2));
             $currentSequence = max($currentSequence, $numericPart);
         }
 
-        // Hardcoded purchases
+        $statusOptions = ['pending', 'approved', 'awaiting_confirmation', 'completed', 'rejected'];
+
         $purchases = [];
-
-        for ($i = 1; $i <= 30; $i++) {
-            $statusOptions = ['pending', 'approved', 'awaiting_confirmation', 'completed', 'rejected'];
-            $status = $statusOptions[$i % count($statusOptions)];
-
+        for ($i = 1; $i <= 50; $i++) {
+            $status    = $statusOptions[$i % count($statusOptions)];
             $orderedAt = Carbon::now()->subDays($i);
-            $receivedAt = in_array($status, ['completed', 'awaiting_confirmation']) 
+            $receivedAt = in_array($status, ['completed', 'awaiting_confirmation'])
                 ? $orderedAt->copy()->addDays(2)
                 : null;
 
             $purchases[] = [
-                'purchase_number' => 'P-' . str_pad($currentSequence + $i, 6, '0', STR_PAD_LEFT),
-                'supplier_id' => $suppliers->random()->id,
-                'created_by_user_id' => $user->id,
-                'status' => $status,
-                'ordered_at' => $orderedAt,
-                'received_at' => $receivedAt,
+                'purchase_number'       => 'P-' . str_pad($currentSequence + $i, 6, '0', STR_PAD_LEFT),
+                'supplier_id'           => $suppliers->random()->id,
+                'created_by_user_id'    => $user->id,
+                'status'                => $status,
+                'ordered_at'            => $orderedAt,
+                'received_at'           => $receivedAt,
                 'items' => [
-                    [
-                        'qty' => rand(1, 20),
-                        'unit_cost' => rand(100, 5000),
-                    ],
-                    [
-                        'qty' => rand(1, 20),
-                        'unit_cost' => rand(100, 5000),
-                    ],
+                    ['qty' => rand(1, 20), 'unit_cost' => rand(100, 5000)],
+                    ['qty' => rand(1, 20), 'unit_cost' => rand(100, 5000)],
                 ],
             ];
         }
@@ -70,44 +61,43 @@ class PurchaseSeeder extends Seeder
             $subtotal = 0;
 
             $purchase = Purchase::create([
-                'purchase_number' => $data['purchase_number'],
-                'supplier_id' => $data['supplier_id'],
-                'created_by_user_id' => $data['created_by_user_id'],
-                'status' => $data['status'],
-                'ordered_at' => $data['ordered_at'],
-                'received_at' => $data['received_at'],
-                'subtotal' => 0, // calculate after items
-                'grand_total' => 0,
-                'created_at' => $data['ordered_at'],
+                'purchase_number'       => $data['purchase_number'],
+                'supplier_id'           => $data['supplier_id'],
+                'created_by_user_id'    => $data['created_by_user_id'],
+                'status'                => $data['status'],
+                'ordered_at'            => $data['ordered_at'],
+                'received_at'           => $data['received_at'],
+                'subtotal'              => 0,
+                'grand_total'           => 0,
+                'created_at'            => $data['ordered_at'],
             ]);
 
             foreach ($data['items'] as $item) {
-                $lineTotal = $item['qty'] * $item['unit_cost'];
-
-                // Determine received_qty based on status
+                $lineTotal   = $item['qty'] * $item['unit_cost'];
                 $receivedQty = match ($purchase->status) {
-                    'completed' => $item['qty'],
-                    'approved' => rand(0, $item['qty']),
-                    'pending', 'awaiting_confirmation', 'rejected' => 0,
-                    default => 0,
+                    'completed'              => $item['qty'],
+                    'approved'               => rand(0, $item['qty']),
+                    default                  => 0,
                 };
 
                 PurchaseItem::create([
-                    'purchase_id' => $purchase->id,
+                    'purchase_id'        => $purchase->id,
                     'product_variant_id' => $variants->random()->id,
-                    'qty' => $item['qty'],
-                    'received_qty' => $receivedQty,
-                    'unit_cost' => $item['unit_cost'],
-                    'line_total' => $lineTotal,
+                    'qty'                => $item['qty'],
+                    'received_qty'       => $receivedQty,
+                    'unit_cost'          => $item['unit_cost'],
+                    'line_total'         => $lineTotal,
                 ]);
 
                 $subtotal += $lineTotal;
             }
 
             $purchase->update([
-                'subtotal' => $subtotal,
+                'subtotal'    => $subtotal,
                 'grand_total' => $subtotal,
             ]);
         }
+
+        $this->command->info('PurchaseSeeder: 50 purchases created.');
     }
 }
