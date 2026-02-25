@@ -241,6 +241,17 @@ class PurchaseController extends Controller
             'payment_method' => 'nullable|string|max:50',
         ]);
 
+        $paymentMethod = strtolower((string) ($validated['payment_method'] ?? ''));
+        $reference = trim((string) ($validated['reference'] ?? ''));
+        if ($reference !== '' && (str_contains($paymentMethod, 'bank') || str_contains($paymentMethod, 'transfer'))) {
+            if (!preg_match('/^\d+$/', $reference)) {
+                throw ValidationException::withMessages([
+                    'reference' => 'Bank reference number must contain digits only.',
+                ]);
+            }
+        }
+        $validated['reference'] = $reference !== '' ? $reference : null;
+
         try {
             $actorRole = $this->resolveActorRole($user);
 

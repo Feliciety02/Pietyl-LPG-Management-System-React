@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="C:\Projects\Pietyl-LPG-Management-System-React\phpunit.xml" tests="9" assertions="32" errors="0" failures="0" skipped="0" time="23.406352">
+    <testsuite name="Unit" tests="4" assertions="15" errors="0" failures="0" skipped="0" time="7.814460">
+      <testsuite name="Tests\Unit\ExampleTest" file="tests\Unit\ExampleTest.php" tests="1" assertions="1" errors="0" failures="0" skipped="0" time="3.770400">
+        <testcase name="that true is true" file="tests\Unit\ExampleTest.php::that true is true" class="Tests\Unit\ExampleTest" classname="Tests.Unit.ExampleTest" assertions="1" time="3.770400"/>
+      </testsuite>
+      <testsuite name="Tests\Unit\VatCalculatorTest" file="Vat Calculator (Tests\Unit\VatCalculator)" tests="3" assertions="14" errors="0" failures="0" skipped="0" time="4.044060">
+        <testcase name="Inclusive vatable sales" file="Vat Calculator (Tests\Unit\VatCalculator)::Inclusive vatable sales" class="Tests\Unit\VatCalculatorTest" classname="Tests.Unit.VatCalculatorTest" assertions="6" time="3.962174"/>
+        <testcase name="Exclusive vatable sales" file="Vat Calculator (Tests\Unit\VatCalculator)::Exclusive vatable sales" class="Tests\Unit\VatCalculatorTest" classname="Tests.Unit.VatCalculatorTest" assertions="4" time="0.081669"/>
+        <testcase name="Exempt sales" file="Vat Calculator (Tests\Unit\VatCalculator)::Exempt sales" class="Tests\Unit\VatCalculatorTest" classname="Tests.Unit.VatCalculatorTest" assertions="4" time="0.000217"/>
+      </testsuite>
+    </testsuite>
+    <testsuite name="Feature" tests="5" assertions="17" errors="0" failures="0" skipped="0" time="15.591892">
+      <testsuite name="Tests\Feature\ExampleTest" file="tests\Feature\ExampleTest.php" tests="1" assertions="1" errors="0" failures="0" skipped="0" time="3.614933">
+        <testcase name="it returns a successful response" file="tests\Feature\ExampleTest.php::it returns a successful response" class="Tests\Feature\ExampleTest" classname="Tests.Feature.ExampleTest" assertions="1" time="3.614933"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\ReceiptEndpointsTest" file="tests\Feature\ReceiptEndpointsTest.php" tests="2" assertions="8" errors="0" failures="0" skipped="0" time="11.608500">
+        <testcase name="it reprint endpoint creates receipt and increments printed_count" file="tests\Feature\ReceiptEndpointsTest.php::it reprint endpoint creates receipt and increments printed_count" class="Tests\Feature\ReceiptEndpointsTest" classname="Tests.Feature.ReceiptEndpointsTest" assertions="6" time="11.407308"/>
+        <testcase name="it print endpoint returns html view" file="tests\Feature\ReceiptEndpointsTest.php::it print endpoint returns html view" class="Tests\Feature\ReceiptEndpointsTest" classname="Tests.Feature.ReceiptEndpointsTest" assertions="2" time="0.201192"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\ResetPasswordTest" file="tests\Feature\ResetPasswordTest.php" tests="1" assertions="4" errors="0" failures="0" skipped="0" time="0.212811">
+        <testcase name="admin password reset updates existing user without creating a new record" file="tests\Feature\ResetPasswordTest.php::admin password reset updates existing user without creating a new record" class="Tests\Feature\ResetPasswordTest" classname="Tests.Feature.ResetPasswordTest" assertions="4" time="0.212811"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\RestockPayablePostingTest" file="tests\Feature\RestockPayablePostingTest.php" tests="1" assertions="4" errors="0" failures="0" skipped="0" time="0.155648">
+        <testcase name="restock payable ledger posting is idempotent" file="tests\Feature\RestockPayablePostingTest.php::restock payable ledger posting is idempotent" class="Tests\Feature\RestockPayablePostingTest" classname="Tests.Feature.RestockPayablePostingTest" assertions="4" time="0.155648"/>
+      </testsuite>
+    </testsuite>
+  </testsuite>
+</testsuites>

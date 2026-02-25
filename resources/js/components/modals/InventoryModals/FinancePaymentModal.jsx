@@ -17,6 +17,10 @@ function formatMoney(value) {
   return n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function sanitizeReference(value) {
+  return String(value ?? "").replace(/\D/g, "");
+}
+
 /* ---------- compact primitives ---------- */
 
 function Field({ label, hint, children }) {
@@ -119,6 +123,11 @@ export default function FinancePaymentModal({
     setPaymentMethod("cash");
   }, [open, defaultAmount, purchase]);
 
+  useEffect(() => {
+    if (paymentMethod !== "bank_transfer") return;
+    setReference((prev) => sanitizeReference(prev));
+  }, [paymentMethod]);
+
   const netAmount = sanitizeAmount(amount) || defaultAmount;
   const canPay = !loading && netAmount > 0 && (purchase?.id || payable?.id);
 
@@ -195,7 +204,13 @@ export default function FinancePaymentModal({
             <Field label="Reference">
               <Input
                 value={reference}
-                onChange={(e) => setReference(e.target.value)}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const next = paymentMethod === "bank_transfer" ? sanitizeReference(raw) : raw;
+                  setReference(next);
+                }}
+                inputMode={paymentMethod === "bank_transfer" ? "numeric" : "text"}
+                pattern={paymentMethod === "bank_transfer" ? "[0-9]*" : undefined}
                 placeholder="Auto-filled from delivery"
               />
             </Field>

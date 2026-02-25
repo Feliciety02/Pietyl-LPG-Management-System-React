@@ -48,10 +48,16 @@ class PaymentProcessingService
         }
 
         $ref = trim($paymentRef ?? '');
-        
+
         if (mb_strlen($ref) < 4) {
             throw ValidationException::withMessages([
                 'payment_ref' => 'Reference number is required for this payment method.',
+            ]);
+        }
+
+        if ($paymentMethod === 'gcash' && preg_match('/\D/', $ref)) {
+            throw ValidationException::withMessages([
+                'payment_ref' => 'GCash reference number must contain digits only.',
             ]);
         }
     }

@@ -270,6 +270,17 @@ class PayableController extends Controller
             'paid_amount' => 'nullable|numeric|min:0',
         ]);
 
+        $paymentMethod = strtolower((string) ($validated['payment_method'] ?? ''));
+        $bankRef = trim((string) ($validated['bank_ref'] ?? ''));
+        if ($bankRef !== '' && (str_contains($paymentMethod, 'bank') || str_contains($paymentMethod, 'transfer'))) {
+            if (!preg_match('/^\d+$/', $bankRef)) {
+                throw ValidationException::withMessages([
+                    'bank_ref' => 'Bank reference number must contain digits only.',
+                ]);
+            }
+        }
+        $validated['bank_ref'] = $bankRef !== '' ? $bankRef : null;
+
         $amount = $validated['paid_amount'] ?? (float) $payable->amount;
 
         if (abs($amount - (float) $payable->amount) > 0.01) {

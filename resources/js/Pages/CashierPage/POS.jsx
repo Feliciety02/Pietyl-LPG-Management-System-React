@@ -465,7 +465,9 @@ export default function POS() {
   const appliedRateLabel = `${(displayedVatRate * 100).toFixed(2)}%`;
 
   const needsRef = payment === "gcash" || payment === "card";
-  const validRef = !needsRef || String(paymentRef || "").trim().length >= 4;
+  const cleanedPaymentRef = String(paymentRef || "").trim();
+  const gcashDigitsOnly = payment !== "gcash" || /^\d+$/.test(cleanedPaymentRef);
+  const validRef = !needsRef || (cleanedPaymentRef.length >= 4 && gcashDigitsOnly);
 
   const tenderedNumber = useMemo(() => {
     const cleaned = String(cashTendered || "").trim();
@@ -1184,7 +1186,13 @@ export default function POS() {
                     </label>
                     <input
                       value={paymentRef}
-                      onChange={(e) => setPaymentRef(e.target.value)}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        const next = payment === "gcash" ? raw.replace(/\D/g, "") : raw;
+                        setPaymentRef(next);
+                      }}
+                      inputMode={payment === "gcash" ? "numeric" : "text"}
+                      pattern={payment === "gcash" ? "[0-9]*" : undefined}
                       className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm font-extrabold text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-teal-500/15"
                       placeholder={payment === "gcash" ? "Enter GCash reference" : "Enter card reference"}
                       disabled={readOnly}
