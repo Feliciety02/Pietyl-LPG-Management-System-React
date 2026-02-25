@@ -676,6 +676,7 @@ export default function POS() {
             Object.values(errs.errors).find((value) => Array.isArray(value) && value.length);
           const validationMessage = Array.isArray(validationError) ? validationError[0] : null;
           const lockedMessage = errs?.errors?.locked?.[0];
+          const accountingMessage = errs?.sale?.[0] ?? errs?.errors?.sale?.[0];
 
           const msg =
             errs?.message ||

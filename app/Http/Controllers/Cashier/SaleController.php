@@ -141,18 +141,24 @@ class SaleController extends Controller
             $to->format("Y-m-d")
         );
 
-        if ($format === "csv") {
+        try {
+            if ($format === "csv") {
+                return Excel::download(
+                    new SalesCsvExport($sales, $methodTotals, $summary, $rangeLabel, $statusLabels[$statusScope] ?? "Paid only"),
+                    $fileBase . ".csv",
+                    \Maatwebsite\Excel\Excel::CSV
+                );
+            }
+
             return Excel::download(
-                new SalesCsvExport(
-                    $sales,
-                    $methodTotals,
-                    $summary,
-                    $rangeLabel,
-                    $statusLabels[$statusScope] ?? "Paid only"
-                ),
-                $fileBase . ".csv",
-                \Maatwebsite\Excel\Excel::CSV
+                new SalesReportExport($sales, $methodTotals, $summary, $rangeLabel, $statusLabels[$statusScope] ?? "Paid only", $includeItems),
+                $fileBase . ".xlsx"
             );
+        } catch (\Throwable $e) {
+            Log::error("SaleController: export generation failed", [
+                "error" => $e->getMessage(),
+            ]);
+            return back()->withErrors(['export' => 'Failed to generate export file. Please try again.']);
         }
 
         return Excel::download(
@@ -331,6 +337,7 @@ class SaleController extends Controller
                     "sale_id" => $sale->id,
                     "error" => $e->getMessage(),
                 ]);
+                return response()->json(['error' => 'Failed to generate PDF receipt. Please try again.'], 500);
             }
         }
 

@@ -138,7 +138,7 @@ class PurchaseRequestController extends Controller
         $this->authorize('submit', $purchaseRequest);
 
         if ($purchaseRequest->items()->count() === 0) {
-            return back()->with('error', 'Add at least one item before submitting.');
+            return back()->withErrors(['items' => 'Add at least one item before submitting.']);
         }
 
         $purchaseRequest->update([

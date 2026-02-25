@@ -72,7 +72,7 @@ class PurchaseController extends Controller
                 $this->purchaseService->createPurchase($validated, $user);
             });
         } catch (PurchaseStatusException $ex) {
-            return redirect()->back()->with('error', $ex->getMessage())->setStatusCode(422);
+            return back()->withErrors(['purchase' => $ex->getMessage()]);
         }
 
         return redirect()->back()->with('success', 'Purchase order created successfully');
@@ -89,7 +89,7 @@ class PurchaseController extends Controller
             $actorRole = $this->resolveActorRole($user);
             $this->purchaseService->approvePurchase($purchase, $actorRole, $user);
         } catch (PurchaseStatusException $ex) {
-            return back()->with('error', $ex->getMessage())->setStatusCode(422);
+            return back()->withErrors(['purchase' => $ex->getMessage()]);
         }
 
         return back()->with('success', 'Purchase approved.');
@@ -110,7 +110,7 @@ class PurchaseController extends Controller
             $actorRole = $this->resolveActorRole($user);
             $this->purchaseService->rejectPurchase($purchase, $actorRole, $validated['reason'], $user);
         } catch (PurchaseStatusException $ex) {
-            return back()->with('error', $ex->getMessage())->setStatusCode(422);
+            return back()->withErrors(['purchase' => $ex->getMessage()]);
         }
 
         return back()->with('success', 'Purchase rejected.');
@@ -182,7 +182,7 @@ class PurchaseController extends Controller
                 $this->purchaseService->confirmPurchase($purchase, $validated, $user);
             });
         } catch (PurchaseStatusException $ex) {
-            return back()->with('error', $ex->getMessage())->setStatusCode(422);
+            return back()->withErrors(['purchase' => $ex->getMessage()]);
         }
 
         return back()->with('success', 'Purchase confirmed.');
@@ -199,7 +199,7 @@ class PurchaseController extends Controller
             $actorRole = $this->resolveActorRole($user);
             $this->purchaseService->reportDiscrepancy($purchase, $actorRole, $user);
         } catch (PurchaseStatusException $ex) {
-            return back()->with('error', $ex->getMessage())->setStatusCode(422);
+            return back()->withErrors(['purchase' => $ex->getMessage()]);
         }
 
         return back()->with('success', 'Discrepancy reported.');
@@ -259,7 +259,7 @@ class PurchaseController extends Controller
                 $this->purchaseService->recordPayment($purchase, $validated, $user, $actorRole);
             });
         } catch (PurchaseStatusException $ex) {
-            return back()->with('error', $ex->getMessage())->setStatusCode(422);
+            return back()->withErrors(['purchase' => $ex->getMessage()]);
         }
 
         return back()->with('success', 'Payment recorded.');
@@ -286,7 +286,7 @@ class PurchaseController extends Controller
             PurchaseStatus::ensureTransition($purchase->status, PurchaseStatus::CLOSED, PurchaseStatus::ROLE_FINANCE);
             $this->purchaseService->closePurchase($purchase, $actorRole, $validated);
         } catch (PurchaseStatusException $ex) {
-            return back()->with('error', $ex->getMessage())->setStatusCode(422);
+            return back()->withErrors(['purchase' => $ex->getMessage()]);
         }
 
         return back()->with('success', 'Purchase closed.');

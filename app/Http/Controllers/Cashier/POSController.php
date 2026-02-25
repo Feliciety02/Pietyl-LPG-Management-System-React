@@ -74,14 +74,30 @@ class POSController extends Controller
             $result = $this->posSaleService->processSale($validated, $user);
 
             return redirect()->back()->with('success', $result['message']);
-            
-        } catch (\Throwable $e) {
+
+        } catch (\InvalidArgumentException $e) {
+            Log::warning('POSController: invalid sale data', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->withErrors(['sale' => $e->getMessage()]);
+
+        } catch (\RuntimeException $e) {
             Log::error('POSController: sale processing failed', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
             ]);
 
-            return redirect()->back()->with('error', 'Failed to process sale: ' . $e->getMessage());
+            return back()->withErrors(['sale' => $e->getMessage()]);
+
+        } catch (\Throwable $e) {
+            Log::error('POSController: unexpected error', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->withErrors(['sale' => 'An unexpected error occurred. Please try again.']);
         }
     }
 }

@@ -69,7 +69,7 @@ class StockController extends Controller
         }
 
         if ($user->hasRole('admin')) {
-            return back()->with('error', 'Admin cannot submit stock counts.');
+            return back()->withErrors(['count' => 'Admin cannot submit stock counts.']);
         }
 
         $validated = $request->validate([
@@ -81,7 +81,7 @@ class StockController extends Controller
             $this->stockService->submitStockCount($inventoryBalance, $validated, $user);
             return back()->with('success', 'Stock count submitted for review.');
         } catch (\Exception $e) {
-            return back()->with('error', $e->getMessage());
+            return back()->withErrors(['count' => $e->getMessage()]);
         }
     }
 
@@ -111,7 +111,7 @@ class StockController extends Controller
 
             return back()->with('success', $approved ? 'Stock count approved.' : 'Stock count rejected.');
         } catch (\Exception $e) {
-            return back()->with('error', $e->getMessage());
+            return back()->withErrors(['review' => $e->getMessage()]);
         }
     }
 
