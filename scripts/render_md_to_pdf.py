@@ -18,6 +18,17 @@ DEFAULT_COLS = [
     ("Status", 8),
 ]
 
+WHITEBOX_COLS = [
+    ("Test Case ID", 10),
+    ("Feature / Module", 20),
+    ("Testing Technique", 14),
+    ("Preconditions", 20),
+    ("Test Input", 20),
+    ("Expected Output", 24),
+    ("Actual Output", 18),
+    ("Status", 8),
+]
+
 MAPPING_COLS = [
     ("Test Case ID", 12),
     ("Route / Controller", 54),
@@ -38,7 +49,7 @@ def wrap_cell(text: str, width: int):
             wrap(
                 seg,
                 width=width,
-                break_long_words=False,
+                break_long_words=True,
                 break_on_hyphens=False,
             )
         )
@@ -112,6 +123,8 @@ def build_table_lines(md_lines):
             cols = DEFAULT_COLS
             if header_names[:3] == [c[0] for c in MAPPING_COLS]:
                 cols = MAPPING_COLS
+            elif header_names == [c[0] for c in WHITEBOX_COLS]:
+                cols = WHITEBOX_COLS
 
             i += 1
             if i < len(md_lines) and md_lines[i].strip().startswith("|"):
@@ -184,7 +197,7 @@ def write_pdf(lines, out_path: Path):
 
     def append_bytes(s: str):
         nonlocal byte_count
-        b = s.encode("latin1")
+        b = s.encode("latin1", errors="ignore")
         pdf_parts.append(b)
         byte_count += len(b)
 
@@ -211,8 +224,10 @@ def write_pdf(lines, out_path: Path):
 
 
 def main():
-    md_path = Path("BlackBoxTestPlan_Pietyl_LPG.md")
-    pdf_path = Path("BlackBoxTestPlan_Pietyl_LPG.pdf")
+    import sys
+
+    md_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("BlackBoxTestPlan_Pietyl_LPG.md")
+    pdf_path = Path(sys.argv[2]) if len(sys.argv) > 2 else Path("BlackBoxTestPlan_Pietyl_LPG.pdf")
     md_lines = md_path.read_text(encoding="utf-8").splitlines()
     lines = build_table_lines(md_lines)
     write_pdf(lines, pdf_path)

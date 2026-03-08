@@ -7,6 +7,7 @@ use App\Repositories\CustomerRepository;
 use App\Services\POS\POSProductService;
 use App\Services\POS\POSSaleService;
 use App\Services\SettingsService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -38,7 +39,7 @@ class POSController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request): RedirectResponse
     {
         $user = $request->user();
         
@@ -74,6 +75,7 @@ class POSController extends Controller
             $result = $this->posSaleService->processSale($validated, $user);
 
             return redirect()->back()->with('success', $result['message']);
+<<<<<<< HEAD
 
         } catch (\InvalidArgumentException $e) {
             Log::warning('POSController: invalid sale data', [
@@ -98,6 +100,35 @@ class POSController extends Controller
             ]);
 
             return back()->withErrors(['sale' => 'An unexpected error occurred. Please try again.']);
+=======
+        } catch (\InvalidArgumentException $e) {
+            Log::warning('POSController: invalid sale input', [
+                'user_id' => $user?->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return redirect()->back()->withErrors([
+                'sale' => $e->getMessage(),
+            ]);
+        } catch (\RuntimeException $e) {
+            Log::error('POSController: sale processing runtime error', [
+                'user_id' => $user?->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return redirect()->back()->withErrors([
+                'sale' => $e->getMessage(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('POSController: sale processing failed', [
+                'user_id' => $user?->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return redirect()->back()->withErrors([
+                'sale' => 'An unexpected error occurred. Please try again.',
+            ]);
+>>>>>>> e1b502a (white box)
         }
     }
 }

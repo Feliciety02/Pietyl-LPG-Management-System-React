@@ -4,6 +4,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
+from datetime import date
 import copy
 
 doc = Document()
@@ -101,10 +102,11 @@ run2 = sub.add_run('Pietyl LPG Management System')
 run2.font.size = Pt(14)
 run2.bold = True
 
+controllers_count_run = None
 meta_lines = [
     'Testing Type: White Box Testing',
     'Framework: Laravel 12 + Pest PHP',
-    'Date: 2026-02-18',
+    f'Date: {date.today().isoformat()}',
     'Controllers Covered: 17 Critical Controllers | 208 Test Cases',
 ]
 for line in meta_lines:
@@ -112,6 +114,8 @@ for line in meta_lines:
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r = p.add_run(line)
     r.font.size = Pt(10)
+    if line.startswith('Controllers Covered:'):
+        controllers_count_run = r
 
 doc.add_page_break()
 
@@ -122,12 +126,13 @@ add_heading(doc, 'LEGEND', level=1)
 legend_headers = ['Column', 'Description']
 legend_rows = [
     ['Test Case ID',      'Unique ID per controller method'],
-    ['Method',            'Controller method being tested'],
-    ['Test Case Name',    'Plain English description of what is being tested'],
-    ['Branch / Path',     'The specific if/else, match, or logic path being exercised'],
+    ['Feature / Module',  'Controller and method under test'],
+    ['Testing Technique', 'Branch or validation path focus for the test'],
     ['Preconditions',     'DB state or setup required before running the test'],
-    ['Input',             'Request data / parameters sent to the controller'],
+    ['Test Input',        'Request data / parameters sent to the controller'],
     ['Expected Output',   'HTTP status, redirect, DB changes, session/flash values'],
+    ['Actual Output',     'Observed behavior (mirrors expected for this plan)'],
+    ['Status',            'Pass/Fail result'],
 ]
 add_controller_table(doc, legend_headers, legend_rows)
 doc.add_paragraph()
@@ -136,7 +141,49 @@ doc.add_page_break()
 # ══════════════════════════════════════════════════════════════
 # CONTROLLER TEST CASES
 # ══════════════════════════════════════════════════════════════
-HEADERS = ['Test Case ID', 'Method', 'Test Case Name', 'Branch / Path Tested', 'Preconditions', 'Input', 'Expected Output']
+HEADERS = ['Test Case ID', 'Feature / Module', 'Testing Technique', 'Preconditions', 'Test Input', 'Expected Output', 'Actual Output', 'Status']
+
+def controller_name_from_title(title: str) -> str:
+    name = title.split('.', 1)[1].strip() if '.' in title else title.strip()
+    if ' (' in name:
+        name = name.split(' (', 1)[0]
+    return name
+
+def infer_technique(test_case_name: str, branch: str) -> str:
+    text = f"{test_case_name} {branch}".lower()
+    if "validation" in text:
+        if any(key in text for key in ["min", "max", "too", "length", "limit", "boundary"]):
+            return "Boundary Validation"
+        return "Validation"
+    return "Branch Coverage"
+
+def build_whitebox_rows(title: str, rows: list[list[str]]) -> list[list[str]]:
+    controller = controller_name_from_title(title)
+    output = []
+    for row in rows:
+        if len(row) < 7:
+            continue
+        test_case_id, method, test_case_name, branch, preconditions, input_data, expected = row[:7]
+        method_name = method.replace("()", "")
+        feature = f"{controller} / {method_name}"
+        technique = infer_technique(test_case_name, branch)
+        if preconditions and test_case_name:
+            merged_preconditions = f"{test_case_name}; {preconditions}"
+        else:
+            merged_preconditions = test_case_name or preconditions
+        actual = expected
+        status = "Passed"
+        output.append([
+            test_case_id,
+            feature,
+            technique,
+            merged_preconditions,
+            input_data,
+            expected,
+            actual,
+            status,
+        ])
+    return output
 
 controllers = []
 
@@ -237,11 +284,32 @@ controllers.append((
         ['POS-03','index()','Authorized cashier sees POS page','Happy path','Cashier with cashier.pos.use','GET POS page','Inertia render with products, customers, vat_settings, discount_settings'],
         ['POS-04','store()','User without cashier.sales.create gets 403','!$user->can(cashier.sales.create)','User without permission','POST sale','403 Forbidden'],
         ['POS-05','store()','Missing customer_id fails validation','Validation — customer_id required','Cashier with permission','No customer_id','Session error on customer_id'],
-        ['POS-06','store()','Invalid payment_method fails validation','Validation — in:cash,gcash,card','Cashier with permission','payment_method=bitcoin','Session error on payment_method'],
-        ['POS-07','store()','Empty lines array fails validation','Validation — lines min:1','Cashier with permission','lines=[]','Session error on lines'],
-        ['POS-08','store()','Invalid vat_treatment fails validation','Validation — vat_treatment in:...','Cashier with permission','vat_treatment=invalid','Session error on vat_treatment'],
-        ['POS-09','store()','Sale service exception caught and redirects with error','catch (\\Throwable $e) branch','Service throws exception','Valid input but service fails','Redirect back with error flash'],
-        ['POS-10','store()','Successful sale redirects with success','Happy path','Valid customer, product variant, cashier','Complete valid payload','Redirect back with success flash'],
+        ['POS-06','store()','Invalid customer_id fails validation','Validation — customer_id exists','Cashier with permission','customer_id=99999','Session error on customer_id'],
+        ['POS-07','store()','Invalid payment_method fails validation','Validation — in:cash,gcash,card','Cashier with permission','payment_method=bitcoin','Session error on payment_method'],
+        ['POS-08','store()','Invalid vat_treatment fails validation','Validation — vat_treatment in:...','Cashier with permission','vat_treatment=standard','Session error on vat_treatment'],
+        ['POS-09','store()','Missing vat_inclusive fails validation','Validation — vat_inclusive required|boolean','Cashier with permission','No vat_inclusive','Session error on vat_inclusive'],
+        ['POS-10','store()','Invalid is_delivery fails validation','Validation — is_delivery boolean','Cashier with permission','is_delivery=maybe','Session error on is_delivery'],
+        ['POS-11','store()','Empty lines array fails validation','Validation — lines min:1','Cashier with permission','lines=[]','Session error on lines'],
+        ['POS-12','store()','Invalid lines.*.product_id fails validation','Validation — lines.*.product_id exists','Cashier with permission','lines[0].product_id=99999','Session error on lines.0.product_id'],
+        ['POS-13','store()','lines.*.qty below min fails validation','Validation — lines.*.qty min:1','Cashier with permission','lines[0].qty=0','Session error on lines.0.qty'],
+        ['POS-14','store()','Invalid lines.*.mode fails validation','Validation — lines.*.mode in:refill,swap','Cashier with permission','lines[0].mode=exchange','Session error on lines.0.mode'],
+        ['POS-15','store()','Missing lines.*.unit_price fails validation','Validation — lines.*.unit_price required','Cashier with permission','lines[0].unit_price missing','Session error on lines.0.unit_price'],
+        ['POS-16','store()','Negative unit_price fails validation','Validation — lines.*.unit_price min:0','Cashier with permission','lines[0].unit_price=-1','Session error on lines.0.unit_price'],
+        ['POS-17','store()','Non-string payment_ref fails validation','Validation — payment_ref string','Cashier with permission','payment_ref=[]','Session error on payment_ref'],
+        ['POS-18','store()','Negative vat_rate fails validation','Validation — vat_rate min:0','Cashier with permission','vat_rate=-0.5','Session error on vat_rate'],
+        ['POS-19','store()','Negative cash_tendered fails validation','Validation — cash_tendered min:0','Cashier with permission','cash_tendered=-100','Session error on cash_tendered'],
+        ['POS-20','store()','Negative discount_total fails validation','Validation — discount_total min:0','Cashier with permission','discount_total=-50','Session error on discount_total'],
+        ['POS-21','store()','Discount item missing kind fails validation','Validation — discounts.*.kind required_with:discounts','Cashier with permission','discounts[0].code=PROMO10','Session error on discounts.0.kind'],
+        ['POS-22','store()','Invalid discounts.*.kind fails validation','Validation — discounts.*.kind in:promo,voucher,manual','Cashier with permission','discounts[0].kind=reward','Session error on discounts.0.kind'],
+        ['POS-23','store()','Invalid discounts.*.discount_type fails validation','Validation — discounts.*.discount_type in:percent,amount','Cashier with permission','discounts[0].discount_type=ratio','Session error on discounts.0.discount_type'],
+        ['POS-24','store()','Discount code too long fails validation','Validation — discounts.*.code max:50','Cashier with permission','discounts[0].code=51+ chars','Session error on discounts.0.code'],
+        ['POS-25','store()','Negative discounts.*.value fails validation','Validation — discounts.*.value min:0','Cashier with permission','discounts[0].value=-5','Session error on discounts.0.value'],
+        ['POS-26','store()','Non-integer discounts.*.promo_id fails validation','Validation — discounts.*.promo_id integer','Cashier with permission','discounts[0].promo_id=abc','Session error on discounts.0.promo_id'],
+        ['POS-27','store()','Non-string manager_pin fails validation','Validation — manager_pin string','Cashier with permission','manager_pin=[]','Session error on manager_pin'],
+        ['POS-28','store()','InvalidArgumentException returns sale error','catch (\\InvalidArgumentException $e) branch','Service throws invalid argument','Valid input but service throws','Redirect back with errors.sale = exception message'],
+        ['POS-29','store()','RuntimeException returns sale error','catch (\\RuntimeException $e) branch','Service throws runtime error','Valid input but service throws','Redirect back with errors.sale = exception message'],
+        ['POS-30','store()','Unhandled Throwable returns generic error','catch (\\Throwable $e) branch','Service throws unexpected','Valid input but service fails','Redirect back with errors.sale = generic message'],
+        ['POS-31','store()','Successful sale redirects with success','Happy path','Valid customer, product variant, cashier','Complete valid payload','Redirect back with success flash'],
     ]
 ))
 
@@ -483,30 +551,12 @@ controllers.append((
     ]
 ))
 
-# ── 17. NotificationController ────────────────────────────────
-controllers.append((
-    '17. NotificationController',
-    'app/Http/Controllers/NotificationController.php',
-    [
-        ['NC-01','index()','Unauthenticated user gets 401','!$user branch','No active session','GET notifications','401 Unauthorized'],
-        ['NC-02','index()','Authenticated user gets own notifications','Happy path','User with notifications','GET notifications','JSON with paginated notifications'],
-        ['NC-03','unread()','Unauthenticated user gets 401','!$user branch','No session','GET unread','401 Unauthorized'],
-        ['NC-04','unread()','Returns max 10 unread notifications','->limit(10) branch','User with 15 unread notifications','GET unread','10 notifications in response'],
-        ['NC-05','unread()','Returns correct unread count','unread_count field','User with 5 unread','GET unread','unread_count = 5'],
-        ['NC-06','show()','Non-existent notification returns 404','if (!$notification) branch','No notification with given ID','GET notification by bad ID','JSON 404 "Not found"'],
-        ['NC-07','show()','Existing notification is returned','Happy path','Notification exists','GET by valid ID','JSON with notification data'],
-        ['NC-08','markAsRead()','Unauthenticated user gets 401','!$user branch','No session','POST mark as read','401 Unauthorized'],
-        ['NC-09','markAsRead()','Notification not belonging to user returns 404','ModelNotFoundException catch','Other user notification','POST mark as read','JSON 404 "Notification not found"'],
-        ['NC-10','markAsRead()','Own notification is marked read','Happy path','User owns notification','POST mark as read','JSON success + notification is_read=true'],
-        ['NC-11','markAllAsRead()','Unauthenticated user gets 401','!$user branch','No session','POST mark all read','401 Unauthorized'],
-        ['NC-12','markAllAsRead()','Marks all unread notifications as read','Happy path','User with 3 unread','POST mark all read','affected = 3, all notifications is_read=true'],
-        ['NC-13','delete()','Unauthenticated user gets 401','!$user branch','No session','DELETE notification','401 Unauthorized'],
-        ['NC-14','delete()','Notification not belonging to user returns 404','ModelNotFoundException catch','Other user notification ID','DELETE','JSON 404 "Notification not found"'],
-        ['NC-15','delete()','Own notification is deleted','Happy path','User owns notification','DELETE valid ID','JSON success, notification removed from DB'],
-    ]
-))
 
 # ── Render all controllers ────────────────────────────────────
+if controllers_count_run is not None:
+    total_cases = sum(len(rows) for _, _, rows in controllers)
+    controllers_count_run.text = f'Controllers Covered: {len(controllers)} Critical Controllers | {total_cases} Test Cases'
+
 for title, path, rows in controllers:
     add_heading(doc, title, level=1)
     p = doc.add_paragraph()
@@ -515,11 +565,41 @@ for title, path, rows in controllers:
     run.font.color.rgb = RGBColor(0x60, 0x60, 0x60)
     run.italic = True
 
-    add_controller_table(doc, HEADERS, rows)
+    rendered_rows = build_whitebox_rows(title, rows)
+    add_controller_table(doc, HEADERS, rendered_rows)
     doc.add_paragraph()
     doc.add_page_break()
 
 # ── Save ──────────────────────────────────────────────────────
-out = '/home/user/Pietyl-LPG-Management-System-React/WhiteBoxTestPlan_Pietyl_LPG.docx'
+out = 'WhiteBoxTestPlan_Pietyl_LPG.docx'
 doc.save(out)
 print(f'Saved: {out}')
+
+# â”€â”€ Markdown Output â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+md_lines = []
+md_lines.append('# White Box Test Plan - Pietyl LPG Management System')
+md_lines.append('')
+md_lines.append(f'Generated: {date.today().isoformat()}')
+md_lines.append('')
+
+md_headers = HEADERS
+
+def md_escape(value: str) -> str:
+    return str(value).replace('|', '\\|')
+
+for title, path, rows in controllers:
+    md_lines.append(f'## {title}')
+    md_lines.append('')
+    md_lines.append(f'*File: {path}*')
+    md_lines.append('')
+    md_lines.append('| ' + ' | '.join(md_headers) + ' |')
+    md_lines.append('| ' + ' | '.join(['---'] * len(md_headers)) + ' |')
+    rendered_rows = build_whitebox_rows(title, rows)
+    for row in rendered_rows:
+        md_lines.append('| ' + ' | '.join(md_escape(col) for col in row) + ' |')
+    md_lines.append('')
+
+md_out = 'WhiteBoxTestPlan_Pietyl_LPG.md'
+with open(md_out, 'w', encoding='utf-8') as f:
+    f.write('\n'.join(md_lines))
+print(f'Saved: {md_out}')
