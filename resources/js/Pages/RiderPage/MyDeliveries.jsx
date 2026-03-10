@@ -869,6 +869,12 @@ export default function MyDeliveries() {
     }
 
     const normalizedNext = String(nextStatus || "").toLowerCase();
+
+    if (normalizedNext === "failed" && !notDeliveredReason) {
+      alert("You must select a reason before marking this delivery as failed.");
+      return;
+    }
+
     const requiresProof = normalizedNext === "delivered";
     const hasPhoto = Boolean(proofPhotoFile || proofPhotoData);
     const hasSignature = Boolean(signatureData);
@@ -944,7 +950,10 @@ export default function MyDeliveries() {
         payload.proof_captured_at = capturedAt;
       }
 
-      payload.proof_exceptions = proofExceptions;
+      payload.proof_exceptions =
+        normalizedNext === "failed"
+          ? `Failure reason: ${notDeliveredReason}\n${proofExceptions || ""}`
+          : proofExceptions;
       payload.delivered_items = deliveredPayload;
     }
 
@@ -1536,12 +1545,14 @@ export default function MyDeliveries() {
                     Start delivery
                   </ActionBtn>
                   <ActionBtn
-                    tone="primary"
-                    disabled={!canTransition(selectedStatus, "delivered")}
-                    onClick={() => updateStatus("delivered")}
-                    icon={CheckCircle2}
+                    tone="danger"
+                    disabled={
+                      !canTransition(selectedStatus, "failed") || !notDeliveredReason
+                    }
+                    onClick={() => updateStatus("failed")}
+                    icon={XCircle}
                   >
-                    Mark delivered
+                    Mark failed
                   </ActionBtn>
                   <ActionBtn
                     tone="danger"
