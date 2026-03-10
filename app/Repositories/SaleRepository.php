@@ -57,7 +57,7 @@ class SaleRepository
         $page = $filters['page'] ?? 1;
 
         // Sort by created_at (newest first)
-        return $query->latest('created_at')
+        return $query->latest('sale_number')
                      ->paginate($perPage, ['*'], 'page', $page)
                      ->withQueryString();
     }

@@ -9,6 +9,7 @@ use App\Services\POS\POSSaleService;
 use App\Services\SettingsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class POSController extends Controller
@@ -39,7 +40,14 @@ class POSController extends Controller
         ]);
     }
 
+
     public function store(Request $request): RedirectResponse
+    {
+        return $this->storeDataPos($request);
+    }
+
+
+    public function storeDataPos(Request $request): RedirectResponse
     {
         $user = $request->user();
         
@@ -71,6 +79,17 @@ class POSController extends Controller
             'lines.*.unit_price' => 'required|numeric|min:0',
         ]);
 
+        // a unique lock key based on the cashier's user ID so that
+        // if the same cashier double-clicks or submits twice, the second request
+        // is blocked until the first one finishes. Uses Laravel's Cache lock —
+        // no DB changes needed. Lock auto-releases after 30s as a safety net.
+        $lockKey = 'pos_sale_user_' . $user->id;
+        $lock = Cache::lock($lockKey, 30);
+
+        if (!$lock->get()) {
+            return back()->withErrors(['sale' => 'A sale is already being processed. Please wait.']);
+        }
+
         try {
             $result = $this->posSaleService->processSale($validated, $user);
 
@@ -99,6 +118,10 @@ class POSController extends Controller
             ]);
 
             return back()->withErrors(['sale' => 'An unexpected error occurred. Please try again.']);
+
+        } finally {
+            // Always release the lock when done, whether it succeeded or failed
+            $lock->release();
         }
     }
 }
