@@ -125,40 +125,73 @@ class SaleService
 
 
     public function buildReceiptPayload(Sale $sale): array
-{
-    $sale->load(['items.productVariant.product', 'payments.paymentMethod', 'receipt', 'customer']);
+    {
+        $sale->load(['items.productVariant.product', 'payments.paymentMethod', 'receipt', 'customer']);
 
-    $saleDatetime = $sale->sale_datetime ? Carbon::parse($sale->sale_datetime) : null;
-    $payment      = $sale->payments->first();
+        $saleDatetime = $sale->sale_datetime ? Carbon::parse($sale->sale_datetime) : null;
+        $payment      = $sale->payments->first();
 
-    return [
-        'id'             => $sale->id,
-        'ref'            => $sale->receipt?->receipt_number ?? $sale->sale_number,
-        'date'           => $saleDatetime?->format('M d, Y'),
-        'time'           => $saleDatetime?->format('g:i A'),
-        'date_label'     => $saleDatetime?->format('M d, Y'),
-        'time_label'     => $saleDatetime?->format('g:i A'),
-        'lines'          => $sale->items->map(fn($item) => [
-            'name'       => $item->productVariant?->product?->name ?? $item->product_name ?? 'Item',
-            'variant'    => $item->productVariant?->variant_name ?? null,
-            'qty'        => $item->qty,
-            'unit_price' => $item->unit_price,
-        ])->toArray(),
-        'subtotal'        => $sale->subtotal,
-        'discount'        => $sale->discount_total,
-        'net_amount'      => $sale->net_amount,
-        'vat_amount'      => $sale->vat_amount,
-        'gross_amount'    => $sale->gross_amount ?? $sale->grand_total,
-        'vat_treatment'   => $sale->vat_treatment,
-        'vat_inclusive'   => $sale->vat_inclusive,
-        'method'          => $payment?->paymentMethod?->method_key ?? 'cash',
-        'payment_ref'     => $payment?->reference_no,
-        'amount_received' => $sale->cash_tendered,
-        'change'          => $sale->cash_change,
-        'company_phone'   => config('app.company_phone'),
-        'company_address' => config('app.company_address'),
-        'company_tin'     => config('app.company_tin'),
-        'printed_count'   => $sale->receipt?->printed_count ?? 0,
-    ];
-}
+        return [
+            'id'             => $sale->id,
+            'ref'            => $sale->receipt?->receipt_number ?? $sale->sale_number,
+            'date'           => $saleDatetime?->format('M d, Y'),
+            'time'           => $saleDatetime?->format('g:i A'),
+            'date_label'     => $saleDatetime?->format('M d, Y'),
+            'time_label'     => $saleDatetime?->format('g:i A'),
+            'lines'          => $sale->items->map(fn($item) => [
+                'name'       => $item->productVariant?->product?->name ?? $item->product_name ?? 'Item',
+                'variant'    => $item->productVariant?->variant_name ?? null,
+                'qty'        => $item->qty,
+                'unit_price' => $item->unit_price,
+            ])->toArray(),
+            'subtotal'        => $sale->subtotal,
+            'discount'        => $sale->discount_total,
+            'net_amount'      => $sale->net_amount,
+            'vat_amount'      => $sale->vat_amount,
+            'gross_amount'    => $sale->gross_amount ?? $sale->grand_total,
+            'vat_treatment'   => $sale->vat_treatment,
+            'vat_inclusive'   => $sale->vat_inclusive,
+            'method'          => $payment?->paymentMethod?->method_key ?? 'cash',
+            'payment_ref'     => $payment?->reference_no,
+            'amount_received' => $sale->cash_tendered,
+            'change'          => $sale->cash_change,
+            'company_phone'   => config('app.company_phone'),
+            'company_address' => config('app.company_address'),
+            'company_tin'     => config('app.company_tin'),
+            'printed_count'   => $sale->receipt?->printed_count ?? 0,
+        ];
+    }
+
+    public function buildExportSummary(Collection $sales): array
+    {
+        return [
+            'count'     => $sales->count(),
+            'total'     => $sales->sum('grand_total'),
+            'net_total' => $sales->sum('net_amount'),
+            'vat_total' => $sales->sum('vat_amount'),
+        ];
+    }
+
+    public function buildMethodTotals(Collection $sales): array
+    {
+        return $sales
+            ->flatMap(fn($sale) => $sale->payments->map(fn($payment) => [
+                'method' => $payment->paymentMethod?->method_key ?? 'cash',
+                'amount' => $payment->amount,
+            ]))
+            ->groupBy('method')
+            ->map(fn($items) => $items->sum('amount'))
+            ->toArray();
+    }
+
+    public function resolveStatusLabel(string $statusScope): string
+    {
+        return [
+            'paid'         => 'Paid only',
+            'paid_pending' => 'Paid + Pending',
+            'pending'      => 'Pending only',
+            'failed'       => 'Failed only',
+            'all'          => 'All statuses',
+        ][$statusScope] ?? 'Paid only';
+    }
 }
