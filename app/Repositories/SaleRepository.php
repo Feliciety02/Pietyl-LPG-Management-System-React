@@ -130,4 +130,29 @@ class SaleRepository
     {
         return Sale::generateSaleNumber();
     }
+
+    public function findReceiptBySaleId(int $saleId): ?Receipt
+    {
+        return Receipt::where('sale_id', $saleId)->first();
+    }
+
+
+    public function createReceiptRaw(int $saleId): ?Receipt
+    {
+        DB::table('receipts')->insert([
+            'sale_id'        => $saleId,
+            'receipt_number' => Receipt::generateReceiptNumber(),
+            'printed_count'  => 0,
+            'issued_at'      => Carbon::now()->toDateTimeString(),
+            'created_at'     => Carbon::now()->toDateTimeString(),
+            'updated_at'     => Carbon::now()->toDateTimeString(),
+        ]);
+
+        return $this->findReceiptBySaleId($saleId);
+    }
+
+    public function incrementPrintedCount(Receipt $receipt): void
+    {
+        $receipt->increment('printed_count');
+    }
 }

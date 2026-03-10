@@ -3,8 +3,11 @@
 namespace App\Services;
 
 use App\Repositories\SaleRepository;
+use App\Models\Receipt;
+use App\Models\Sale;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 
 class SaleService
 {
@@ -78,4 +81,84 @@ class SaleService
     {
         return $this->repo->getForExport($filters);
     }
+
+    public function findOrCreateReceiptForSale(int $saleId): ?Receipt
+    {
+        $receipt = $this->repo->findReceiptBySaleId($saleId);
+
+        if ($receipt) return $receipt;
+
+        try {
+            return $this->repo->createReceipt($saleId);
+        } catch (\Throwable $e) {
+            Log::error('Failed to create receipt via Eloquent', [
+                'sale_id' => $saleId,
+                'error'   => $e->getMessage(),
+            ]);
+        }
+
+        try {
+            return $this->repo->createReceiptRaw($saleId);
+        } catch (\Throwable $e) {
+            Log::error('Failed to create receipt via raw insert', [
+                'sale_id' => $saleId,
+                'error'   => $e->getMessage(),
+            ]);
+        }
+
+        return null;
+    }
+
+    public function incrementReceiptPrintCount(?Receipt $receipt): void
+    {
+        if (! $receipt) return;
+
+        try {
+            $this->repo->incrementPrintedCount($receipt);
+        } catch (\Throwable $e) {
+            Log::error('Failed to increment printed_count', [
+                'receipt_id' => $receipt->id,
+                'error'      => $e->getMessage(),
+            ]);
+        }
+    }
+
+
+    public function buildReceiptPayload(Sale $sale): array
+{
+    $sale->load(['items.productVariant.product', 'payments.paymentMethod', 'receipt', 'customer']);
+
+    $saleDatetime = $sale->sale_datetime ? Carbon::parse($sale->sale_datetime) : null;
+    $payment      = $sale->payments->first();
+
+    return [
+        'id'             => $sale->id,
+        'ref'            => $sale->receipt?->receipt_number ?? $sale->sale_number,
+        'date'           => $saleDatetime?->format('M d, Y'),
+        'time'           => $saleDatetime?->format('g:i A'),
+        'date_label'     => $saleDatetime?->format('M d, Y'),
+        'time_label'     => $saleDatetime?->format('g:i A'),
+        'lines'          => $sale->items->map(fn($item) => [
+            'name'       => $item->productVariant?->product?->name ?? $item->product_name ?? 'Item',
+            'variant'    => $item->productVariant?->variant_name ?? null,
+            'qty'        => $item->qty,
+            'unit_price' => $item->unit_price,
+        ])->toArray(),
+        'subtotal'        => $sale->subtotal,
+        'discount'        => $sale->discount_total,
+        'net_amount'      => $sale->net_amount,
+        'vat_amount'      => $sale->vat_amount,
+        'gross_amount'    => $sale->gross_amount ?? $sale->grand_total,
+        'vat_treatment'   => $sale->vat_treatment,
+        'vat_inclusive'   => $sale->vat_inclusive,
+        'method'          => $payment?->paymentMethod?->method_key ?? 'cash',
+        'payment_ref'     => $payment?->reference_no,
+        'amount_received' => $sale->cash_tendered,
+        'change'          => $sale->cash_change,
+        'company_phone'   => config('app.company_phone'),
+        'company_address' => config('app.company_address'),
+        'company_tin'     => config('app.company_tin'),
+        'printed_count'   => $sale->receipt?->printed_count ?? 0,
+    ];
+}
 }
