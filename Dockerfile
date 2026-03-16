@@ -1,9 +1,10 @@
-FROM php:8.2-apache
+﻿FROM php:8.2-apache
 RUN apt-get update && apt-get install -y \
     libgd-dev \
     libpng-dev \
     libjpeg-dev \
     libfreetype6-dev \
+    libonig-dev \
     zip unzip git curl libzip-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install gd pdo pdo_mysql mbstring bcmath opcache zip
