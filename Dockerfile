@@ -17,10 +17,10 @@ RUN composer install --no-dev --optimize-autoloader --no-scripts --no-interactio
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
     && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-RUN a2enmod rewrite \
-    && a2dismod mpm_event mpm_worker 2>/dev/null; \
-    a2enmod mpm_prefork \
-    && a2enmod php8.2 2>/dev/null || true
+# Fix Apache MPM - cache bust: v2
+RUN rm -f /etc/apache2/mods-enabled/mpm_*.load /etc/apache2/mods-enabled/mpm_*.conf \
+    && a2enmod mpm_prefork \
+    && a2enmod rewrite
 
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
