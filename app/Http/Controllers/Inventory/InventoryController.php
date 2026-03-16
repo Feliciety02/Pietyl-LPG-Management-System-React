@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\Inventory;
 
 use Illuminate\Http\Request;
 use App\Models\InventoryBalance;
