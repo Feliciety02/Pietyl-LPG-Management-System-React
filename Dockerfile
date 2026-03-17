@@ -1,4 +1,11 @@
-﻿FROM php:8.2-apache
+﻿FROM node:20 AS node-builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM php:8.2-apache
 
 RUN apt-get update && apt-get install -y \
     libgd-dev libpng-dev libjpeg-dev libfreetype6-dev \
@@ -11,6 +18,9 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www/html
 
 COPY . .
+
+# Copy built Vite assets from node stage
+COPY --from=node-builder /app/public/build ./public/build
 
 RUN composer install --no-dev --optimize-autoloader --no-scripts --no-interaction
 
