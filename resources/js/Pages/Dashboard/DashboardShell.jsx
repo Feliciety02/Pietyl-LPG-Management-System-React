@@ -4,7 +4,7 @@ import { Link, usePage } from "@inertiajs/react";
 import { motion } from "framer-motion";
 import HeaderLogo from "../../../images/Header_Logo.png";
 import { Search, Bell, ChevronRight, Command } from "lucide-react";
-import Sidebar from "../../components/layouts/Sidebar";
+import Sidebar from "../../components/layouts/sidebar";
 import ToastMessage from "../../components/layouts/ToastMessage";
 import { ExportProvider } from "@/components/Table/ExportContext";
 import ExportModal from "@/components/modals/ExportModal";
