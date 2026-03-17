@@ -1,11 +1,4 @@
-﻿FROM node:20 AS node-builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-
-FROM php:8.2-apache
+﻿FROM php:8.2-apache
 
 RUN apt-get update && apt-get install -y \
     libgd-dev libpng-dev libjpeg-dev libfreetype6-dev \
@@ -19,15 +12,11 @@ WORKDIR /var/www/html
 
 COPY . .
 
-# Copy built Vite assets from node stage
-COPY --from=node-builder /app/public/build ./public/build
-
 RUN composer install --no-dev --optimize-autoloader --no-scripts --no-interaction
 
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
     && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Fix Apache MPM - cache bust: v2
 RUN rm -f /etc/apache2/mods-enabled/mpm_*.load /etc/apache2/mods-enabled/mpm_*.conf \
     && a2enmod mpm_prefork \
     && a2enmod rewrite
