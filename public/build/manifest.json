@@ -1,0 +1,72 @@
+{
+  "resources/css/app.css": {
+    "file": "assets/app-FI0YhO9o.css",
+    "src": "resources/css/app.css",
+    "isEntry": true,
+    "name": "app",
+    "names": [
+      "app.css"
+    ]
+  },
+  "resources/images/Header_Logo.png": {
+    "file": "assets/Header_Logo-p_pdBqAe.png",
+    "src": "resources/images/Header_Logo.png"
+  },
+  "resources/images/LPGproducts/Hose_10mBlack.png": {
+    "file": "assets/Hose_10mBlack-B0p37zeK.png",
+    "src": "resources/images/LPGproducts/Hose_10mBlack.png"
+  },
+  "resources/images/LPGproducts/Petron_11kg.png": {
+    "file": "assets/Petron_11kg-BfPiJoHb.png",
+    "src": "resources/images/LPGproducts/Petron_11kg.png"
+  },
+  "resources/images/LPGproducts/Petron_22kg.png": {
+    "file": "assets/Petron_22kg-CaAylrLe.png",
+    "src": "resources/images/LPGproducts/Petron_22kg.png"
+  },
+  "resources/images/LPGproducts/Petron_50kg.png": {
+    "file": "assets/Petron_50kg-CoEead2z.png",
+    "src": "resources/images/LPGproducts/Petron_50kg.png"
+  },
+  "resources/images/LPGproducts/Regulator_TokinaBlue.png": {
+    "file": "assets/Regulator_TokinaBlue-scG6T2ie.png",
+    "src": "resources/images/LPGproducts/Regulator_TokinaBlue.png"
+  },
+  "resources/images/services-delivery.png": {
+    "file": "assets/services-delivery-CCPmyyLg.png",
+    "src": "resources/images/services-delivery.png"
+  },
+  "resources/images/services-inventory.png": {
+    "file": "assets/services-inventory-Bg2ZH2Lb.png",
+    "src": "resources/images/services-inventory.png"
+  },
+  "resources/images/services-refill.png": {
+    "file": "assets/services-refill-DzLx8shM.png",
+    "src": "resources/images/services-refill.png"
+  },
+  "resources/images/store.png": {
+    "file": "assets/store-DWAAmfdO.png",
+    "src": "resources/images/store.png"
+  },
+  "resources/js/app.jsx": {
+    "file": "assets/app-CJsRoL6A.js",
+    "name": "app",
+    "src": "resources/js/app.jsx",
+    "isEntry": true,
+    "css": [
+      "assets/app-D1-0B2xV.css"
+    ],
+    "assets": [
+      "assets/Header_Logo-p_pdBqAe.png",
+      "assets/store-DWAAmfdO.png",
+      "assets/Petron_11kg-BfPiJoHb.png",
+      "assets/Petron_50kg-CoEead2z.png",
+      "assets/Petron_22kg-CaAylrLe.png",
+      "assets/Regulator_TokinaBlue-scG6T2ie.png",
+      "assets/Hose_10mBlack-B0p37zeK.png",
+      "assets/services-refill-DzLx8shM.png",
+      "assets/services-delivery-CCPmyyLg.png",
+      "assets/services-inventory-Bg2ZH2Lb.png"
+    ]
+  }
+}
