@@ -1,6 +1,6 @@
 import React from "react";
 import { router } from "@inertiajs/react";
-import LoginModal from "@/components/modals/LoginModal";
+import LoginModal from "@/components/modals/loginModal";
 
 export default function Login() {
   return (
