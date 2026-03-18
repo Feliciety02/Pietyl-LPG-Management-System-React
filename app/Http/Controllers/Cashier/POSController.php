@@ -75,7 +75,7 @@ class POSController extends Controller
             $result = $this->posSaleService->processSale($validated, $user);
 
             return redirect()->back()->with('success', $result['message']);
-<<<<<<< HEAD
+
 
         } catch (\InvalidArgumentException $e) {
             Log::warning('POSController: invalid sale data', [
@@ -100,7 +100,7 @@ class POSController extends Controller
             ]);
 
             return back()->withErrors(['sale' => 'An unexpected error occurred. Please try again.']);
-=======
+
         } catch (\InvalidArgumentException $e) {
             Log::warning('POSController: invalid sale input', [
                 'user_id' => $user?->id,
@@ -128,7 +128,7 @@ class POSController extends Controller
             return redirect()->back()->withErrors([
                 'sale' => 'An unexpected error occurred. Please try again.',
             ]);
->>>>>>> e1b502a (white box)
+
         }
     }
 }

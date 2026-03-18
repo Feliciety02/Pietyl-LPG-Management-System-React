@@ -88,43 +88,6 @@ class PurchaseController extends Controller
         try {
             $actorRole = $this->resolveActorRole($user);
             $this->purchaseService->approvePurchase($purchase, $actorRole, $user);
-
-            // Update stock for each item
-            $location = \App\Models\Location::orderBy('id')->first();
-            if ($location) {
-                foreach ($purchase->items as $item) {
-                    $qty = (float) $item->qty;
-                    if ($qty <= 0 || !$item->product_variant_id) continue;
-
-                    $balance = \App\Models\InventoryBalance::where('location_id', $location->id)
-                        ->where('product_variant_id', $item->product_variant_id)
-                        ->first();
-
-                    if ($balance) {
-                        $balance->increment('qty_filled', $qty);
-                    } else {
-                        \App\Models\InventoryBalance::create([
-                            'location_id'        => $location->id,
-                            'product_variant_id' => $item->product_variant_id,
-                            'qty_filled'         => $qty,
-                            'qty_reserved'       => 0,
-                            'reorder_level'      => 0,
-                        ]);
-                    }
-
-                    \App\Models\StockMovement::create([
-                        'location_id'          => $location->id,
-                        'product_variant_id'   => $item->product_variant_id,
-                        'movement_type'        => \App\Models\StockMovement::TYPE_PURCHASE_IN,
-                        'qty'                  => $qty,
-                        'reference_type'       => \App\Models\Purchase::class,
-                        'reference_id'         => $purchase->id,
-                        'performed_by_user_id' => $user->id,
-                        'moved_at'             => now(),
-                        'notes'                => 'Stock-in from approved purchase: ' . $purchase->purchase_number,
-                    ]);
-                }
-            }
         } catch (PurchaseStatusException $ex) {
             return back()->withErrors(['purchase' => $ex->getMessage()]);
         }
