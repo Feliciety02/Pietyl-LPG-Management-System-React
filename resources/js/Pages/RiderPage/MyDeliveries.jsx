@@ -791,7 +791,7 @@ export default function MyDeliveries() {
 
   async function sendStatusUpdate(deliveryId, payload) {
     const formData = new FormData();
-    formData.append("_method", "PATCH");
+    formData.append("_method", "POST");
     formData.append("status", payload.status);
 
     if (payload.proof_photo) {
@@ -825,7 +825,7 @@ export default function MyDeliveries() {
   }
 
   async function sendNoteUpdate(deliveryId, note) {
-    return window.axios.patch(
+    return window.axios.post(
       `/dashboard/rider/deliveries/${deliveryId}/note`,
       { note },
       { headers: { Accept: "application/json" } }

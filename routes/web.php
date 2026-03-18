@@ -381,7 +381,7 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('permission:rider.deliveries.view')
             ->name('dash.rider.deliveries.update');
         
-        Route::patch('/deliveries/{delivery}/note', [RiderDeliveryController::class, 'updateNote'])
+        Route::post('/deliveries/{delivery}/note', [RiderDeliveryController::class, 'updateNote'])
             ->middleware('permission:rider.deliveries.view')
             ->name('dash.rider.deliveries.note');
 
