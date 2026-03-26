@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Security\TwoFactorController;
 use App\Http\Controllers\Supplier\SupplierController;
 use App\Http\Controllers\Cashier\CustomerController;
 use App\Http\Controllers\Cashier\SaleController;
@@ -61,6 +62,7 @@ Route::get('/login', function () {
 })->name('login');
 
 Route::post('/login', [LoginController::class, 'store'])->name('login.store');
+Route::post('/login/two-factor', [LoginController::class, 'verifyTwoFactor'])->name('login.two-factor.verify');
 Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 
 Route::middleware(['auth'])->group(function () {
@@ -532,5 +534,13 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/deliveries/{delivery}/proof/{kind}', [DeliveryProofController::class, 'show'])
         ->whereIn('kind', ['photo', 'signature'])
         ->name('deliveries.proof.show');
+
+    Route::prefix('security/two-factor')->name('security.two-factor.')->group(function () {
+        Route::get('/', [TwoFactorController::class, 'show'])->name('show');
+        Route::post('/provision', [TwoFactorController::class, 'provision'])->name('provision');
+        Route::post('/enable', [TwoFactorController::class, 'enable'])->name('enable');
+        Route::post('/disable', [TwoFactorController::class, 'disable'])->name('disable.post');
+        Route::delete('/', [TwoFactorController::class, 'disable'])->name('disable');
+    });
 
 });

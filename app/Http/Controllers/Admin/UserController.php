@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -95,12 +96,31 @@ class UserController extends Controller
         ]);
 
         if (!Hash::check($validated['admin_password'], $admin->password)) {
+            AuditLog::create([
+                'actor_user_id' => $admin->id,
+                'action' => 'admin.users.reset_password_failed',
+                'entity_type' => 'User',
+                'entity_id' => (int) $userId,
+                'message' => 'Admin password confirmation failed during password reset.',
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
             return response()->json(['message' => 'Incorrect password.'], 422);
         }
 
         $target = User::findOrFail($userId);
         $target->update([
             'password' => Hash::make($validated['new_password']),
+        ]);
+
+        AuditLog::create([
+            'actor_user_id' => $admin->id,
+            'action' => 'admin.users.reset_password',
+            'entity_type' => 'User',
+            'entity_id' => $target->id,
+            'message' => 'Admin reset a user password.',
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
         ]);
 
         DB::table('password_reset_audits')->insert([
@@ -126,8 +146,27 @@ class UserController extends Controller
         ]);
 
         if (!Hash::check($validated['password'], $user->password)) {
+            AuditLog::create([
+                'actor_user_id' => $user->id,
+                'action' => 'admin.password.confirm_failed',
+                'entity_type' => 'User',
+                'entity_id' => $user->id,
+                'message' => 'Admin password confirmation failed.',
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
             return response()->json(['message' => 'Incorrect password.'], 422);
         }
+
+        AuditLog::create([
+            'actor_user_id' => $user->id,
+            'action' => 'admin.password.confirmed',
+            'entity_type' => 'User',
+            'entity_id' => $user->id,
+            'message' => 'Admin password confirmation succeeded.',
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
 
         return response()->json(['message' => 'Confirmed.']);
     }

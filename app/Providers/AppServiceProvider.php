@@ -32,6 +32,7 @@ use App\Observers\LowStockObserver;
 use App\Services\SettingsService;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\URL;
 use App\Policies\PurchaseRequestPolicy;
 use Spatie\Permission\Models\Permission;
 
@@ -59,6 +60,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if ((bool) config('app.force_https', false)) {
+            URL::forceScheme('https');
+        }
+
         // One-off safety net: ensure inventory_manager always has low stock permission.
         try {
             $role = Role::where('name', 'inventory_manager')->first();

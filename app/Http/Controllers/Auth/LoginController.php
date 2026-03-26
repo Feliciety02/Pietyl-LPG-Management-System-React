@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\User;
+use App\Services\TwoFactorAuthService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -15,6 +16,10 @@ class LoginController extends Controller
 {
     private const MAX_LOGIN_ATTEMPTS = 5;
     private const LOCKOUT_SECONDS = 300;
+
+    public function __construct(
+        private TwoFactorAuthService $twoFactorAuthService
+    ) {}
 
     public function store(Request $request)
     {
@@ -53,11 +58,25 @@ class LoginController extends Controller
             );
         }
 
-        if (!Auth::attempt(['email' => $email, 'password' => $data['password']], $remember)) {
+        if (!\Illuminate\Support\Facades\Hash::check($data['password'], $user->password)) {
             return $this->failLoginAttempt($request, $throttleKey, $email, $user, 'invalid_credentials');
         }
 
         RateLimiter::clear($throttleKey);
+
+        if ($user->hasTwoFactorEnabled()) {
+            $request->session()->put('auth.two_factor.pending', [
+                'user_id' => $user->id,
+                'remember' => $remember,
+            ]);
+
+            return redirect()
+                ->route('login')
+                ->with('info', 'Enter your authentication code to finish signing in.');
+        }
+
+        Auth::login($user, $remember);
+
         $request->session()->regenerate();
 
         $role = $user->roles->first()?->name;
@@ -73,6 +92,69 @@ class LoginController extends Controller
         ]);
 
         return match ($role) {
+            'admin' => redirect()->intended('/dashboard/admin'),
+            'cashier' => redirect()->intended('/dashboard/cashier'),
+            'accountant' => redirect()->intended('/dashboard/accountant'),
+            'rider' => redirect()->intended('/dashboard/rider'),
+            'inventory_manager' => redirect()->intended('/dashboard/inventory'),
+            default => redirect('/'),
+        };
+    }
+
+    public function verifyTwoFactor(Request $request)
+    {
+        $challenge = $request->session()->get('auth.two_factor.pending');
+        if (!$challenge || empty($challenge['user_id'])) {
+            throw ValidationException::withMessages([
+                'code' => 'Your login session expired. Sign in again.',
+            ]);
+        }
+
+        $validated = $request->validate([
+            'code' => ['required', 'string'],
+        ]);
+
+        $user = User::with('roles')->find($challenge['user_id']);
+        if (!$user || !$user->hasTwoFactorEnabled()) {
+            $request->session()->forget('auth.two_factor.pending');
+
+            throw ValidationException::withMessages([
+                'code' => 'Your login session expired. Sign in again.',
+            ]);
+        }
+
+        if (!$this->twoFactorAuthService->verifyCode((string) $user->two_factor_secret, $validated['code'])) {
+            AuditLog::create([
+                'actor_user_id' => $user->id,
+                'action' => 'auth.two_factor_failed',
+                'entity_type' => 'User',
+                'entity_id' => $user->id,
+                'message' => 'Two-factor authentication failed.',
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+
+            throw ValidationException::withMessages([
+                'code' => 'Invalid authentication code.',
+            ]);
+        }
+
+        $request->session()->forget('auth.two_factor.pending');
+
+        Auth::login($user, (bool) ($challenge['remember'] ?? false));
+        $request->session()->regenerate();
+
+        AuditLog::create([
+            'actor_user_id' => $user->id,
+            'action' => 'auth.two_factor_passed',
+            'entity_type' => 'User',
+            'entity_id' => $user->id,
+            'message' => 'Two-factor authentication completed.',
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        return match ($user->roles->first()?->name) {
             'admin' => redirect()->intended('/dashboard/admin'),
             'cashier' => redirect()->intended('/dashboard/cashier'),
             'accountant' => redirect()->intended('/dashboard/accountant'),

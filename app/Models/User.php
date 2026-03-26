@@ -32,6 +32,8 @@ class User extends Authenticatable
     protected $casts = [
         'is_active' => 'boolean',
         'email_verified_at' => 'datetime',
+        'two_factor_secret' => 'encrypted',
+        'two_factor_confirmed_at' => 'datetime',
     ];
 
     public function employee()
@@ -47,5 +49,15 @@ class User extends Authenticatable
         }
 
         return $this->roles()->orderBy('name')->value('name');
+    }
+
+    public function requiresTwoFactor(): bool
+    {
+        return $this->hasAnyRole(['admin', 'accountant', 'inventory_manager']);
+    }
+
+    public function hasTwoFactorEnabled(): bool
+    {
+        return !empty($this->two_factor_secret) && $this->two_factor_confirmed_at !== null;
     }
 }

@@ -118,6 +118,22 @@ class DiscountService
         }
 
         if ($manualUsed && !$this->settingsService->verifyManagerPin($payload['manager_pin'] ?? null)) {
+            $request = request();
+
+            AuditLog::create([
+                'actor_user_id' => $user->id,
+                'action' => 'sale.manual_discount_pin_failed',
+                'entity_type' => 'Sale',
+                'entity_id' => null,
+                'message' => 'Manual discount rejected due to invalid manager PIN.',
+                'after_json' => [
+                    'line_count' => count($lines),
+                    'discount_count' => count($discounts),
+                ],
+                'ip_address' => $request?->ip(),
+                'user_agent' => $request?->userAgent(),
+            ]);
+
             throw ValidationException::withMessages([
                 'manager_pin' => 'Invalid manager PIN for manual discounts.',
             ]);

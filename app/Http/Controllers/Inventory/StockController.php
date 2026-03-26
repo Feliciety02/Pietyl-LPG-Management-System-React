@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use Illuminate\Http\Request;
 use App\Services\InventoryBalanceService;
 use App\Services\Inventory\StockService;
@@ -300,14 +301,42 @@ class StockController extends Controller
 
         $updates = collect($validated['updates']);
         $balances = InventoryBalance::whereIn('id', $updates->pluck('id')->unique())->get()->keyBy('id');
+        $changes = [];
 
         foreach ($updates as $entry) {
             $balance = $balances->get($entry['id']);
             if (!$balance) {
                 continue;
             }
+
+            $before = (float) $balance->reorder_level;
+            $after = (float) $entry['reorder_level'];
+            if ($before === $after) {
+                continue;
+            }
+
             $balance->reorder_level = $entry['reorder_level'];
             $balance->save();
+
+            $changes[] = [
+                'inventory_balance_id' => $balance->id,
+                'product_variant_id' => $balance->product_variant_id,
+                'before' => $before,
+                'after' => $after,
+            ];
+        }
+
+        if ($changes !== []) {
+            AuditLog::create([
+                'actor_user_id' => $user->id,
+                'action' => 'inventory.thresholds.updated',
+                'entity_type' => 'InventoryBalance',
+                'entity_id' => null,
+                'message' => 'Inventory reorder thresholds updated.',
+                'after_json' => ['changes' => $changes],
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
         }
 
         return back()->with('success', 'Thresholds updated.');

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\Notification;
 use Illuminate\Http\Request;
 
@@ -58,7 +59,16 @@ class NotificationController extends Controller
             abort(401);
         }
 
-        $notification = $this->findUserNotification($user->id, $id);
+        $notification = Notification::where('id', $id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$notification) {
+            $this->logNotificationFailure($request, $user->id, 'notifications.view_denied', $id);
+            return response()->json(['error' => 'Notification not found'], 404);
+        }
+
+        $this->logNotificationEvent($request, $user->id, 'notifications.view', $notification);
 
         return response()->json($notification);
     }
@@ -78,11 +88,14 @@ class NotificationController extends Controller
 
             $notification->markAsRead();
 
+            $this->logNotificationEvent($request, $user->id, 'notifications.mark_read', $notification);
+
             return response()->json([
                 'success' => true,
                 'notification' => $notification,
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            $this->logNotificationFailure($request, $user->id, 'notifications.mark_read_denied', $id);
             return response()->json(['error' => 'Notification not found'], 404);
         }
     }
@@ -100,6 +113,17 @@ class NotificationController extends Controller
                 'is_read' => true,
                 'read_at' => now(),
             ]);
+
+        AuditLog::create([
+            'actor_user_id' => $user->id,
+            'action' => 'notifications.mark_all_read',
+            'entity_type' => 'Notification',
+            'entity_id' => null,
+            'message' => 'All notifications marked as read.',
+            'after_json' => ['affected' => $count],
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
 
         return response()->json([
             'success' => true,
@@ -122,22 +146,42 @@ class NotificationController extends Controller
 
             $notification->delete();
 
+            $this->logNotificationEvent($request, $user->id, 'notifications.delete', $notification);
+
             return response()->json(['success' => true]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            $this->logNotificationFailure($request, $user->id, 'notifications.delete_denied', $id);
             return response()->json(['error' => 'Notification not found'], 404);
         }
     }
 
-    private function findUserNotification(int $userId, int $notificationId): Notification
+    private function logNotificationEvent(Request $request, int $userId, string $action, Notification $notification): void
     {
-        $notification = Notification::where('id', $notificationId)
-            ->where('user_id', $userId)
-            ->first();
+        AuditLog::create([
+            'actor_user_id' => $userId,
+            'action' => $action,
+            'entity_type' => 'Notification',
+            'entity_id' => $notification->id,
+            'message' => 'Notification action recorded.',
+            'after_json' => [
+                'notification_type' => $notification->type,
+                'channel' => $notification->channel,
+            ],
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+    }
 
-        if (!$notification) {
-            abort(response()->json(['error' => 'Notification not found'], 404));
-        }
-
-        return $notification;
+    private function logNotificationFailure(Request $request, int $userId, string $action, int $notificationId): void
+    {
+        AuditLog::create([
+            'actor_user_id' => $userId,
+            'action' => $action,
+            'entity_type' => 'Notification',
+            'entity_id' => $notificationId,
+            'message' => 'Notification access denied or target missing.',
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
     }
 }

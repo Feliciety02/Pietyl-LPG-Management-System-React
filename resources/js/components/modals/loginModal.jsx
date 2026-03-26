@@ -1,22 +1,45 @@
 import React, { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
-import { router } from "@inertiajs/react";
+import { Eye, EyeOff, Shield } from "lucide-react";
+import { router, usePage } from "@inertiajs/react";
 import HeaderLogo from "../../../images/Header_Logo.png";
 import ModalShell from "./ModalShell";
 
 export default function LoginModal({ open, onClose }) {
+  const page = usePage();
+  const twoFactorChallenge = Boolean(page.props?.auth?.two_factor_challenge);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
   const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const [processing, setProcessing] = useState(false);
-  const [errors, setErrors] = useState({ email: "", password: "", general: "" });
+  const [errors, setErrors] = useState({ email: "", password: "", code: "", general: "" });
 
   function onSubmit(e) {
     e.preventDefault();
-    setErrors({ email: "", password: "", general: "" });
+    setErrors({ email: "", password: "", code: "", general: "" });
     setProcessing(true);
+
+    if (twoFactorChallenge) {
+      router.post(
+        "/login/two-factor",
+        { code },
+        {
+          preserveScroll: true,
+          onFinish: () => setProcessing(false),
+          onError: (errs) => {
+            setErrors({
+              email: "",
+              password: "",
+              code: errs?.code || "",
+              general: errs?.message || "",
+            });
+          },
+        }
+      );
+      return;
+    }
 
     router.post(
       "/login",
@@ -28,6 +51,7 @@ export default function LoginModal({ open, onClose }) {
           setErrors({
             email: errs?.email || "",
             password: errs?.password || "",
+            code: "",
             general: errs?.message || "",
           });
         },
@@ -56,10 +80,12 @@ export default function LoginModal({ open, onClose }) {
     >
       <div className="mt-4 text-center">
         <h3 className="text-2xl font-extrabold tracking-tight text-slate-900">
-          Sign in
+          {twoFactorChallenge ? "Verify sign in" : "Sign in"}
         </h3>
         <p className="mt-2 text-sm text-slate-600/90">
-          Use the account provided by your administrator.
+          {twoFactorChallenge
+            ? "Enter the 6-digit code from your authenticator app."
+            : "Use the account provided by your administrator."}
         </p>
       </div>
 
@@ -70,98 +96,139 @@ export default function LoginModal({ open, onClose }) {
       ) : null}
 
       <form onSubmit={onSubmit} className="mt-8 space-y-5">
-        <div>
-          <div className="relative">
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="username"
-              placeholder="Email"
-              className={[
-                "peer w-full rounded-2xl bg-slate-50/80 px-5 pb-3.5 pt-8 text-sm text-slate-900 ring-1 outline-none transition focus:bg-white",
-                errors.email
-                  ? "ring-rose-300 focus:ring-rose-400"
-                  : "ring-slate-200 focus:ring-teal-400",
-              ].join(" ")}
-            />
-            <label
-              htmlFor="email"
-              className="pointer-events-none absolute left-5 top-3.5 text-xs font-extrabold tracking-wide text-slate-600/90 transition
-              peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:font-semibold
-              peer-focus:top-3.5 peer-focus:text-xs peer-focus:font-extrabold peer-focus:text-teal-800"
-            >
-              Email
-            </label>
+        {twoFactorChallenge ? (
+          <div>
+            <div className="relative">
+              <input
+                id="code"
+                type="text"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                required
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="123456"
+                className={[
+                  "peer w-full rounded-2xl bg-slate-50/80 px-5 pb-3.5 pt-8 pl-12 text-sm tracking-[0.35em] text-slate-900 ring-1 outline-none transition focus:bg-white",
+                  errors.code
+                    ? "ring-rose-300 focus:ring-rose-400"
+                    : "ring-slate-200 focus:ring-teal-400",
+                ].join(" ")}
+              />
+              <Shield className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+              <label
+                htmlFor="code"
+                className="pointer-events-none absolute left-12 top-3.5 text-xs font-extrabold tracking-wide text-slate-600/90 transition
+                peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:font-semibold
+                peer-focus:top-3.5 peer-focus:text-xs peer-focus:font-extrabold peer-focus:text-teal-800"
+              >
+                Authentication code
+              </label>
+            </div>
+            {errors.code ? (
+              <p className="mt-1.5 text-xs font-semibold text-rose-700">
+                {errors.code}
+              </p>
+            ) : null}
           </div>
-          {errors.email ? (
-            <p className="mt-1.5 text-xs font-semibold text-rose-700">
-              {errors.email}
-            </p>
-          ) : null}
-        </div>
+        ) : (
+          <>
+            <div>
+              <div className="relative">
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="username"
+                  placeholder="Email"
+                  className={[
+                    "peer w-full rounded-2xl bg-slate-50/80 px-5 pb-3.5 pt-8 text-sm text-slate-900 ring-1 outline-none transition focus:bg-white",
+                    errors.email
+                      ? "ring-rose-300 focus:ring-rose-400"
+                      : "ring-slate-200 focus:ring-teal-400",
+                  ].join(" ")}
+                />
+                <label
+                  htmlFor="email"
+                  className="pointer-events-none absolute left-5 top-3.5 text-xs font-extrabold tracking-wide text-slate-600/90 transition
+                  peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:font-semibold
+                  peer-focus:top-3.5 peer-focus:text-xs peer-focus:font-extrabold peer-focus:text-teal-800"
+                >
+                  Email
+                </label>
+              </div>
+              {errors.email ? (
+                <p className="mt-1.5 text-xs font-semibold text-rose-700">
+                  {errors.email}
+                </p>
+              ) : null}
+            </div>
 
-        <div>
-          <div className="relative">
-            <input
-              id="password"
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-              placeholder="Password"
-              className={[
-                "peer w-full rounded-2xl bg-slate-50/80 px-5 pb-3.5 pt-8 pr-12 text-sm text-slate-900 ring-1 outline-none transition focus:bg-white",
-                errors.password
-                  ? "ring-rose-300 focus:ring-rose-400"
-                  : "ring-slate-200 focus:ring-teal-400",
-              ].join(" ")}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((prev) => !prev)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30"
-              aria-label={showPassword ? "Hide password" : "Show password"}
-            >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-            <label
-              htmlFor="password"
-              className="pointer-events-none absolute left-5 top-3.5 text-xs font-extrabold tracking-wide text-slate-600/90 transition
-              peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:font-semibold
-              peer-focus:top-3.5 peer-focus:text-xs peer-focus:font-extrabold peer-focus:text-teal-800"
-            >
-              Password
+            <div>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  placeholder="Password"
+                  className={[
+                    "peer w-full rounded-2xl bg-slate-50/80 px-5 pb-3.5 pt-8 pr-12 text-sm text-slate-900 ring-1 outline-none transition focus:bg-white",
+                    errors.password
+                      ? "ring-rose-300 focus:ring-rose-400"
+                      : "ring-slate-200 focus:ring-teal-400",
+                  ].join(" ")}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+                <label
+                  htmlFor="password"
+                  className="pointer-events-none absolute left-5 top-3.5 text-xs font-extrabold tracking-wide text-slate-600/90 transition
+                  peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:font-semibold
+                  peer-focus:top-3.5 peer-focus:text-xs peer-focus:font-extrabold peer-focus:text-teal-800"
+                >
+                  Password
+                </label>
+              </div>
+              {errors.password ? (
+                <p className="mt-1.5 text-xs font-semibold text-rose-700">
+                  {errors.password}
+                </p>
+              ) : null}
+            </div>
+          </>
+        )}
+
+        {!twoFactorChallenge ? (
+          <div className="flex items-center justify-between pt-1">
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500/25"
+              />
+              <span className="text-sm text-slate-700">Remember me</span>
             </label>
+
+            <a
+              href="/forgot-password"
+              className="text-sm font-extrabold text-teal-800 hover:text-teal-900 transition"
+            >
+              Forgot password
+            </a>
           </div>
-          {errors.password ? (
-            <p className="mt-1.5 text-xs font-semibold text-rose-700">
-              {errors.password}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="flex items-center justify-between pt-1">
-          <label className="inline-flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={(e) => setRemember(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500/25"
-            />
-            <span className="text-sm text-slate-700">Remember me</span>
-          </label>
-
-          <a
-            href="/forgot-password"
-            className="text-sm font-extrabold text-teal-800 hover:text-teal-900 transition"
-          >
-            Forgot password
-          </a>
-        </div>
+        ) : null}
 
         <div className="pt-3 text-center">
           <button
@@ -175,12 +242,14 @@ export default function LoginModal({ open, onClose }) {
                 : "bg-teal-600 hover:bg-teal-700",
             ].join(" ")}
           >
-            {processing ? "Signing in..." : "Sign in"}
+            {processing ? "Checking..." : twoFactorChallenge ? "Verify code" : "Sign in"}
           </button>
         </div>
 
         <div className="pt-3 text-center text-xs text-slate-600/80">
-          Protected access for staff accounts only.
+          {twoFactorChallenge
+            ? "Use the authenticator app paired with your account."
+            : "Protected access for staff accounts only."}
         </div>
       </form>
     </ModalShell>
