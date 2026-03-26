@@ -31,6 +31,7 @@ use App\Http\Controllers\Accountant\PayableController as AccountantPayableContro
 use App\Http\Controllers\Cashier\DailySummaryController as CashierDailySummaryController;
 use App\Http\Controllers\Rider\RiderDeliveryController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\DeliveryProofController;
 
 Route::get('/', function () {
     if (Auth::check()) {
@@ -378,11 +379,11 @@ Route::middleware(['auth'])->group(function () {
         ->name('dash.rider.deliveries');
     
         Route::patch('/deliveries/{delivery}', [RiderDeliveryController::class, 'updateStatus'])
-            ->middleware('permission:rider.deliveries.view')
+            ->middleware('permission:rider.deliveries.update')
             ->name('dash.rider.deliveries.update');
         
         Route::post('/deliveries/{delivery}/note', [RiderDeliveryController::class, 'updateNote'])
-            ->middleware('permission:rider.deliveries.view')
+            ->middleware('permission:rider.deliveries.update')
             ->name('dash.rider.deliveries.note');
 
         Route::get('/history', [RiderDeliveryController::class, 'history'])
@@ -436,7 +437,7 @@ Route::middleware(['auth'])->group(function () {
             ->name('dash.inventory.thresholds');
 
         Route::post('/admin/inventory/thresholds', [StockController::class, 'updateThresholds'])
-            ->middleware('permission:inventory.thresholds.view')
+            ->middleware('permission:inventory.thresholds.update')
             ->name('dash.inventory.thresholds.save');
 
         Route::get('/purchases', [PurchaseController::class, 'index'])
@@ -527,5 +528,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/read-all', [NotificationController::class, 'markAllAsRead'])->name('mark-all-read');
         Route::delete('/{id}', [NotificationController::class, 'delete'])->name('delete');
     });
+
+    Route::get('/deliveries/{delivery}/proof/{kind}', [DeliveryProofController::class, 'show'])
+        ->whereIn('kind', ['photo', 'signature'])
+        ->name('deliveries.proof.show');
 
 });

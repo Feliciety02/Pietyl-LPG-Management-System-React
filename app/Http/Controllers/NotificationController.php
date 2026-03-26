@@ -51,13 +51,14 @@ class NotificationController extends Controller
         ]);
     }
 
-    public function show(int $id)
+    public function show(Request $request, int $id)
     {
-        $notification = Notification::find($id);
-
-        if (!$notification) {
-            return response()->json(['error' => 'Not found'], 404);
+        $user = $request->user();
+        if (!$user) {
+            abort(401);
         }
+
+        $notification = $this->findUserNotification($user->id, $id);
 
         return response()->json($notification);
     }
@@ -125,5 +126,18 @@ class NotificationController extends Controller
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json(['error' => 'Notification not found'], 404);
         }
+    }
+
+    private function findUserNotification(int $userId, int $notificationId): Notification
+    {
+        $notification = Notification::where('id', $notificationId)
+            ->where('user_id', $userId)
+            ->first();
+
+        if (!$notification) {
+            abort(response()->json(['error' => 'Notification not found'], 404));
+        }
+
+        return $notification;
     }
 }

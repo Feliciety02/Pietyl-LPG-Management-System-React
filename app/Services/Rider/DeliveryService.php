@@ -146,8 +146,12 @@ class DeliveryService
             })->values(),
 
             'notes' => (string) ($delivery->notes ?? ''),
-            'proof_photo_url' => (string) ($delivery->proof_photo_url ?? ($delivery->proof_type === 'photo' ? $delivery->proof_url : '')),
-            'proof_signature_url' => (string) ($delivery->proof_signature_url ?? ($delivery->proof_type === 'signature' ? $delivery->proof_url : '')),
+            'proof_photo_url' => $delivery->hasProof('photo')
+                ? route('deliveries.proof.show', ['delivery' => $delivery->id, 'kind' => 'photo'])
+                : '',
+            'proof_signature_url' => $delivery->hasProof('signature')
+                ? route('deliveries.proof.show', ['delivery' => $delivery->id, 'kind' => 'signature'])
+                : '',
             'proof_geo_lat' => $delivery->proof_geo_lat ?? null,
             'proof_geo_lng' => $delivery->proof_geo_lng ?? null,
             'proof_captured_at' => $delivery->proof_captured_at?->toIso8601String() ?? '',

@@ -64,6 +64,7 @@ class PermissionSeeder extends Seeder
             'inventory.stock.adjust',
             'inventory.stock.low_stock',
             'inventory.thresholds.view',
+            'inventory.thresholds.update',
             'inventory.purchase_requests.low_stock',
             'inventory.movements.view',
             'inventory.purchases.view',

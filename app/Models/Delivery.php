@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Delivery extends Model
 {
@@ -86,6 +87,83 @@ class Delivery extends Model
         $number = $lastDelivery ? intval(substr($lastDelivery->delivery_number, strlen($prefix))) + 1 : 1;
 
         return $prefix . str_pad($number, 6, '0', STR_PAD_LEFT);
+    }
+
+    public function proofStorageDisk(string $kind): ?string
+    {
+        return $this->resolveProofStorage($kind)['disk'];
+    }
+
+    public function proofStoragePath(string $kind): ?string
+    {
+        return $this->resolveProofStorage($kind)['path'];
+    }
+
+    public function hasProof(string $kind): bool
+    {
+        return $this->proofStoragePath($kind) !== null;
+    }
+
+    public function canAccessProof(?User $user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        if ((int) $this->assigned_rider_user_id === (int) $user->id) {
+            return true;
+        }
+
+        if ($this->sale && (int) $this->sale->cashier_user_id === (int) $user->id) {
+            return true;
+        }
+
+        return $user->hasAnyRole(['admin', 'accountant', 'inventory_manager']);
+    }
+
+    private function resolveProofStorage(string $kind): array
+    {
+        $value = $this->proofValueForKind($kind);
+        if (!$value) {
+            return ['disk' => null, 'path' => null];
+        }
+
+        if ($this->looksLikeLegacyPublicUrl($value)) {
+            $path = parse_url($value, PHP_URL_PATH) ?: $value;
+            $path = Str::after($path, '/storage/');
+            $path = ltrim($path, '/');
+
+            return [
+                'disk' => $path !== '' ? 'public' : null,
+                'path' => $path !== '' ? $path : null,
+            ];
+        }
+
+        return [
+            'disk' => 'local',
+            'path' => ltrim($value, '/'),
+        ];
+    }
+
+    private function proofValueForKind(string $kind): ?string
+    {
+        $value = match ($kind) {
+            'photo' => $this->proof_photo_url,
+            'signature' => $this->proof_signature_url,
+            default => null,
+        };
+
+        if (!$value && $this->proof_type === $kind) {
+            $value = $this->proof_url;
+        }
+
+        return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+
+    private function looksLikeLegacyPublicUrl(string $value): bool
+    {
+        return Str::startsWith($value, ['/storage/', 'http://', 'https://'])
+            && str_contains($value, '/storage/');
     }
 
     const STATUS_PENDING = 'pending';

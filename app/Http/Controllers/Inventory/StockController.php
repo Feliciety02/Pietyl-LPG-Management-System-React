@@ -146,7 +146,7 @@ class StockController extends Controller
     public function thresholds(Request $request, InventoryBalanceService $svc)
     {
         $user = $request->user();
-        if (!$user || !$user->can('inventory.stock.low_stock')) {
+        if (!$user || !$user->can('inventory.thresholds.view')) {
             abort(403);
         }
 
@@ -288,7 +288,7 @@ class StockController extends Controller
     public function updateThresholds(Request $request)
     {
         $user = $request->user();
-        if (!$user || !$user->can('inventory.stock.low_stock')) {
+        if (!$user || !$user->can('inventory.thresholds.update')) {
             abort(403);
         }
 

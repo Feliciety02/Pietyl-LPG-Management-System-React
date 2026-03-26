@@ -58,8 +58,7 @@ class RiderDeliveryController extends Controller
 
         $proofPhotoUrl = null;
         if ($request->hasFile('proof_photo')) {
-            $path = $request->file('proof_photo')->store('pod', 'public');
-            $proofPhotoUrl = Storage::disk('public')->url($path);
+            $proofPhotoUrl = $request->file('proof_photo')->store('pod', 'local');
         }
         if (!$proofPhotoUrl) {
             $proofPhotoUrl = $this->storeDataUrlImage($request->input('proof_photo_data'), 'photo');
@@ -166,9 +165,9 @@ class RiderDeliveryController extends Controller
         $ext = $matches[1] === 'jpeg' ? 'jpg' : $matches[1];
         $path = 'pod/' . $prefix . '-' . Str::uuid() . '.' . $ext;
 
-        Storage::disk('public')->put($path, $binary);
+        Storage::disk('local')->put($path, $binary);
 
-        return Storage::disk('public')->url($path);
+        return $path;
     }
 
     private function normalizeDeliveredItems($raw): ?array
