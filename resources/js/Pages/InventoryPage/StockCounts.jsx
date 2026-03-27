@@ -248,7 +248,7 @@ export default function StockCounts() {
     () => [
       {
         key: "item",
-        label: "Item",
+        label: "Products",
         render: (x) =>
           x?.__filler ? (
             <div className="space-y-2">
@@ -379,7 +379,7 @@ export default function StockCounts() {
     () => [
       {
         key: "item",
-        label: "Item",
+        label: "Products",
         render: (x) =>
           x?.__filler ? (
             <div className="space-y-2">

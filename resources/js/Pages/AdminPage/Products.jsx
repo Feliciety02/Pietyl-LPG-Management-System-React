@@ -487,24 +487,18 @@ export default function Products() {
     () => [
       {
         key: "name",
-        label: "Product",
+        label: "Products",
         render: (p) =>
           p?.__filler ? (
-            <div className="flex items-center gap-3">
-              <div className="h-11 w-11 rounded-2xl bg-slate-200/70 animate-pulse" />
-              <div className="space-y-2">
-                <SkeletonLine w="w-40" />
-                <SkeletonLine w="w-28" />
-              </div>
-            </div>
+            <SkeletonLine w="w-40" />
           ) : (
-            <div className="flex items-center gap-3">
+            <div className="flex min-w-0 items-center gap-3">
               <ProductThumb src={p?.image_url} name={p?.name} />
               <div className="min-w-0">
-                <div className="font-extrabold text-slate-900 truncate">
+                <div className="truncate font-extrabold text-slate-900">
                   {p?.name || "Product"}
                 </div>
-                <div className="text-xs text-slate-500 truncate">
+                <div className="truncate text-xs text-slate-500">
                   {(p?.brand ? `${p.brand} • ` : "") + (p?.sku || "No SKU")}
                 </div>
               </div>

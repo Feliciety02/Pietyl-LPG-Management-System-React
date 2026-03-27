@@ -32,7 +32,7 @@ export function createPurchaseColumns({ loading }) {
     },
     {
       key: "item",
-      label: "Item",
+    label: "Products",
       render: (row) => {
         if (row?.__filler) {
           return <SkeletonLine w="w-36" />;

@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
-import { KeyRound, ShieldCheck, ShieldAlert, RefreshCw } from "lucide-react";
+import { Copy, KeyRound, ShieldCheck, ShieldAlert, RefreshCw } from "lucide-react";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -17,8 +17,19 @@ export default function TwoFactor() {
   const [password, setPassword] = useState("");
   const [processing, setProcessing] = useState(false);
   const [errors, setErrors] = useState({ code: "", password: "" });
+  const [copyState, setCopyState] = useState("idle");
 
   const manualSecret = useMemo(() => twoFactor.secret || "", [twoFactor.secret]);
+
+  useEffect(() => {
+    if (copyState !== "copied") {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => setCopyState("idle"), 1800);
+
+    return () => window.clearTimeout(timer);
+  }, [copyState]);
 
   const runAction = (method, url, payload = {}) => {
     setProcessing(true);
@@ -34,6 +45,19 @@ export default function TwoFactor() {
         });
       },
     });
+  };
+
+  const copyManualSecret = async () => {
+    if (!manualSecret) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(manualSecret.replace(/\s+/g, ""));
+      setCopyState("copied");
+    } catch {
+      setCopyState("failed");
+    }
   };
 
   return (
@@ -108,8 +132,24 @@ export default function TwoFactor() {
             ) : (
               <div className="mt-5 space-y-5">
                 <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200">
-                  <div className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Manual setup key</div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Manual setup key</div>
+                    <button
+                      type="button"
+                      onClick={copyManualSecret}
+                      className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-extrabold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-100"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                      {copyState === "copied" ? "Copied" : "Copy key"}
+                    </button>
+                  </div>
                   <div className="mt-2 break-all font-mono text-lg font-bold text-slate-900">{manualSecret}</div>
+                  <div className="mt-2 text-xs text-slate-500">
+                    Copy the key without spaces, then paste it into your authenticator app&apos;s manual setup field.
+                  </div>
+                  {copyState === "failed" ? (
+                    <div className="mt-2 text-xs font-semibold text-rose-700">Copy failed. Select the key and copy it manually.</div>
+                  ) : null}
                 </div>
 
                 <div>

@@ -408,7 +408,7 @@ export default function Lowstock() {
     const base = [
       {
         key: "item",
-        label: "Item",
+        label: "Products",
         render: (x) =>
           loading ? (
             <div className="flex items-center gap-3">

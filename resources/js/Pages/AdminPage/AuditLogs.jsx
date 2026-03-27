@@ -899,7 +899,7 @@ export default function AuditLogs() {
       return [
         {
           key: "item",
-          label: "Item",
+        label: "Products",
           render: function (x) {
             if (x && x.__filler) {
               return (

@@ -78,7 +78,7 @@
     const columns = [
       {
         key: "product_name",
-        label: "Product",
+        label: "Products",
         render: (item) => item.product_name,
       },
       {

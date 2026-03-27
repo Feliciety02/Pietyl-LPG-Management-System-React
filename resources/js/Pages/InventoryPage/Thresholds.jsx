@@ -203,7 +203,7 @@
       return [
         {
           key: "item",
-          label: "Item",
+          label: "Products",
           render: (row) =>
             loading ? (
               <div className="flex items-center gap-3">

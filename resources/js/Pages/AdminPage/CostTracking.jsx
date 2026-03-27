@@ -383,7 +383,7 @@ export default function CostTracking() {
     () => [
       {
         key: "product",
-        label: "Product",
+        label: "Products",
         sortable: true,
         render: (row) =>
           row?.__filler ? (

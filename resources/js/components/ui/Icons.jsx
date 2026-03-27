@@ -58,6 +58,7 @@ import {
   Minus,
   Trash2,
   Banknote,
+  Settings,
 } from "lucide-react";
 
 /**
@@ -104,6 +105,8 @@ export const sidebarIconMap = {
   payables: Wallet,
   costTracking: Banknote,
   promos: Tag,
+  settings: Settings,
+  security: ShieldCheck,
 };
 
 /**

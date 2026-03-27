@@ -139,6 +139,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/settings/vat', [VatSettingsController::class, 'index'])
             ->middleware('permission:admin.settings.manage')
             ->name('dash.admin.settings.vat');
+        Route::get('/settings', function () {
+            return Inertia::render('AdminPage/Settings');
+        })->name('dash.admin.settings');
         Route::post('/settings/vat', [VatSettingsController::class, 'update'])
             ->middleware('permission:admin.settings.manage')
             ->name('dash.admin.settings.vat.update');

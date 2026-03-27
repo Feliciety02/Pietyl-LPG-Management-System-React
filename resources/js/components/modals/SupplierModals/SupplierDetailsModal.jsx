@@ -139,7 +139,7 @@ export default function SupplierDetailsModal({
                 <table className="min-w-full text-left text-sm text-slate-700">
                   <thead className="bg-slate-50 text-[11px] uppercase tracking-tight text-slate-500">
                     <tr>
-                      <TableHeaderCell label="Item" className="px-3 py-2 font-semibold" />
+                        <TableHeaderCell label="Products" className="px-3 py-2 font-semibold" />
                       <TableHeaderCell label="Category" className="px-3 py-2 font-semibold" />
                       <TableHeaderCell label="SKU" className="px-3 py-2 font-semibold" />
                       <TableHeaderCell label="Price" className="px-3 py-2 font-semibold" />

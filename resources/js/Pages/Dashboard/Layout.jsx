@@ -36,18 +36,21 @@ const ROLE_META = {
       },
       {
         type: "group",
-        label: "Reports & Settings",
+        label: "Reports",
         items: [
           { label: "Reports", href: "/dashboard/admin/reports", icon: "reports", permission: "admin.reports.view" },
           { label: "Cost Tracking", href: "/dashboard/admin/cost-tracking", icon: "costTracking", permission: "admin.reports.view" },
-          { label: "VAT Settings", href: "/dashboard/admin/settings/vat", icon: "vatSettings", permission: "admin.settings.manage" },
-          { label: "Promos & Vouchers", href: "/dashboard/admin/promos", icon: "promos", permission: "admin.promos.view" },
         ],
       },
       {
         type: "group",
-        label: "Security",
+        label: "Settings",
         items: [
+          { label: "System Settings", href: "/dashboard/admin/settings", icon: "settings" },
+          { label: "Multi-factor Authentication", href: "/security/two-factor", icon: "security" },
+          { label: "Password Security", href: "/security/password", icon: "settings" },
+          { label: "VAT Settings", href: "/dashboard/admin/settings/vat", icon: "vatSettings", permission: "admin.settings.manage" },
+          { label: "Promos & Vouchers", href: "/dashboard/admin/promos", icon: "promos", permission: "admin.promos.view" },
           { label: "Audit Logs", href: "/dashboard/admin/audit", icon: "audit", permission: "admin.audit.view" },
         ],
       },

@@ -310,7 +310,7 @@ export default function Payables() {
       },
       {
         key: "item",
-        label: "Item",
+        label: "Products",
         render: (row) =>
           row?.__filler ? (
             <SkeletonLine w="w-32" />
