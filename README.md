@@ -112,6 +112,22 @@ Inspired by **Google Workspace UI principles**.
 
 ---
 
+## Security Validation
+
+This project includes a dedicated security regression suite for the implemented cybersecurity controls.
+
+Run it with:
+
+```bash
+composer test:security
+```
+
+Reference guide:
+
+- `SECURITY_VALIDATION.md`
+
+---
+
 ## 🛠 Tech Stack
 
 - **Backend:** Laravel
@@ -120,7 +136,6 @@ Inspired by **Google Workspace UI principles**.
 - **Animations:** Framer Motion (minimal)
 - **Icons:** Lucide React
 - **Database:** MySQL / MariaDB
-
 
 
 

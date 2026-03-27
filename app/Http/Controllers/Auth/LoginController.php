@@ -33,6 +33,7 @@ class LoginController extends Controller
 
         if (RateLimiter::tooManyAttempts($throttleKey, self::MAX_LOGIN_ATTEMPTS)) {
             $seconds = RateLimiter::availableIn($throttleKey);
+            $this->storeLockoutState($request, $seconds);
             $this->logLoginBlocked($request, $email, $seconds);
 
             throw ValidationException::withMessages([
@@ -63,6 +64,7 @@ class LoginController extends Controller
         }
 
         RateLimiter::clear($throttleKey);
+        $request->session()->forget('auth.login_lockout');
 
         if ($user->hasTwoFactorEnabled()) {
             $request->session()->put('auth.two_factor.pending', [
@@ -87,18 +89,12 @@ class LoginController extends Controller
             'entity_type' => 'User',
             'entity_id' => $user->id,
             'message' => 'User logged in',
+            'after_json' => ['remember' => $remember],
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
         ]);
 
-        return match ($role) {
-            'admin' => redirect()->intended('/dashboard/admin'),
-            'cashier' => redirect()->intended('/dashboard/cashier'),
-            'accountant' => redirect()->intended('/dashboard/accountant'),
-            'rider' => redirect()->intended('/dashboard/rider'),
-            'inventory_manager' => redirect()->intended('/dashboard/inventory'),
-            default => redirect('/'),
-        };
+        return $this->postLoginRedirect($user);
     }
 
     public function verifyTwoFactor(Request $request)
@@ -150,18 +146,12 @@ class LoginController extends Controller
             'entity_type' => 'User',
             'entity_id' => $user->id,
             'message' => 'Two-factor authentication completed.',
+            'after_json' => ['remember' => (bool) ($challenge['remember'] ?? false)],
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
         ]);
 
-        return match ($user->roles->first()?->name) {
-            'admin' => redirect()->intended('/dashboard/admin'),
-            'cashier' => redirect()->intended('/dashboard/cashier'),
-            'accountant' => redirect()->intended('/dashboard/accountant'),
-            'rider' => redirect()->intended('/dashboard/rider'),
-            'inventory_manager' => redirect()->intended('/dashboard/inventory'),
-            default => redirect('/'),
-        };
+        return $this->postLoginRedirect($user);
     }
 
     public function destroy(Request $request)
@@ -243,5 +233,31 @@ class LoginController extends Controller
         $minutes = (int) ceil($seconds / 60);
 
         return "Too many login attempts. Try again in {$minutes} minute(s).";
+    }
+
+    private function storeLockoutState(Request $request, int $seconds): void
+    {
+        $request->session()->flash('auth.login_lockout', [
+            'seconds_remaining' => $seconds,
+            'expires_at' => now()->addSeconds($seconds)->toIso8601String(),
+        ]);
+    }
+
+    private function postLoginRedirect(User $user)
+    {
+        if ($user->requiresPasswordChange()) {
+            return redirect()
+                ->route('security.password.show')
+                ->with('warning', 'Change your password before continuing.');
+        }
+
+        return match ($user->roles->first()?->name) {
+            'admin' => redirect()->intended('/dashboard/admin'),
+            'cashier' => redirect()->intended('/dashboard/cashier'),
+            'accountant' => redirect()->intended('/dashboard/accountant'),
+            'rider' => redirect()->intended('/dashboard/rider'),
+            'inventory_manager' => redirect()->intended('/dashboard/inventory'),
+            default => redirect('/'),
+        };
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureTwoFactorEnrollment;
 use App\Models\Notification;
 use App\Models\Role;
 use App\Models\User;
@@ -73,6 +74,8 @@ test('users can still view their own notifications', function () {
 });
 
 test('inventory threshold updates require the update permission not just the view permission', function () {
+    $this->withoutMiddleware(EnsureTwoFactorEnrollment::class);
+
     $user = makeAuthorizedUser('inventory-view@test.local', 'inventory_manager', [
         'inventory.thresholds.view',
     ]);

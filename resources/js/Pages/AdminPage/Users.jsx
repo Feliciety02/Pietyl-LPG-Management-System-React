@@ -152,7 +152,7 @@ export default function Users() {
         setCreateError("");
       },
       onError: (errors) => {
-        setCreateError(errors?.email || errors?.name || "Failed to create user.");
+        setCreateError(errors?.email || errors?.name || errors?.password || "Failed to create user.");
       },
     });
   };

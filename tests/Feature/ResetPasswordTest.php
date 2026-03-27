@@ -2,6 +2,8 @@
 
 use App\Models\Role;
 use App\Models\User;
+use App\Http\Middleware\EnsurePasswordChange;
+use App\Http\Middleware\EnsureTwoFactorEnrollment;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Permission;
@@ -31,16 +33,21 @@ test('admin password reset updates existing user without creating a new record',
 
     $initialUserCount = User::count();
 
-    $response = $this->actingAs($admin)
+    $response = $this
+        ->withoutMiddleware(EnsureTwoFactorEnrollment::class)
+        ->withoutMiddleware(EnsurePasswordChange::class)
+        ->actingAs($admin)
         ->post(route('dash.admin.users.reset-password', ['user' => $target->id]), [
             'admin_password' => 'secret123',
-            'new_password' => 'new-password-123',
-            'new_password_confirmation' => 'new-password-123',
+            'new_password' => 'ResetPassword!123',
+            'new_password_confirmation' => 'ResetPassword!123',
         ]);
 
     $response->assertOk()
-        ->assertJson(['message' => 'Password reset successfully.']);
+        ->assertJson(['message' => 'Password reset successfully. The user must change it on next login.']);
 
     expect(User::count())->toBe($initialUserCount);
-    expect(Hash::check('new-password-123', $target->refresh()->password))->toBeTrue();
+    expect(Hash::check('ResetPassword!123', $target->refresh()->password))->toBeTrue();
+    expect($target->must_change_password)->toBeTrue();
+    expect($target->password_changed_at)->toBeNull();
 });

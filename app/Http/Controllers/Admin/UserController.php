@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
 
 class UserController extends Controller
@@ -68,19 +69,19 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email',
+            'password' => ['required', 'confirmed', Password::min(12)->letters()->mixedCase()->numbers()->symbols()],
             'is_active' => 'nullable|boolean',
         ]);
-
-        $tempPassword = Str::random(32);
 
         User::create([
             'name' => $validated['name'],
             'email' => strtolower($validated['email']),
-            'password' => Hash::make($tempPassword),
+            'password' => Hash::make($validated['password']),
             'is_active' => $validated['is_active'] ?? true,
+            'must_change_password' => true,
         ]);
 
-        return redirect()->back()->with('success', 'User created successfully.');
+        return redirect()->back()->with('success', 'User created successfully. The user must change their password on first login.');
     }
 
     public function resetPassword(Request $request, $userId)
@@ -92,7 +93,7 @@ class UserController extends Controller
 
         $validated = $request->validate([
             'admin_password' => 'required|string',
-            'new_password' => 'required|string|min:8|confirmed',
+            'new_password' => ['required', 'confirmed', Password::min(12)->letters()->mixedCase()->numbers()->symbols()],
         ]);
 
         if (!Hash::check($validated['admin_password'], $admin->password)) {
@@ -111,6 +112,9 @@ class UserController extends Controller
         $target = User::findOrFail($userId);
         $target->update([
             'password' => Hash::make($validated['new_password']),
+            'must_change_password' => true,
+            'password_changed_at' => null,
+            'remember_token' => Str::random(60),
         ]);
 
         AuditLog::create([
@@ -131,7 +135,7 @@ class UserController extends Controller
             'created_at' => now(),
         ]);
 
-        return response()->json(['message' => 'Password reset successfully.']);
+        return response()->json(['message' => 'Password reset successfully. The user must change it on next login.']);
     }
 
     public function confirmPassword(Request $request)

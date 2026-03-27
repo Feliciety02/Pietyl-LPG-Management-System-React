@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Security\PasswordChangeController;
 use App\Http\Controllers\Security\TwoFactorController;
 use App\Http\Controllers\Supplier\SupplierController;
 use App\Http\Controllers\Cashier\CustomerController;
@@ -541,6 +542,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/enable', [TwoFactorController::class, 'enable'])->name('enable');
         Route::post('/disable', [TwoFactorController::class, 'disable'])->name('disable.post');
         Route::delete('/', [TwoFactorController::class, 'disable'])->name('disable');
+    });
+
+    Route::prefix('security/password')->name('security.password.')->group(function () {
+        Route::get('/', [PasswordChangeController::class, 'show'])->name('show');
+        Route::put('/', [PasswordChangeController::class, 'update'])->name('update');
     });
 
 });

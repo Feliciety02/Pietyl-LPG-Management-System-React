@@ -19,14 +19,13 @@ test('security headers are included on standard web responses', function () {
     expect($csp)->toContain("form-action 'self'");
 });
 
-test('hsts header is only added for secure requests', function () {
+test('hsts header is added when https hardening is enabled', function () {
     $insecure = $this->get('/login');
     expect($insecure->headers->get('Strict-Transport-Security'))->toBeNull();
 
-    $secure = $this->withServerVariables([
-        'HTTPS' => 'on',
-        'SERVER_PORT' => 443,
-    ])->get('/login');
+    config()->set('app.force_https', true);
+
+    $secure = $this->get('/login');
 
     $secure->assertOk()
         ->assertHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');

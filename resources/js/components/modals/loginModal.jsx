@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Eye, EyeOff, Shield } from "lucide-react";
 import { router, usePage } from "@inertiajs/react";
 import HeaderLogo from "../../../images/Header_Logo.png";
@@ -7,6 +7,7 @@ import ModalShell from "./ModalShell";
 export default function LoginModal({ open, onClose }) {
   const page = usePage();
   const twoFactorChallenge = Boolean(page.props?.auth?.two_factor_challenge);
+  const lockout = page.props?.auth?.login_lockout || null;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
@@ -15,9 +16,52 @@ export default function LoginModal({ open, onClose }) {
 
   const [processing, setProcessing] = useState(false);
   const [errors, setErrors] = useState({ email: "", password: "", code: "", general: "" });
+  const [lockoutSeconds, setLockoutSeconds] = useState(0);
+
+  useEffect(() => {
+    if (!lockout?.expires_at) {
+      setLockoutSeconds(0);
+      return;
+    }
+
+    const expiresAt = new Date(lockout.expires_at).getTime();
+
+    const updateRemaining = () => {
+      const secondsRemaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+      setLockoutSeconds(secondsRemaining);
+    };
+
+    updateRemaining();
+
+    const timer = window.setInterval(updateRemaining, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [lockout?.expires_at]);
+
+  const lockoutLabel = useMemo(() => {
+    if (lockoutSeconds <= 0) {
+      return "";
+    }
+
+    const minutes = Math.floor(lockoutSeconds / 60);
+    const seconds = lockoutSeconds % 60;
+
+    if (minutes <= 0) {
+      return `${seconds}s`;
+    }
+
+    return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+  }, [lockoutSeconds]);
+
+  const isLockedOut = !twoFactorChallenge && lockoutSeconds > 0;
 
   function onSubmit(e) {
     e.preventDefault();
+
+    if (isLockedOut) {
+      return;
+    }
+
     setErrors({ email: "", password: "", code: "", general: "" });
     setProcessing(true);
 
@@ -95,6 +139,12 @@ export default function LoginModal({ open, onClose }) {
         </div>
       ) : null}
 
+      {isLockedOut ? (
+        <div className="mt-5 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">
+          Too many login attempts. You can try again in <span className="font-extrabold">{lockoutLabel}</span>.
+        </div>
+      ) : null}
+
       <form onSubmit={onSubmit} className="mt-8 space-y-5">
         {twoFactorChallenge ? (
           <div>
@@ -142,6 +192,7 @@ export default function LoginModal({ open, onClose }) {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   autoComplete="username"
+                  disabled={isLockedOut}
                   placeholder="Email"
                   className={[
                     "peer w-full rounded-2xl bg-slate-50/80 px-5 pb-3.5 pt-8 text-sm text-slate-900 ring-1 outline-none transition focus:bg-white",
@@ -175,6 +226,7 @@ export default function LoginModal({ open, onClose }) {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   autoComplete="current-password"
+                  disabled={isLockedOut}
                   placeholder="Password"
                   className={[
                     "peer w-full rounded-2xl bg-slate-50/80 px-5 pb-3.5 pt-8 pr-12 text-sm text-slate-900 ring-1 outline-none transition focus:bg-white",
@@ -185,6 +237,7 @@ export default function LoginModal({ open, onClose }) {
                 />
                 <button
                   type="button"
+                  disabled={isLockedOut}
                   onClick={() => setShowPassword((prev) => !prev)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30"
                   aria-label={showPassword ? "Hide password" : "Show password"}
@@ -216,6 +269,7 @@ export default function LoginModal({ open, onClose }) {
                 type="checkbox"
                 checked={remember}
                 onChange={(e) => setRemember(e.target.checked)}
+                disabled={isLockedOut}
                 className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500/25"
               />
               <span className="text-sm text-slate-700">Remember me</span>
@@ -233,16 +287,16 @@ export default function LoginModal({ open, onClose }) {
         <div className="pt-3 text-center">
           <button
             type="submit"
-            disabled={processing}
+            disabled={processing || isLockedOut}
             className={[
               "w-full inline-flex items-center justify-center rounded-2xl px-4 py-3.5 text-sm font-extrabold text-white transition",
               "shadow-sm shadow-teal-600/20 focus:outline-none focus:ring-4 focus:ring-teal-500/25",
-              processing
+              processing || isLockedOut
                 ? "bg-teal-600/70 cursor-not-allowed"
                 : "bg-teal-600 hover:bg-teal-700",
             ].join(" ")}
           >
-            {processing ? "Checking..." : twoFactorChallenge ? "Verify code" : "Sign in"}
+            {processing ? "Checking..." : isLockedOut ? `Locked for ${lockoutLabel}` : twoFactorChallenge ? "Verify code" : "Sign in"}
           </button>
         </div>
 

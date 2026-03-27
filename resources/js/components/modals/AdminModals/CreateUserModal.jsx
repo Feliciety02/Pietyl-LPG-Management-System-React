@@ -51,6 +51,7 @@ export default function CreateUserModal({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [role, setRole] = useState(() => getDefaultRoleName());
   const [status, setStatus] = useState("active");
   const [err, setErr] = useState("");
@@ -61,6 +62,7 @@ export default function CreateUserModal({
     setName("");
     setEmail("");
     setPassword("");
+    setPasswordConfirmation("");
     setStatus("active");
     setErr("");
     setShowPassword(false);
@@ -75,14 +77,20 @@ export default function CreateUserModal({
     if (!safeText(name)) return false;
     if (!safeText(email)) return false;
     if (!safeText(password)) return false;
+    if (!safeText(passwordConfirmation)) return false;
     if (!safeText(role)) return false;
     if (loading) return false;
     return true;
-  }, [name, email, password, role, loading]);
+  }, [name, email, password, passwordConfirmation, role, loading]);
 
   const submit = () => {
-    if (!safeText(name) || !safeText(email) || !safeText(password)) {
-      setErr("Name, email, and password are required.");
+    if (!safeText(name) || !safeText(email) || !safeText(password) || !safeText(passwordConfirmation)) {
+      setErr("Name, email, password, and confirmation are required.");
+      return;
+    }
+
+    if (safeText(password) !== safeText(passwordConfirmation)) {
+      setErr("Password confirmation does not match.");
       return;
     }
 
@@ -91,6 +99,7 @@ export default function CreateUserModal({
       name: safeText(name),
       email: safeText(email).toLowerCase(),
       password: safeText(password),
+      password_confirmation: safeText(passwordConfirmation),
       role: safeText(role),
       is_active: status === "active",
     });
@@ -164,7 +173,7 @@ export default function CreateUserModal({
           <InputRow
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="At least 8 characters"
+            placeholder="At least 12 chars, upper/lower, number, symbol"
             type={showPassword ? "text" : "password"}
             autoComplete="new-password"
             suffix={
@@ -177,6 +186,16 @@ export default function CreateUserModal({
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             }
+          />
+        </Field>
+
+        <Field label="Confirm password" required>
+          <InputRow
+            value={passwordConfirmation}
+            onChange={(e) => setPasswordConfirmation(e.target.value)}
+            placeholder="Repeat the password"
+            type={showPassword ? "text" : "password"}
+            autoComplete="new-password"
           />
         </Field>
 

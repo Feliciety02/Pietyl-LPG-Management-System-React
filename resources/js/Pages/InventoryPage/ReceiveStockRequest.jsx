@@ -1,7 +1,7 @@
   import React, { useEffect, useMemo, useState } from "react";
   import { router, usePage } from "@inertiajs/react";
   import Layout from "../Dashboard/Layout";
-  import TableHeaderCell from "@/components/Table/TableHeaderCell";
+  import DataTable from "@/components/Table/DataTable";
 
 
   function cx(...classes) {
@@ -69,6 +69,54 @@
     }
 
     const fullyReceived = stockRequest.status === "received" || stockRequest.status === "payable_open";
+    const tableRows = stockRequest.items.map((item) => ({
+      ...item,
+      received_qty_increment:
+        lines.find((line) => line.line_id === item.id)?.received_qty_increment ?? 0,
+    }));
+
+    const columns = [
+      {
+        key: "product_name",
+        label: "Product",
+        render: (item) => item.product_name,
+      },
+      {
+        key: "requested_qty",
+        label: "Requested",
+        render: (item) => item.requested_qty,
+      },
+      {
+        key: "approved_qty",
+        label: "Approved",
+        render: (item) => item.approved_qty,
+      },
+      {
+        key: "received_qty",
+        label: "Received",
+        render: (item) => item.received_qty,
+      },
+      {
+        key: "remaining_qty",
+        label: "Remaining",
+        render: (item) => item.remaining_qty,
+      },
+      {
+        key: "receive_now",
+        label: "Receive now",
+        render: (item) => (
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            disabled={fullyReceived}
+            value={item.received_qty_increment}
+            onChange={(event) => handleLineChange(item.id, event.target.value)}
+            className="w-full rounded-2xl border border-slate-200 px-2 py-1 text-xs text-slate-900 disabled:cursor-not-allowed"
+          />
+        ),
+      },
+    ];
 
     return (
       <Layout title={`Receive ${stockRequest.request_number}`}>
@@ -115,44 +163,14 @@
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-left text-sm text-slate-700">
-                  <thead className="text-[11px] uppercase tracking-wide text-slate-500">
-                    <tr>
-                      <TableHeaderCell label="Product" className="px-3 py-2" />
-                      <TableHeaderCell label="Requested" className="px-3 py-2" />
-                      <TableHeaderCell label="Approved" className="px-3 py-2" />
-                      <TableHeaderCell label="Received" className="px-3 py-2" />
-                      <TableHeaderCell label="Remaining" className="px-3 py-2" />
-                      <TableHeaderCell label="Receive now" className="px-3 py-2" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {stockRequest.items.map((item) => (
-                      <tr key={`receive-${item.id}`}>
-                        <td className="px-3 py-2">{item.product_name}</td>
-                        <td className="px-3 py-2">{item.requested_qty}</td>
-                        <td className="px-3 py-2">{item.approved_qty}</td>
-                        <td className="px-3 py-2">{item.received_qty}</td>
-                        <td className="px-3 py-2">{item.remaining_qty}</td>
-                        <td className="px-3 py-2">
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            disabled={fullyReceived}
-                            value={
-                              lines.find((line) => line.line_id === item.id)?.received_qty_increment ?? 0
-                            }
-                            onChange={(event) => handleLineChange(item.id, event.target.value)}
-                            className="w-full rounded-2xl border border-slate-200 px-2 py-1 text-xs text-slate-900 disabled:cursor-not-allowed"
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={columns}
+                rows={tableRows}
+                loading={false}
+                emptyTitle="No request items"
+                emptyHint="This stock request does not have any items yet."
+                tableClassName="min-w-full"
+              />
             </div>
 
             {!fullyReceived && (

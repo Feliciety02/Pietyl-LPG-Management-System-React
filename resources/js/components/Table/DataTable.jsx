@@ -18,6 +18,10 @@ export default function DataTable({
   searchAccessor,
   rowKey,
   onRowClick,
+  containerClassName = "",
+  tableClassName = "",
+  rowClassName,
+  actionsLabel = "Actions",
 }) {
   const colCount = columns.length + (renderActions ? 1 : 0);
   const normalizedQuery = String(searchQuery || "").trim().toLowerCase();
@@ -63,8 +67,8 @@ export default function DataTable({
   };
 
   return (
-    <div className="overflow-x-auto rounded-2xl bg-white border border-slate-200">
-      <table className="min-w-full text-left table-fixed">
+    <div className={cx("overflow-x-auto rounded-2xl bg-white border border-slate-200", containerClassName)}>
+      <table className={cx("min-w-full text-left table-fixed", tableClassName)}>
         {/* HEADER */}
         <thead>
           <tr className="text-[11px] uppercase tracking-wide text-slate-500">
@@ -84,7 +88,7 @@ export default function DataTable({
             ))}
 
             {renderActions && (
-              <th className="px-4 py-3 text-right border-b border-slate-200">Actions</th>
+              <th className="px-4 py-3 text-right border-b border-slate-200">{actionsLabel}</th>
             )}
           </tr>
         </thead>
@@ -122,7 +126,8 @@ export default function DataTable({
                   key={computedKey}
                   className={cx(
                     "hover:bg-teal-50/40 transition-colors",
-                    onRowClick && !row?.__filler ? "cursor-pointer" : ""
+                    onRowClick && !row?.__filler ? "cursor-pointer" : "",
+                    typeof rowClassName === "function" ? rowClassName(row, idx) : rowClassName
                   )}
                   onClick={() => {
                     if (!onRowClick || row?.__filler) return;

@@ -64,6 +64,10 @@ test('login locks after repeated failed attempts', function () {
     $blocked->assertSessionHasErrors([
         'email' => 'Too many login attempts. Try again in 5 minute(s).',
     ]);
+    $blocked->assertSessionHas('auth.login_lockout', function (array $lockout) {
+        return isset($lockout['seconds_remaining'], $lockout['expires_at'])
+            && $lockout['seconds_remaining'] > 0;
+    });
 });
 
 test('successful login clears prior failed attempts', function () {

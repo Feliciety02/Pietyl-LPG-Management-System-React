@@ -4,8 +4,8 @@ import { router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
 import { calculateVat } from "@/services/vatCalculator";
 import { ArrowLeft, CheckCircle2, RotateCcw } from "lucide-react";
-import TableHeaderCell from "@/components/Table/TableHeaderCell";
-
+import DataTable from "@/components/Table/DataTable";
+import { SkeletonLine, SkeletonButton } from "@/components/ui/Skeleton";
 import { TableActionButton } from "@/components/Table/ActionTableButton";
 
 function cx(...classes) {
@@ -439,6 +439,73 @@ export default function TurnoverReview() {
       ? "All pending transactions are checked."
       : "Check all pending transactions before saving.";
 
+  const transactionFillerRows = useMemo(
+    () =>
+      Array.from({ length: 5 }).map((_, index) => ({
+        id: `__filler__${index}`,
+        __filler: true,
+      })),
+    []
+  );
+
+  const transactionRows = loadingTx ? transactionFillerRows : transactions;
+
+  const transactionColumns = useMemo(
+    () => [
+      {
+        key: "paid_at",
+        label: "Time",
+        render: (txn) =>
+          txn?.__filler ? (
+            <SkeletonLine w="w-16" />
+          ) : (
+            <span className="text-sm font-extrabold text-slate-900 whitespace-nowrap">
+              {formatTime(txn.paid_at)}
+            </span>
+          ),
+      },
+      {
+        key: "method_name",
+        label: "Method",
+        render: (txn) =>
+          txn?.__filler ? (
+            <SkeletonLine w="w-24" />
+          ) : (
+            <span className="text-sm text-slate-700">{txn.method_name || "Cashless"}</span>
+          ),
+      },
+      {
+        key: "amount",
+        label: "Amount",
+        render: (txn) =>
+          txn?.__filler ? (
+            <div className="flex justify-end">
+              <SkeletonLine w="w-20" />
+            </div>
+          ) : (
+            <div className="text-right text-sm font-extrabold text-slate-900 whitespace-nowrap tabular-nums">
+              {money(txn.amount)}
+            </div>
+          ),
+      },
+      {
+        key: "reference",
+        label: "Reference",
+        render: (txn) =>
+          txn?.__filler ? (
+            <SkeletonLine w="w-28" />
+          ) : (
+            safeText(txn.reference) ? (
+              <span className="font-mono text-sm text-slate-900">{safeText(txn.reference)}</span>
+            ) : (
+              <span className="text-sm text-slate-400">—</span>
+            )
+          ),
+      },
+    ],
+    []
+  );
+
   return (
     <Layout title="Turnover Review">
       <div className="grid gap-6">
@@ -552,100 +619,56 @@ export default function TurnoverReview() {
             ) : null}
 
             <div className="flex-1 min-h-[220px]">
-              <div className="h-full overflow-x-auto rounded-2xl ring-1 ring-slate-200">
-                <table className="w-full text-left bg-white">
-                  <thead className="bg-slate-50">
-                    <tr className="border-b border-slate-200">
-                        <TableHeaderCell label="Time" className="px-4 py-3 text-[11px] text-slate-600 font-extrabold uppercase tracking-wide" />
-                        <TableHeaderCell label="Method" className="px-4 py-3 text-[11px] text-slate-600 font-extrabold uppercase tracking-wide" />
-                        <TableHeaderCell label="Amount" className="px-4 py-3 text-[11px] text-slate-600 font-extrabold uppercase tracking-wide" contentClassName="justify-end" />
-                        <TableHeaderCell label="Reference" className="px-4 py-3 text-[11px] text-slate-600 font-extrabold uppercase tracking-wide" />
-                        <TableHeaderCell label="Action" className="px-4 py-3 text-[11px] text-slate-600 font-extrabold uppercase tracking-wide" contentClassName="justify-end" />
-                    </tr>
-                  </thead>
-
-                  <tbody className="divide-y divide-slate-100">
-                    {loadingTx ? (
-                      <tr>
-                        <td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-500">
-                          Loading...
-                        </td>
-                      </tr>
-                    ) : transactions.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-500">
-                          Nothing to verify.
-                        </td>
-                      </tr>
-                    ) : (
-                      transactions.map((txn) => {
-                        const isPending = !txn.verified;
-                        const isChecked = isPending ? confirmedSet.has(txn.id) : false;
-                        const ref = safeText(txn.reference);
-
-                        return (
-                          <tr
-                            key={txn.id}
-                            className={cx(isChecked && "bg-teal-600/5", txn.verified && "bg-slate-50")}
-                          >
-                            <td className="px-4 py-4 text-sm font-extrabold text-slate-900 whitespace-nowrap">
-                              {formatTime(txn.paid_at)}
-                            </td>
-
-                            <td className="px-4 py-4 text-sm text-slate-700">
-                              {txn.method_name || "Cashless"}
-                            </td>
-
-                            <td className="px-4 py-4 text-right text-sm font-extrabold text-slate-900 whitespace-nowrap tabular-nums">
-                              {money(txn.amount)}
-                            </td>
-
-                            <td className="px-4 py-4">
-                              {ref ? (
-                                <span className="font-mono text-sm text-slate-900">{ref}</span>
-                              ) : (
-                                <span className="text-sm text-slate-400">—</span>
-                              )}
-                            </td>
-
-                            <td className="px-4 py-4 text-right whitespace-nowrap">
-                              {txn.verified ? (
-                                <TableActionButton
-                                  icon={CheckCircle2}
-                                  tone="primary"
-                                  title="Verified transaction"
-                                  disabled
-                                >
-                                  Verified
-                                </TableActionButton>
-                              ) : isChecked ? (
-                                <TableActionButton
-                                  icon={RotateCcw}
-                                  title="Clear check"
-                                  onClick={() => toggleConfirm(txn.id)}
-                                  disabled={savingAll}
-                                >
-                                  Clear
-                                </TableActionButton>
-                              ) : (
-                                <TableActionButton
-                                  icon={CheckCircle2}
-                                  tone="primary"
-                                  title="Check transaction"
-                                  onClick={() => toggleConfirm(txn.id)}
-                                  disabled={savingAll}
-                                >
-                                  Check
-                                </TableActionButton>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={transactionColumns}
+                rows={transactionRows}
+                loading={false}
+                emptyTitle="Nothing to verify."
+                emptyHint="Cashless transactions for this turnover will appear here."
+                containerClassName="h-full"
+                tableClassName="w-full"
+                rowClassName={(txn) => {
+                  if (txn?.__filler) return "";
+                  if (txn?.verified) return "bg-slate-50";
+                  if (confirmedSet.has(txn.id)) return "bg-teal-600/5";
+                  return "";
+                }}
+                renderActions={(txn) =>
+                  txn?.__filler ? (
+                    <div className="flex items-center justify-end gap-2">
+                      <SkeletonButton w="w-20" />
+                    </div>
+                  ) : txn.verified ? (
+                    <TableActionButton
+                      icon={CheckCircle2}
+                      tone="primary"
+                      title="Verified transaction"
+                      disabled
+                    >
+                      Verified
+                    </TableActionButton>
+                  ) : confirmedSet.has(txn.id) ? (
+                    <TableActionButton
+                      icon={RotateCcw}
+                      title="Clear check"
+                      onClick={() => toggleConfirm(txn.id)}
+                      disabled={savingAll}
+                    >
+                      Clear
+                    </TableActionButton>
+                  ) : (
+                    <TableActionButton
+                      icon={CheckCircle2}
+                      tone="primary"
+                      title="Check transaction"
+                      onClick={() => toggleConfirm(txn.id)}
+                      disabled={savingAll}
+                    >
+                      Check
+                    </TableActionButton>
+                  )
+                }
+              />
             </div>
           </Panel>
         </div>

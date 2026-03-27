@@ -22,6 +22,8 @@ class User extends Authenticatable
         'email',
         'password',
         'is_active',
+        'must_change_password',
+        'password_changed_at',
     ];
 
     protected $hidden = [
@@ -31,7 +33,9 @@ class User extends Authenticatable
 
     protected $casts = [
         'is_active' => 'boolean',
+        'must_change_password' => 'boolean',
         'email_verified_at' => 'datetime',
+        'password_changed_at' => 'datetime',
         'two_factor_secret' => 'encrypted',
         'two_factor_confirmed_at' => 'datetime',
     ];
@@ -59,5 +63,10 @@ class User extends Authenticatable
     public function hasTwoFactorEnabled(): bool
     {
         return !empty($this->two_factor_secret) && $this->two_factor_confirmed_at !== null;
+    }
+
+    public function requiresPasswordChange(): bool
+    {
+        return (bool) $this->must_change_password;
     }
 }
