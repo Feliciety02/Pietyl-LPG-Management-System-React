@@ -1,9 +1,14 @@
 import React from "react";
 import { router } from "@inertiajs/react";
+import { RIDER_OFFLINE_QUEUE_KEY } from "@/security/storageKeys";
 
 export default function LogoutButton({ className = "" }) {
   const handleLogout = (e) => {
     e.preventDefault();
+    if (typeof window !== "undefined") {
+      window.sessionStorage.removeItem(RIDER_OFFLINE_QUEUE_KEY);
+      window.localStorage.removeItem(RIDER_OFFLINE_QUEUE_KEY);
+    }
     router.post('/logout');
   };
 

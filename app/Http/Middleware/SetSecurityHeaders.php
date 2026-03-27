@@ -28,6 +28,11 @@ class SetSecurityHeaders
                 'ws://localhost:5173',
             ]
             : [];
+        $scriptSources = array_merge(
+            ["'self'"],
+            $isLocal ? ["'unsafe-inline'", "'unsafe-eval'"] : [],
+            $viteHttpSources
+        );
 
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
         $response->headers->set('X-Content-Type-Options', 'nosniff');
@@ -37,11 +42,13 @@ class SetSecurityHeaders
             'Content-Security-Policy',
             implode('; ', [
                 "default-src 'self'",
-                $this->directive('script-src', array_merge(["'self'", "'unsafe-inline'", "'unsafe-eval'"], $viteHttpSources)),
+                $this->directive('script-src', $scriptSources),
+                $this->directive('worker-src', ["'self'", 'blob:']),
                 $this->directive('style-src', array_merge(["'self'", "'unsafe-inline'"], $viteHttpSources)),
                 $this->directive('img-src', array_merge(["'self'", 'data:', 'blob:'], $viteHttpSources)),
                 "font-src 'self' data:",
                 $this->directive('connect-src', array_merge(["'self'"], $viteConnectSources)),
+                "object-src 'none'",
                 "frame-ancestors 'self'",
                 "base-uri 'self'",
                 "form-action 'self'",

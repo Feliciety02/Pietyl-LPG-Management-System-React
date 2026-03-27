@@ -28,4 +28,7 @@ export default defineConfig({
       "@images": path.resolve(__dirname, "resources/images"),
     },
   },
+  test: {
+    environment: "node",
+  },
 });

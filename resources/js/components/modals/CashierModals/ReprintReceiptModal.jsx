@@ -32,7 +32,14 @@ export default function ReprintReceiptModal({
       }
       // open printable page in a new tab for archival/printing
       try {
-        window.open(`${trimmedBase}/${sale.id}/receipt/print`, "_blank");
+        const receiptWindow = window.open(
+          `${trimmedBase}/${sale.id}/receipt/print`,
+          "_blank",
+          "noopener,noreferrer"
+        );
+        if (receiptWindow) {
+          receiptWindow.opener = null;
+        }
       } catch (err) {
         // ignore popup errors
       }

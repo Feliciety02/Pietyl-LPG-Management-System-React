@@ -17,12 +17,18 @@ import {
   PenLine,
   Trash2,
 } from "lucide-react";
+import { RIDER_OFFLINE_QUEUE_KEY } from "@/security/storageKeys";
+import {
+  PROOF_IMAGE_ACCEPT,
+  PROOF_IMAGE_MAX_BYTES,
+  formatBytes,
+  validateProofImageFile,
+} from "@/security/riderProofValidation";
 
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
-const OFFLINE_QUEUE_KEY = "rider_offline_queue_v1";
 const NOT_DELIVERED_REASONS = [
   "Customer not home",
   "Customer requested reschedule",
@@ -36,7 +42,8 @@ const NOT_DELIVERED_REASONS = [
 function loadQueue() {
   if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(OFFLINE_QUEUE_KEY);
+    const raw = window.sessionStorage.getItem(RIDER_OFFLINE_QUEUE_KEY);
+    window.localStorage.removeItem(RIDER_OFFLINE_QUEUE_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -46,7 +53,8 @@ function loadQueue() {
 function saveQueue(queue) {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+    window.sessionStorage.setItem(RIDER_OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+    window.localStorage.removeItem(RIDER_OFFLINE_QUEUE_KEY);
   } catch {
     // Ignore storage errors (quota, private mode, etc.)
   }
@@ -659,6 +667,13 @@ export default function MyDeliveries() {
       setProofPhotoFile(null);
       setProofPhotoData("");
       setProofPhotoPreview("");
+      return;
+    }
+
+    const validation = validateProofImageFile(file);
+    if (!validation.valid) {
+      clearPhoto();
+      setCameraError(validation.error);
       return;
     }
 
@@ -1329,11 +1344,14 @@ export default function MyDeliveries() {
                         <input
                           ref={photoInputRef}
                           type="file"
-                          accept="image/*"
+                          accept={PROOF_IMAGE_ACCEPT}
                           capture="environment"
                           onChange={handlePhotoChange}
                           className="mt-2 block w-full text-xs text-slate-600 file:mr-3 file:rounded-xl file:border-0 file:bg-white file:px-3 file:py-2 file:text-xs file:font-extrabold file:text-slate-700 file:ring-1 file:ring-slate-200 hover:file:bg-slate-50"
                         />
+                        <div className="mt-2 text-[11px] text-slate-500">
+                          Allowed formats: JPG, PNG, WebP. Maximum size: {formatBytes(PROOF_IMAGE_MAX_BYTES)}.
+                        </div>
                       </div>
                     ) : null}
                   </div>

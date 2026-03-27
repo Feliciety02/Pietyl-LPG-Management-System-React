@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import axios from "axios";
 import { router, usePage } from "@inertiajs/react";
 import Layout from "../Dashboard/Layout";
 
@@ -210,13 +211,10 @@ export default function Suppliers() {
     setDetailsLoading(true);
     setSupplierDetails(null);
     try {
-      const response = await fetch(`${basePath}/${supplierId}/details`, {
+      const { data } = await axios.get(`${basePath}/${supplierId}/details`, {
         headers: { Accept: "application/json" },
-        credentials: "same-origin",
       });
-      if (response.ok) {
-        setSupplierDetails(await response.json());
-      }
+      setSupplierDetails(data);
     } catch (error) {
       console.error("Failed to load supplier details", error);
     } finally {

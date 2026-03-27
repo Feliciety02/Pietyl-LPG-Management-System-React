@@ -1,13 +1,25 @@
 // resources/js/components/layouts/DashboardShell.jsx
-import React, { useMemo, useState, useEffect } from "react";
-import { Link, usePage } from "@inertiajs/react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
+import { Link, router, usePage } from "@inertiajs/react";
 import { motion } from "framer-motion";
+import { RIDER_OFFLINE_QUEUE_KEY } from "@/security/storageKeys";
 import HeaderLogo from "../../../images/Header_Logo.png";
 import { Search, Bell, ChevronRight, Command } from "lucide-react";
 import Sidebar from "../../components/layouts/sidebar";
 import ToastMessage from "../../components/layouts/ToastMessage";
 import { ExportProvider } from "@/components/Table/ExportContext";
 import ExportModal from "@/components/modals/ExportModal";
+
+const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
+const IDLE_WARNING_MS = 60 * 1000;
+const IDLE_ACTIVITY_EVENTS = [
+  "mousedown",
+  "mousemove",
+  "keydown",
+  "scroll",
+  "touchstart",
+  "pointerdown",
+];
 
 function normalize(u = "") {
   return String(u).split("?")[0];
@@ -61,6 +73,15 @@ function AvatarChip({ name = "User" }) {
   );
 }
 
+function clearSensitiveClientState() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.removeItem(RIDER_OFFLINE_QUEUE_KEY);
+  window.localStorage.removeItem(RIDER_OFFLINE_QUEUE_KEY);
+}
+
 export default function DashboardShell({
   title = "Dashboard",
   sidebarTitle = "Dashboard",
@@ -79,6 +100,13 @@ export default function DashboardShell({
   const [q, setQ] = useState("");
   const [exportConfig, setExportConfig] = useState(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [idleWarningOpen, setIdleWarningOpen] = useState(false);
+  const [idleCountdown, setIdleCountdown] = useState(Math.ceil(IDLE_WARNING_MS / 1000));
+  const [logoutProcessing, setLogoutProcessing] = useState(false);
+  const warningTimeoutRef = useRef(null);
+  const logoutTimeoutRef = useRef(null);
+  const countdownIntervalRef = useRef(null);
+  const logoutProcessingRef = useRef(false);
   const exportValue = useMemo(
     () => ({ exportConfig, setExportConfig, exportOpen, setExportOpen }),
     [exportConfig, exportOpen]
@@ -90,9 +118,156 @@ export default function DashboardShell({
     }
   }, [exportConfig, exportOpen]);
 
+  useEffect(() => {
+    logoutProcessingRef.current = logoutProcessing;
+  }, [logoutProcessing]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user) {
+      return undefined;
+    }
+
+    const clearIdleTimers = () => {
+      if (warningTimeoutRef.current) {
+        window.clearTimeout(warningTimeoutRef.current);
+        warningTimeoutRef.current = null;
+      }
+      if (logoutTimeoutRef.current) {
+        window.clearTimeout(logoutTimeoutRef.current);
+        logoutTimeoutRef.current = null;
+      }
+      if (countdownIntervalRef.current) {
+        window.clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+      }
+    };
+
+    const performLogout = () => {
+      if (logoutProcessingRef.current) {
+        return;
+      }
+
+      clearIdleTimers();
+      clearSensitiveClientState();
+      logoutProcessingRef.current = true;
+      setLogoutProcessing(true);
+      setIdleWarningOpen(false);
+
+      router.post("/logout");
+    };
+
+    const startCountdown = () => {
+      const warningEndsAt = Date.now() + IDLE_WARNING_MS;
+
+      setIdleWarningOpen(true);
+      setIdleCountdown(Math.ceil(IDLE_WARNING_MS / 1000));
+
+      if (countdownIntervalRef.current) {
+        window.clearInterval(countdownIntervalRef.current);
+      }
+
+      countdownIntervalRef.current = window.setInterval(() => {
+        const secondsRemaining = Math.max(
+          0,
+          Math.ceil((warningEndsAt - Date.now()) / 1000)
+        );
+
+        setIdleCountdown(secondsRemaining);
+
+        if (secondsRemaining <= 0 && countdownIntervalRef.current) {
+          window.clearInterval(countdownIntervalRef.current);
+          countdownIntervalRef.current = null;
+        }
+      }, 1000);
+    };
+
+    const resetIdleTimer = () => {
+      if (logoutProcessingRef.current) {
+        return;
+      }
+
+      clearIdleTimers();
+      setIdleWarningOpen(false);
+      setIdleCountdown(Math.ceil(IDLE_WARNING_MS / 1000));
+
+      warningTimeoutRef.current = window.setTimeout(() => {
+        startCountdown();
+      }, IDLE_TIMEOUT_MS - IDLE_WARNING_MS);
+
+      logoutTimeoutRef.current = window.setTimeout(() => {
+        performLogout();
+      }, IDLE_TIMEOUT_MS);
+    };
+
+    const handleActivity = () => {
+      resetIdleTimer();
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        resetIdleTimer();
+      }
+    };
+
+    IDLE_ACTIVITY_EVENTS.forEach((eventName) => {
+      window.addEventListener(eventName, handleActivity, { passive: true });
+    });
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    resetIdleTimer();
+
+    return () => {
+      clearIdleTimers();
+      IDLE_ACTIVITY_EVENTS.forEach((eventName) => {
+        window.removeEventListener(eventName, handleActivity);
+      });
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [user]);
+
   return (
     <div className="min-h-screen bg-slate-50">
       <ToastMessage />
+      {idleWarningOpen ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 px-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl ring-1 ring-slate-200">
+            <div className="text-lg font-extrabold text-slate-900">Session timeout warning</div>
+            <div className="mt-2 text-sm text-slate-600">
+              You have been inactive for a while. For security, this session will sign out automatically in{" "}
+              <span className="font-extrabold text-rose-700">{idleCountdown}s</span>.
+            </div>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  clearSensitiveClientState();
+                  setLogoutProcessing(true);
+                  logoutProcessingRef.current = true;
+                  router.post("/logout");
+                }}
+                className="rounded-2xl bg-white px-4 py-2 text-sm font-extrabold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+              >
+                Sign out now
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (logoutProcessingRef.current) {
+                    return;
+                  }
+                  setIdleWarningOpen(false);
+                  setIdleCountdown(Math.ceil(IDLE_WARNING_MS / 1000));
+                  const event = new Event("mousemove");
+                  window.dispatchEvent(event);
+                }}
+                className="rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-teal-700"
+              >
+                Stay signed in
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className="flex">
         <Sidebar title={sidebarTitle} subtitle="Pietyl LPG" items={items} />
 
@@ -141,6 +316,9 @@ export default function DashboardShell({
                     as="button"
                     method="post"
                     href="/logout"
+                    onClick={() => {
+                      clearSensitiveClientState();
+                    }}
                     className="rounded-2xl bg-teal-600 px-4 py-2 text-sm font-extrabold text-white shadow-sm hover:bg-teal-700 transition focus:outline-none focus:ring-4 focus:ring-teal-500/25"
                   >
                     Logout
